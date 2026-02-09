@@ -82,4 +82,22 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.code).toContain('react/compiler-runtime');
     expect(result.code).toContain('const $ = _c(0);');
   });
+
+  it('does not duplicate existing placeholder cache init', () => {
+    const source = [
+      "import { c as _c } from 'react/compiler-runtime';",
+      'export function Component() {',
+      '  const $ = _c(0);',
+      '  return <div />;',
+      '}',
+    ].join('\n');
+    const result = runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
+      compilationMode: 'all',
+      compilerEngine: 'rust',
+    });
+
+    const outputCode = result.code ?? '';
+    const memoInitCount = (outputCode.match(/const \$ = _c\(0\);/g) ?? []).length;
+    expect(memoInitCount).toBe(1);
+  });
 });
