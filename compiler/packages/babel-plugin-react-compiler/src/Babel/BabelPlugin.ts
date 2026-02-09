@@ -106,11 +106,13 @@ function maybeRunRustProgramCompiler(
     });
     throw new Error(`[RustCompiler] ${rustResult.message}`);
   }
+  const detectedReactFunctions = rustResult.detected_react_functions ?? 0;
+  const reactFunctions = rustResult.react_functions ?? [];
 
   if (rustResult.code === sourceCode) {
     return {
-      detectedReactFunctions: rustResult.detected_react_functions,
-      reactFunctions: rustResult.react_functions,
+      detectedReactFunctions,
+      reactFunctions,
     };
   }
 
@@ -125,8 +127,8 @@ function maybeRunRustProgramCompiler(
   prog.node.sourceType = parsed.program.sourceType;
   prog.node.interpreter = parsed.program.interpreter ?? null;
   return {
-    detectedReactFunctions: rustResult.detected_react_functions,
-    reactFunctions: rustResult.react_functions,
+    detectedReactFunctions,
+    reactFunctions,
   };
 }
 

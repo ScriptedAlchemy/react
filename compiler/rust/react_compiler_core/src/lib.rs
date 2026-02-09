@@ -374,6 +374,22 @@ fn apply_placeholder_compilation_to_module_decl(
             react_function_names,
             runtime_callee_name,
         ),
+        ModuleDecl::ExportDefaultDecl(default_decl) => match &mut default_decl.decl {
+            DefaultDecl::Fn(fn_expr) => {
+                let Some(ident) = fn_expr.ident.as_ref() else {
+                    return false;
+                };
+                if !react_function_names.contains(ident.sym.as_ref()) {
+                    return false;
+                }
+                inject_placeholder_memo_init_into_function(
+                    &mut fn_expr.function,
+                    runtime_callee_name,
+                );
+                true
+            }
+            _ => false,
+        },
         _ => false,
     }
 }
@@ -447,6 +463,9 @@ fn inject_placeholder_memo_init_into_function(
     function: &mut swc_ecma_ast::Function,
     runtime_callee_name: &str,
 ) {
+    if function_has_placeholder_memo_init(function, runtime_callee_name) {
+        return;
+    }
     let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match function.body.as_mut() {
         Some(body) => body.stmts.insert(0, memo_stmt),
@@ -464,6 +483,9 @@ fn inject_placeholder_memo_init_into_arrow_function(
     arrow: &mut swc_ecma_ast::ArrowExpr,
     runtime_callee_name: &str,
 ) {
+    if arrow_has_placeholder_memo_init(arrow, runtime_callee_name) {
+        return;
+    }
     let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match arrow.body.as_mut() {
         BlockStmtOrExpr::BlockStmt(block) => {
@@ -512,6 +534,78 @@ fn make_placeholder_memo_stmt(runtime_callee_name: &str) -> Stmt {
             definite: false,
         }],
     })))
+}
+
+fn function_has_placeholder_memo_init(
+    function: &swc_ecma_ast::Function,
+    runtime_callee_name: &str,
+) -> bool {
+    function
+        .body
+        .as_ref()
+        .and_then(|body| body.stmts.first())
+        .map(|stmt| stmt_is_placeholder_memo_init(stmt, runtime_callee_name))
+        .unwrap_or(false)
+}
+
+fn arrow_has_placeholder_memo_init(
+    arrow: &swc_ecma_ast::ArrowExpr,
+    runtime_callee_name: &str,
+) -> bool {
+    let BlockStmtOrExpr::BlockStmt(block) = arrow.body.as_ref() else {
+        return false;
+    };
+    block
+        .stmts
+        .first()
+        .map(|stmt| stmt_is_placeholder_memo_init(stmt, runtime_callee_name))
+        .unwrap_or(false)
+}
+
+fn stmt_is_placeholder_memo_init(stmt: &Stmt, runtime_callee_name: &str) -> bool {
+    let Stmt::Decl(Decl::Var(var_decl)) = stmt else {
+        return false;
+    };
+    if var_decl.kind != VarDeclKind::Const || var_decl.decls.len() != 1 {
+        return false;
+    }
+    let Some(declarator) = var_decl.decls.first() else {
+        return false;
+    };
+    let Pat::Ident(binding) = &declarator.name else {
+        return false;
+    };
+    if binding.id.sym != *"$" {
+        return false;
+    }
+
+    let Some(init) = declarator.init.as_ref() else {
+        return false;
+    };
+    let Expr::Call(call_expr) = init.as_ref() else {
+        return false;
+    };
+
+    let Callee::Expr(callee_expr) = &call_expr.callee else {
+        return false;
+    };
+    let Expr::Ident(callee_ident) = callee_expr.as_ref() else {
+        return false;
+    };
+    if callee_ident.sym != *runtime_callee_name {
+        return false;
+    }
+
+    if call_expr.args.len() != 1 {
+        return false;
+    }
+    let Some(first_arg) = call_expr.args.first() else {
+        return false;
+    };
+    let Expr::Lit(Lit::Num(number_literal)) = first_arg.expr.as_ref() else {
+        return false;
+    };
+    number_literal.value == 0.0
 }
 
 fn make_runtime_import_decl() -> ImportDecl {
@@ -611,6 +705,38 @@ mod tests {
         assert!(output.code.contains("c as cache"));
         assert!(output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn transforms_export_default_named_component() {
+        let output = compile(
+            "export default function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_duplicate_existing_placeholder_memo_stmt() {
+        let output = compile(
+            "import { c as _c } from 'react/compiler-runtime'; export function Component(){ const $ = _c(0); return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.code.matches("const $ = _c(0);").count(), 1);
         assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
     }
 

@@ -66,4 +66,20 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.code).toContain('react/compiler-runtime');
     expect(result.code).toContain('const $ = _c(0);');
   });
+
+  it('transforms default exported named components in Rust engine mode', () => {
+    const result = runBabelPluginReactCompiler(
+      'export default function Component() { return <div />; }',
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+      },
+    );
+
+    expect(result.code).toContain('export default function Component');
+    expect(result.code).toContain('react/compiler-runtime');
+    expect(result.code).toContain('const $ = _c(0);');
+  });
 });
