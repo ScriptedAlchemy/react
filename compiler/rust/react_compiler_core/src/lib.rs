@@ -325,24 +325,37 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
         return;
     }
 
+    let existing_runtime_callee_name = runtime_memo_callee_name(module);
+    let runtime_callee_name = existing_runtime_callee_name
+        .as_deref()
+        .unwrap_or("_c")
+        .to_string();
+
     let mut transformed = false;
     for item in module.body.iter_mut() {
         match item {
             ModuleItem::Stmt(stmt) => {
-                if apply_placeholder_compilation_to_stmt(stmt, &react_function_names) {
+                if apply_placeholder_compilation_to_stmt(
+                    stmt,
+                    &react_function_names,
+                    runtime_callee_name.as_str(),
+                ) {
                     transformed = true;
                 }
             }
             ModuleItem::ModuleDecl(module_decl) => {
-                if apply_placeholder_compilation_to_module_decl(module_decl, &react_function_names)
-                {
+                if apply_placeholder_compilation_to_module_decl(
+                    module_decl,
+                    &react_function_names,
+                    runtime_callee_name.as_str(),
+                ) {
                     transformed = true;
                 }
             }
         }
     }
 
-    if transformed && !has_runtime_memo_import(module) {
+    if transformed && existing_runtime_callee_name.is_none() {
         module.body.insert(
             0,
             ModuleItem::ModuleDecl(ModuleDecl::Import(make_runtime_import_decl())),
@@ -353,11 +366,14 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
 fn apply_placeholder_compilation_to_module_decl(
     module_decl: &mut ModuleDecl,
     react_function_names: &HashSet<&str>,
+    runtime_callee_name: &str,
 ) -> bool {
     match module_decl {
-        ModuleDecl::ExportDecl(export_decl) => {
-            apply_placeholder_compilation_to_decl(&mut export_decl.decl, react_function_names)
-        }
+        ModuleDecl::ExportDecl(export_decl) => apply_placeholder_compilation_to_decl(
+            &mut export_decl.decl,
+            react_function_names,
+            runtime_callee_name,
+        ),
         _ => false,
     }
 }
@@ -365,9 +381,12 @@ fn apply_placeholder_compilation_to_module_decl(
 fn apply_placeholder_compilation_to_stmt(
     stmt: &mut Stmt,
     react_function_names: &HashSet<&str>,
+    runtime_callee_name: &str,
 ) -> bool {
     match stmt {
-        Stmt::Decl(decl) => apply_placeholder_compilation_to_decl(decl, react_function_names),
+        Stmt::Decl(decl) => {
+            apply_placeholder_compilation_to_decl(decl, react_function_names, runtime_callee_name)
+        }
         _ => false,
     }
 }
@@ -375,11 +394,15 @@ fn apply_placeholder_compilation_to_stmt(
 fn apply_placeholder_compilation_to_decl(
     decl: &mut Decl,
     react_function_names: &HashSet<&str>,
+    runtime_callee_name: &str,
 ) -> bool {
     match decl {
         Decl::Fn(fn_decl) => {
             if react_function_names.contains(fn_decl.ident.sym.as_ref()) {
-                inject_placeholder_memo_init_into_function(&mut fn_decl.function);
+                inject_placeholder_memo_init_into_function(
+                    &mut fn_decl.function,
+                    runtime_callee_name,
+                );
                 return true;
             }
             false
@@ -398,11 +421,17 @@ fn apply_placeholder_compilation_to_decl(
                 };
                 match &mut **init {
                     Expr::Fn(fn_expr) => {
-                        inject_placeholder_memo_init_into_function(&mut fn_expr.function);
+                        inject_placeholder_memo_init_into_function(
+                            &mut fn_expr.function,
+                            runtime_callee_name,
+                        );
                         transformed = true;
                     }
                     Expr::Arrow(arrow_expr) => {
-                        inject_placeholder_memo_init_into_arrow_function(arrow_expr);
+                        inject_placeholder_memo_init_into_arrow_function(
+                            arrow_expr,
+                            runtime_callee_name,
+                        );
                         transformed = true;
                     }
                     _ => {}
@@ -414,8 +443,11 @@ fn apply_placeholder_compilation_to_decl(
     }
 }
 
-fn inject_placeholder_memo_init_into_function(function: &mut swc_ecma_ast::Function) {
-    let memo_stmt = make_placeholder_memo_stmt();
+fn inject_placeholder_memo_init_into_function(
+    function: &mut swc_ecma_ast::Function,
+    runtime_callee_name: &str,
+) {
+    let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match function.body.as_mut() {
         Some(body) => body.stmts.insert(0, memo_stmt),
         None => {
@@ -428,8 +460,11 @@ fn inject_placeholder_memo_init_into_function(function: &mut swc_ecma_ast::Funct
     }
 }
 
-fn inject_placeholder_memo_init_into_arrow_function(arrow: &mut swc_ecma_ast::ArrowExpr) {
-    let memo_stmt = make_placeholder_memo_stmt();
+fn inject_placeholder_memo_init_into_arrow_function(
+    arrow: &mut swc_ecma_ast::ArrowExpr,
+    runtime_callee_name: &str,
+) {
+    let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match arrow.body.as_mut() {
         BlockStmtOrExpr::BlockStmt(block) => {
             block.stmts.insert(0, memo_stmt);
@@ -448,7 +483,7 @@ fn inject_placeholder_memo_init_into_arrow_function(arrow: &mut swc_ecma_ast::Ar
     }
 }
 
-fn make_placeholder_memo_stmt() -> Stmt {
+fn make_placeholder_memo_stmt(runtime_callee_name: &str) -> Stmt {
     Stmt::Decl(Decl::Var(Box::new(VarDecl {
         span: DUMMY_SP,
         ctxt: Default::default(),
@@ -461,7 +496,7 @@ fn make_placeholder_memo_stmt() -> Stmt {
                 span: DUMMY_SP,
                 ctxt: Default::default(),
                 callee: Callee::Expr(Box::new(Expr::Ident(Ident::new_no_ctxt(
-                    "_c".into(),
+                    runtime_callee_name.into(),
                     DUMMY_SP,
                 )))),
                 args: vec![ExprOrSpread {
@@ -498,22 +533,37 @@ fn make_runtime_import_decl() -> ImportDecl {
     }
 }
 
-fn has_runtime_memo_import(module: &Module) -> bool {
-    module.body.iter().any(|item| {
+fn runtime_memo_callee_name(module: &Module) -> Option<String> {
+    module.body.iter().find_map(|item| {
         let ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl)) = item else {
-            return false;
+            return None;
         };
         if import_decl.src.value != *"react/compiler-runtime" {
-            return false;
+            return None;
         }
         import_decl
             .specifiers
             .iter()
-            .any(|specifier| match specifier {
-                ImportSpecifier::Named(named) => named.local.sym == *"_c",
-                _ => false,
-            })
+            .find_map(runtime_memo_callee_name_from_specifier)
     })
+}
+
+fn runtime_memo_callee_name_from_specifier(specifier: &ImportSpecifier) -> Option<String> {
+    let ImportSpecifier::Named(named) = specifier else {
+        return None;
+    };
+    if named.is_type_only {
+        return None;
+    }
+    let is_memo_runtime_import = named
+        .imported
+        .as_ref()
+        .map(|imported| imported.atom() == &"c")
+        .unwrap_or(named.local.sym == *"c");
+    if !is_memo_runtime_import {
+        return None;
+    }
+    Some(named.local.sym.to_string())
 }
 
 #[cfg(test)]
@@ -544,6 +594,24 @@ mod tests {
             .code
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_import_alias() {
+        let output = compile(
+            "import { c as cache } from 'react/compiler-runtime'; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("c as cache"));
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
     }
 
     #[test]
