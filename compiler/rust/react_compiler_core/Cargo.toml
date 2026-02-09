@@ -1,0 +1,10 @@
+[package]
+name = "react_compiler_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+swc_common = "14"
+swc_ecma_ast = "15"
+swc_ecma_parser = "24"
+thiserror = "2.0.18"

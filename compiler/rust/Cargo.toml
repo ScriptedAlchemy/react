@@ -1,0 +1,3 @@
+[workspace]
+members = ["react_compiler_core"]
+resolver = "2"
