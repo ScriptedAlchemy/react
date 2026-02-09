@@ -1,5 +1,8 @@
 use std::collections::HashSet;
-use swc_common::{errors::Handler, sync::Lrc, FileName, SourceMap, Span, DUMMY_SP};
+use swc_common::{
+    comments::SingleThreadedComments, errors::Handler, sync::Lrc, FileName, SourceMap, Span,
+    DUMMY_SP,
+};
 use swc_ecma_ast::{
     BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, DefaultDecl, EsVersion, Expr,
     ExprOrSpread, Ident, ImportDecl, ImportNamedSpecifier, ImportSpecifier, Lit, Module,
@@ -113,7 +116,13 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         InputDialect::Flow => unreachable!(),
     };
 
-    let lexer = Lexer::new(syntax, EsVersion::EsNext, StringInput::from(&*fm), None);
+    let comments = SingleThreadedComments::default();
+    let lexer = Lexer::new(
+        syntax,
+        EsVersion::EsNext,
+        StringInput::from(&*fm),
+        Some(&comments),
+    );
 
     let mut parser = Parser::new_from(lexer);
     let (metadata, code) = if options.is_module {
@@ -129,7 +138,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             react_functions,
         };
         apply_placeholder_compilation_to_module(&mut module, &metadata.react_functions);
-        (metadata, emit_module(&cm, &module)?)
+        (metadata, emit_module(&cm, &comments, &module)?)
     } else {
         let script = parser.parse_script().map_err(|err| {
             let message = err.kind().msg().to_string();
@@ -142,19 +151,23 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             detected_react_functions: react_functions.len(),
             react_functions,
         };
-        (metadata, emit_script(&cm, &script)?)
+        (metadata, emit_script(&cm, &comments, &script)?)
     };
 
     Ok(CompileOutput { code, metadata })
 }
 
-fn emit_module(cm: &Lrc<SourceMap>, module: &Module) -> Result<String, CompilerError> {
+fn emit_module(
+    cm: &Lrc<SourceMap>,
+    comments: &SingleThreadedComments,
+    module: &Module,
+) -> Result<String, CompilerError> {
     let mut output = vec![];
     {
         let writer = JsWriter::new(cm.clone(), "\n", &mut output, None);
         let mut emitter = Emitter {
             cfg: CodegenConfig::default(),
-            comments: None,
+            comments: Some(comments),
             cm: cm.clone(),
             wr: writer,
         };
@@ -169,13 +182,17 @@ fn emit_module(cm: &Lrc<SourceMap>, module: &Module) -> Result<String, CompilerE
     })
 }
 
-fn emit_script(cm: &Lrc<SourceMap>, script: &Script) -> Result<String, CompilerError> {
+fn emit_script(
+    cm: &Lrc<SourceMap>,
+    comments: &SingleThreadedComments,
+    script: &Script,
+) -> Result<String, CompilerError> {
     let mut output = vec![];
     {
         let writer = JsWriter::new(cm.clone(), "\n", &mut output, None);
         let mut emitter = Emitter {
             cfg: CodegenConfig::default(),
-            comments: None,
+            comments: Some(comments),
             cm: cm.clone(),
             wr: writer,
         };
@@ -688,6 +705,21 @@ mod tests {
             .code
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn preserves_leading_pragma_comments() {
+        let output = compile(
+            "// @enableFlowSuppressions\nexport function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("@enableFlowSuppressions"));
     }
 
     #[test]

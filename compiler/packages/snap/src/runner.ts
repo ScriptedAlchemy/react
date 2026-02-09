@@ -66,6 +66,8 @@ type ParityOptions = {
   output?: string;
   evaluator: boolean;
   failOnMismatch: boolean;
+  maxMismatches: number;
+  includeOutput: boolean;
 };
 
 async function runTestCommand(opts: TestOptions): Promise<void> {
@@ -351,9 +353,13 @@ type ParityMismatchKind = 'output_mismatch' | 'unexpected_error_mismatch';
 type ParityMismatch = {
   fixture: string;
   kind: ParityMismatchKind;
+  hasOutputMismatch: boolean;
+  hasUnexpectedErrorMismatch: boolean;
   babelUnexpectedError: string | null;
   rustUnexpectedError: string | null;
   outputPath: string;
+  babelActual?: string | null;
+  rustActual?: string | null;
 };
 
 async function transformFixtureWithEnv(
@@ -412,8 +418,11 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
 
   const fixtures = await getFixtures(testFilter);
   const mismatches: Array<ParityMismatch> = [];
+  let comparedFixtures = 0;
+  let reachedMismatchLimit = false;
 
   for (const [fixtureName, fixture] of fixtures) {
+    comparedFixtures += 1;
     const babelResult = await transformFixtureWithEnv(
       fixture,
       0,
@@ -445,10 +454,16 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       kind: hasUnexpectedErrorMismatch
         ? 'unexpected_error_mismatch'
         : 'output_mismatch',
+      hasOutputMismatch,
+      hasUnexpectedErrorMismatch,
       babelUnexpectedError: babelResult.unexpectedError,
       rustUnexpectedError: strictRustResult.unexpectedError,
       outputPath: strictRustResult.outputPath,
     };
+    if (opts.includeOutput) {
+      mismatch.babelActual = babelResult.actual;
+      mismatch.rustActual = strictRustResult.actual;
+    }
     mismatches.push(mismatch);
 
     if (opts.verbose) {
@@ -463,13 +478,22 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
         );
       }
     }
+
+    if (opts.maxMismatches > 0 && mismatches.length >= opts.maxMismatches) {
+      reachedMismatchLimit = true;
+      break;
+    }
   }
 
   const output = {
     generatedAt: new Date().toISOString(),
     fixtureCount: fixtures.size,
+    comparedFixtureCount: comparedFixtures,
     mismatchCount: mismatches.length,
+    reachedMismatchLimit,
+    maxMismatches: opts.maxMismatches,
     evaluatorEnabled: opts.evaluator,
+    includeOutput: opts.includeOutput,
     pattern: opts.pattern ?? null,
     mismatches,
   };
@@ -486,7 +510,7 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
   const paritySummary =
     mismatches.length === 0
       ? `Parity success: ${fixtures.size} fixtures matched.`
-      : `Parity mismatches: ${mismatches.length}/${fixtures.size} fixtures differ.`;
+      : `Parity mismatches: ${mismatches.length}/${comparedFixtures} compared fixtures differ.`;
   console.log(paritySummary);
   process.exit(mismatches.length === 0 || !opts.failOnMismatch ? 0 : 1);
 }
@@ -612,7 +636,19 @@ yargs(hideBin(process.argv))
           'fail-on-mismatch',
           'Exit with non-zero status when mismatches are found (default true)',
         )
-        .default('fail-on-mismatch', true);
+        .default('fail-on-mismatch', true)
+        .number('max-mismatches')
+        .describe(
+          'max-mismatches',
+          'Stop after recording this many mismatches (0 = no limit)',
+        )
+        .default('max-mismatches', 0)
+        .boolean('include-output')
+        .describe(
+          'include-output',
+          'Include full Babel/Rust output strings in JSON report (default false)',
+        )
+        .default('include-output', false);
     },
     async argv => {
       await runParityCommand(argv as unknown as ParityOptions);
