@@ -5,6 +5,7 @@ This directory hosts the Rust implementation of the React Compiler.
 ## Current crates
 
 - `react_compiler_core`: Rust-native parser/frontend scaffold for compiler input processing.
+- `react_compiler_cli`: JSON-over-stdin/stdout executable bridge around `react_compiler_core`.
 
 ## Commands
 
