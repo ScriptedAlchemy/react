@@ -1,5 +1,6 @@
 use swc_common::{errors::Handler, sync::Lrc, FileName, SourceMap};
 use swc_ecma_ast::{Decl, DefaultDecl, EsVersion, Module, ModuleDecl, ModuleItem, Script, Stmt};
+use swc_ecma_codegen::{text_writer::JsWriter, Config as CodegenConfig, Emitter};
 use swc_ecma_parser::{lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax};
 use thiserror::Error;
 
@@ -45,6 +46,8 @@ pub enum CompilerError {
     UnsupportedFlowSyntax,
     #[error("Failed to parse input: {message}")]
     ParseFailure { message: String },
+    #[error("Failed to emit compiled output: {message}")]
+    CodegenFailure { message: String },
 }
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
@@ -85,35 +88,72 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     let lexer = Lexer::new(syntax, EsVersion::EsNext, StringInput::from(&*fm), None);
 
     let mut parser = Parser::new_from(lexer);
-    let metadata = if options.is_module {
-        parser
-            .parse_module()
-            .map(|module| ParseMetadata {
-                statement_count: module.body.len(),
-                detected_react_functions: count_react_functions_in_module(&module),
-            })
-            .map_err(|err| {
-                let message = err.kind().msg().to_string();
-                err.into_diagnostic(&handler).emit();
-                CompilerError::ParseFailure { message }
-            })?
+    let (metadata, code) = if options.is_module {
+        let module = parser.parse_module().map_err(|err| {
+            let message = err.kind().msg().to_string();
+            err.into_diagnostic(&handler).emit();
+            CompilerError::ParseFailure { message }
+        })?;
+        let metadata = ParseMetadata {
+            statement_count: module.body.len(),
+            detected_react_functions: count_react_functions_in_module(&module),
+        };
+        (metadata, emit_module(&cm, &module)?)
     } else {
-        parser
-            .parse_script()
-            .map(|script| ParseMetadata {
-                statement_count: script.body.len(),
-                detected_react_functions: count_react_functions_in_script(&script),
-            })
-            .map_err(|err| {
-                let message = err.kind().msg().to_string();
-                err.into_diagnostic(&handler).emit();
-                CompilerError::ParseFailure { message }
-            })?
+        let script = parser.parse_script().map_err(|err| {
+            let message = err.kind().msg().to_string();
+            err.into_diagnostic(&handler).emit();
+            CompilerError::ParseFailure { message }
+        })?;
+        let metadata = ParseMetadata {
+            statement_count: script.body.len(),
+            detected_react_functions: count_react_functions_in_script(&script),
+        };
+        (metadata, emit_script(&cm, &script)?)
     };
 
-    Ok(CompileOutput {
-        code: source.to_string(),
-        metadata,
+    Ok(CompileOutput { code, metadata })
+}
+
+fn emit_module(cm: &Lrc<SourceMap>, module: &Module) -> Result<String, CompilerError> {
+    let mut output = vec![];
+    {
+        let writer = JsWriter::new(cm.clone(), "\n", &mut output, None);
+        let mut emitter = Emitter {
+            cfg: CodegenConfig::default(),
+            comments: None,
+            cm: cm.clone(),
+            wr: writer,
+        };
+        emitter
+            .emit_module(module)
+            .map_err(|err| CompilerError::CodegenFailure {
+                message: err.to_string(),
+            })?;
+    }
+    String::from_utf8(output).map_err(|err| CompilerError::CodegenFailure {
+        message: err.to_string(),
+    })
+}
+
+fn emit_script(cm: &Lrc<SourceMap>, script: &Script) -> Result<String, CompilerError> {
+    let mut output = vec![];
+    {
+        let writer = JsWriter::new(cm.clone(), "\n", &mut output, None);
+        let mut emitter = Emitter {
+            cfg: CodegenConfig::default(),
+            comments: None,
+            cm: cm.clone(),
+            wr: writer,
+        };
+        emitter
+            .emit_script(script)
+            .map_err(|err| CompilerError::CodegenFailure {
+                message: err.to_string(),
+            })?;
+    }
+    String::from_utf8(output).map_err(|err| CompilerError::CodegenFailure {
+        message: err.to_string(),
     })
 }
 
