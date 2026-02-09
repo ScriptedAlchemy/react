@@ -6,8 +6,8 @@ use swc_common::{
 use swc_ecma_ast::{
     BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, DefaultDecl, EsVersion, Expr,
     ExprOrSpread, Ident, ImportDecl, ImportNamedSpecifier, ImportSpecifier, Lit, Module,
-    ModuleDecl, ModuleExportName, ModuleItem, Number, Pat, Script, Stmt, VarDecl, VarDeclKind,
-    VarDeclarator,
+    ModuleDecl, ModuleExportName, ModuleItem, Number, Pat, Prop, PropName, PropOrSpread, Script,
+    Stmt, VarDecl, VarDeclKind, VarDeclarator,
 };
 use swc_ecma_codegen::{text_writer::JsWriter, Config as CodegenConfig, Emitter};
 use swc_ecma_parser::{lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax};
@@ -295,7 +295,7 @@ fn collect_react_functions_in_stmt(cm: &Lrc<SourceMap>, stmt: &Stmt) -> Vec<Reac
 }
 
 fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Vec<ReactFunction> {
-    module
+    let mut functions: Vec<ReactFunction> = module
         .body
         .iter()
         .flat_map(|item| match item {
@@ -322,7 +322,16 @@ fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Ve
                 _ => Vec::new(),
             },
         })
-        .collect()
+        .collect();
+
+    let fixture_entrypoint_names = collect_fixture_entrypoint_function_names(module);
+    if !fixture_entrypoint_names.is_empty() {
+        let fixture_entrypoint_functions =
+            collect_named_functions_in_module(cm, module, &fixture_entrypoint_names);
+        functions = merge_react_functions(functions, fixture_entrypoint_functions);
+    }
+
+    functions
 }
 
 fn collect_react_functions_in_script(cm: &Lrc<SourceMap>, script: &Script) -> Vec<ReactFunction> {
@@ -331,6 +340,191 @@ fn collect_react_functions_in_script(cm: &Lrc<SourceMap>, script: &Script) -> Ve
         .iter()
         .flat_map(|stmt| collect_react_functions_in_stmt(cm, stmt))
         .collect()
+}
+
+fn merge_react_functions(
+    mut existing: Vec<ReactFunction>,
+    additional: Vec<ReactFunction>,
+) -> Vec<ReactFunction> {
+    let mut seen: HashSet<String> = existing.iter().map(react_function_key).collect();
+    for function in additional {
+        let key = react_function_key(&function);
+        if seen.insert(key) {
+            existing.push(function);
+        }
+    }
+    existing
+}
+
+fn react_function_key(function: &ReactFunction) -> String {
+    match &function.loc {
+        Some(loc) => format!(
+            "{}:{}:{}:{}:{}",
+            function.name, loc.start_line, loc.start_column, loc.end_line, loc.end_column
+        ),
+        None => format!("{}:none", function.name),
+    }
+}
+
+fn collect_fixture_entrypoint_function_names(module: &Module) -> HashSet<String> {
+    module
+        .body
+        .iter()
+        .flat_map(|item| match item {
+            ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl))) => {
+                collect_fixture_entrypoint_names_from_var_decl(var_decl)
+            }
+            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
+                match &export_decl.decl {
+                    Decl::Var(var_decl) => collect_fixture_entrypoint_names_from_var_decl(var_decl),
+                    _ => Vec::new(),
+                }
+            }
+            _ => Vec::new(),
+        })
+        .collect()
+}
+
+fn collect_fixture_entrypoint_names_from_var_decl(var_decl: &VarDecl) -> Vec<String> {
+    var_decl
+        .decls
+        .iter()
+        .filter_map(|declarator| {
+            let Pat::Ident(binding) = &declarator.name else {
+                return None;
+            };
+            if binding.id.sym != *"FIXTURE_ENTRYPOINT" {
+                return None;
+            }
+            let Some(init) = declarator.init.as_ref() else {
+                return None;
+            };
+            let Expr::Object(object_literal) = init.as_ref() else {
+                return None;
+            };
+            fixture_entrypoint_fn_name_from_object_literal(object_literal)
+        })
+        .collect()
+}
+
+fn fixture_entrypoint_fn_name_from_object_literal(
+    object_literal: &swc_ecma_ast::ObjectLit,
+) -> Option<String> {
+    object_literal.props.iter().find_map(|prop_or_spread| {
+        let PropOrSpread::Prop(prop) = prop_or_spread else {
+            return None;
+        };
+        let Prop::KeyValue(key_value) = prop.as_ref() else {
+            return None;
+        };
+        if !is_fn_property_name(&key_value.key) {
+            return None;
+        }
+        match key_value.value.as_ref() {
+            Expr::Ident(ident) => Some(ident.sym.to_string()),
+            Expr::Fn(fn_expr) => fn_expr.ident.as_ref().map(|ident| ident.sym.to_string()),
+            _ => None,
+        }
+    })
+}
+
+fn is_fn_property_name(name: &PropName) -> bool {
+    match name {
+        PropName::Ident(ident) => ident.sym == *"fn",
+        PropName::Str(str_lit) => str_lit.value == *"fn",
+        _ => false,
+    }
+}
+
+fn collect_named_functions_in_module(
+    cm: &Lrc<SourceMap>,
+    module: &Module,
+    target_names: &HashSet<String>,
+) -> Vec<ReactFunction> {
+    module
+        .body
+        .iter()
+        .flat_map(|item| match item {
+            ModuleItem::Stmt(stmt) => collect_named_functions_in_stmt(cm, stmt, target_names),
+            ModuleItem::ModuleDecl(module_decl) => match module_decl {
+                ModuleDecl::ExportDecl(export_decl) => {
+                    collect_named_functions_in_decl(cm, &export_decl.decl, target_names)
+                }
+                ModuleDecl::ExportDefaultDecl(default_decl) => match &default_decl.decl {
+                    DefaultDecl::Fn(fn_expr) => fn_expr
+                        .ident
+                        .as_ref()
+                        .filter(|ident| target_names.contains(ident.sym.as_ref()))
+                        .map(|ident| ReactFunction {
+                            name: ident.sym.to_string(),
+                            kind: ReactFunctionKind::Component,
+                            loc: span_to_location(cm, ident.span),
+                        })
+                        .into_iter()
+                        .collect(),
+                    _ => Vec::new(),
+                },
+                _ => Vec::new(),
+            },
+        })
+        .collect()
+}
+
+fn collect_named_functions_in_stmt(
+    cm: &Lrc<SourceMap>,
+    stmt: &Stmt,
+    target_names: &HashSet<String>,
+) -> Vec<ReactFunction> {
+    match stmt {
+        Stmt::Decl(decl) => collect_named_functions_in_decl(cm, decl, target_names),
+        _ => Vec::new(),
+    }
+}
+
+fn collect_named_functions_in_decl(
+    cm: &Lrc<SourceMap>,
+    decl: &Decl,
+    target_names: &HashSet<String>,
+) -> Vec<ReactFunction> {
+    match decl {
+        Decl::Fn(fn_decl) => {
+            if target_names.contains(fn_decl.ident.sym.as_ref()) {
+                vec![ReactFunction {
+                    name: fn_decl.ident.sym.to_string(),
+                    kind: ReactFunctionKind::Component,
+                    loc: span_to_location(cm, fn_decl.ident.span),
+                }]
+            } else {
+                Vec::new()
+            }
+        }
+        Decl::Var(var_decl) => var_decl
+            .decls
+            .iter()
+            .filter_map(|declarator| {
+                let Pat::Ident(binding) = &declarator.name else {
+                    return None;
+                };
+                if !target_names.contains(binding.id.sym.as_ref()) {
+                    return None;
+                }
+                let is_function_value = declarator
+                    .init
+                    .as_ref()
+                    .map(|expr| matches!(&**expr, Expr::Fn(_) | Expr::Arrow(_)))
+                    .unwrap_or(false);
+                if !is_function_value {
+                    return None;
+                }
+                Some(ReactFunction {
+                    name: binding.id.sym.to_string(),
+                    kind: ReactFunctionKind::Component,
+                    loc: span_to_location(cm, binding.id.span),
+                })
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
 }
 
 fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions: &[ReactFunction]) {
@@ -720,6 +914,26 @@ mod tests {
         .expect("expected valid JavaScript to parse");
 
         assert!(output.code.contains("@enableFlowSuppressions"));
+    }
+
+    #[test]
+    fn detects_fixture_entrypoint_function_when_name_is_not_react_like() {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { fn: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
     }
 
     #[test]

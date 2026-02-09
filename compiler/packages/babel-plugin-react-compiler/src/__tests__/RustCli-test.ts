@@ -125,4 +125,22 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const memoInitCount = (outputCode.match(/const \$ = _c\(0\);/g) ?? []).length;
     expect(memoInitCount).toBe(1);
   });
+
+  it('strict rust mode detects fixture entrypoint component names', () => {
+    const source = [
+      'function component() {',
+      '  return 1;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: component, params: [] };',
+    ].join('\n');
+    const result = withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+      }),
+    );
+
+    expect(result.code).toContain('function component');
+    expect(result.code).toContain('const $ = _c(0);');
+  });
 });
