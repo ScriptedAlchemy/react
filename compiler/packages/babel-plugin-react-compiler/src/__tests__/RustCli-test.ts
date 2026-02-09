@@ -15,6 +15,20 @@ const hasCargo = spawnSync('cargo', ['--version'], {
 
 const describeWithCargo = hasCargo ? describe : describe.skip;
 
+function withStrictRustEngine<T>(fn: () => T): T {
+  const previous = process.env['REACT_COMPILER_RUST_STRICT'];
+  process.env['REACT_COMPILER_RUST_STRICT'] = '1';
+  try {
+    return fn();
+  } finally {
+    if (previous == null) {
+      delete process.env['REACT_COMPILER_RUST_STRICT'];
+    } else {
+      process.env['REACT_COMPILER_RUST_STRICT'] = previous;
+    }
+  }
+}
+
 describeWithCargo('Rust compiler CLI bridge', () => {
   it('parses JavaScript input through the Rust frontend', () => {
     const result = runRustCompilerCli({
@@ -52,7 +66,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
   });
 
   it('can be selected as compiler engine in Babel plugin options', () => {
-    const result = runBabelPluginReactCompiler(
+    const rustResult = runBabelPluginReactCompiler(
       'export function Component() { return <div />; }',
       '/fixture.tsx',
       'typescript',
@@ -61,21 +75,30 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         compilerEngine: 'rust',
       },
     );
-
-    expect(result.code).toContain('function Component');
-    expect(result.code).toContain('react/compiler-runtime');
-    expect(result.code).toContain('const $ = _c(0);');
-  });
-
-  it('transforms default exported named components in Rust engine mode', () => {
-    const result = runBabelPluginReactCompiler(
-      'export default function Component() { return <div />; }',
+    const babelResult = runBabelPluginReactCompiler(
+      'export function Component() { return <div />; }',
       '/fixture.tsx',
       'typescript',
       {
         compilationMode: 'all',
-        compilerEngine: 'rust',
+        compilerEngine: 'babel',
       },
+    );
+
+    expect(rustResult.code).toBe(babelResult.code);
+  });
+
+  it('strict rust mode transforms default exported named components', () => {
+    const result = withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(
+        'export default function Component() { return <div />; }',
+        '/fixture.tsx',
+        'typescript',
+        {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        },
+      ),
     );
 
     expect(result.code).toContain('export default function Component');
@@ -83,7 +106,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.code).toContain('const $ = _c(0);');
   });
 
-  it('does not duplicate existing placeholder cache init', () => {
+  it('strict rust mode does not duplicate existing placeholder cache init', () => {
     const source = [
       "import { c as _c } from 'react/compiler-runtime';",
       'export function Component() {',
@@ -91,10 +114,12 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       '  return <div />;',
       '}',
     ].join('\n');
-    const result = runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
-      compilationMode: 'all',
-      compilerEngine: 'rust',
-    });
+    const result = withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+      }),
+    );
 
     const outputCode = result.code ?? '';
     const memoInitCount = (outputCode.match(/const \$ = _c\(0\);/g) ?? []).length;

@@ -32,6 +32,13 @@ function markCompilationEnd(filename: string): void {
   }
 }
 
+function isStrictRustEngineEnabled(): boolean {
+  return (
+    process.env['REACT_COMPILER_RUST_STRICT'] === '1' ||
+    process.env['REACT_COMPILER_RUST_STRICT'] === 'true'
+  );
+}
+
 function detectRustDialect(
   filename: string | null,
   sourceCode: string | null,
@@ -50,7 +57,7 @@ function parseProgramFromRustOutput(
   filename: string | null,
   dialect: 'javascript' | 'typescript' | 'flow',
 ): BabelParser.ParseResult<t.File> {
-  const plugins: BabelParser.ParserPlugin[] = ['jsx'];
+  const plugins: Array<BabelParser.ParserPlugin> = ['jsx'];
   if (dialect === 'typescript') {
     plugins.unshift('typescript');
   } else if (dialect === 'flow') {
@@ -73,6 +80,7 @@ function maybeRunRustProgramCompiler(
   pass: BabelCore.PluginPass,
   logger: Logger | null,
   filename: string | null,
+  strictRustEngine: boolean,
 ): {
   detectedReactFunctions: number;
   reactFunctions: Array<{
@@ -99,6 +107,12 @@ function maybeRunRustProgramCompiler(
   const rustResult = runRustCompilerCli(rustRequest);
 
   if (rustResult.status === 'error') {
+    if (!strictRustEngine) {
+      return {
+        detectedReactFunctions: 0,
+        reactFunctions: [],
+      };
+    }
     logger?.logEvent(filename, {
       kind: 'PipelineError',
       fnLoc: null,
@@ -110,6 +124,12 @@ function maybeRunRustProgramCompiler(
   const reactFunctions = rustResult.react_functions ?? [];
 
   if (rustResult.code === sourceCode) {
+    return {
+      detectedReactFunctions,
+      reactFunctions,
+    };
+  }
+  if (!strictRustEngine) {
     return {
       detectedReactFunctions,
       reactFunctions,
@@ -180,58 +200,62 @@ export default function BabelPluginReactCompiler(
               };
             }
             if (opts.compilerEngine === 'rust') {
+              const strictRustEngine = isStrictRustEngineEnabled();
               const rustCompilation = maybeRunRustProgramCompiler(
                 prog,
                 pass,
                 opts.logger,
                 pass.filename ?? null,
+                strictRustEngine,
               );
-              for (const reactFunction of rustCompilation.reactFunctions) {
-                const functionLocation =
-                  reactFunction.loc == null
-                    ? null
-                    : {
-                        filename: pass.filename ?? 'unknown',
-                        identifierName: reactFunction.name,
-                        start: {
-                          line: reactFunction.loc.start_line,
-                          column: reactFunction.loc.start_column,
-                          index: 0,
-                        },
-                        end: {
-                          line: reactFunction.loc.end_line,
-                          column: reactFunction.loc.end_column,
-                          index: 0,
-                        },
-                      };
-                opts.logger?.logEvent(pass.filename ?? null, {
-                  kind: 'CompileSuccess',
-                  fnLoc: functionLocation,
-                  fnName: reactFunction.name,
-                  memoSlots: 0,
-                  memoBlocks: 0,
-                  memoValues: 0,
-                  prunedMemoBlocks: 0,
-                  prunedMemoValues: 0,
-                });
+              if (strictRustEngine) {
+                for (const reactFunction of rustCompilation.reactFunctions) {
+                  const functionLocation =
+                    reactFunction.loc == null
+                      ? null
+                      : {
+                          filename: pass.filename ?? 'unknown',
+                          identifierName: reactFunction.name,
+                          start: {
+                            line: reactFunction.loc.start_line,
+                            column: reactFunction.loc.start_column,
+                            index: 0,
+                          },
+                          end: {
+                            line: reactFunction.loc.end_line,
+                            column: reactFunction.loc.end_column,
+                            index: 0,
+                          },
+                        };
+                  opts.logger?.logEvent(pass.filename ?? null, {
+                    kind: 'CompileSuccess',
+                    fnLoc: functionLocation,
+                    fnName: reactFunction.name,
+                    memoSlots: 0,
+                    memoBlocks: 0,
+                    memoValues: 0,
+                    prunedMemoBlocks: 0,
+                    prunedMemoValues: 0,
+                  });
+                }
+                const remainder =
+                  rustCompilation.detectedReactFunctions -
+                  rustCompilation.reactFunctions.length;
+                for (let ii = 0; ii < remainder; ii++) {
+                  opts.logger?.logEvent(pass.filename ?? null, {
+                    kind: 'CompileSuccess',
+                    fnLoc: null,
+                    fnName: null,
+                    memoSlots: 0,
+                    memoBlocks: 0,
+                    memoValues: 0,
+                    prunedMemoBlocks: 0,
+                    prunedMemoValues: 0,
+                  });
+                }
+                markCompilationEnd(filename);
+                return;
               }
-              const remainder =
-                rustCompilation.detectedReactFunctions -
-                rustCompilation.reactFunctions.length;
-              for (let ii = 0; ii < remainder; ii++) {
-                opts.logger?.logEvent(pass.filename ?? null, {
-                  kind: 'CompileSuccess',
-                  fnLoc: null,
-                  fnName: null,
-                  memoSlots: 0,
-                  memoBlocks: 0,
-                  memoValues: 0,
-                  prunedMemoBlocks: 0,
-                  prunedMemoValues: 0,
-                });
-              }
-              markCompilationEnd(filename);
-              return;
             }
             const result = compileProgram(prog, {
               opts,
