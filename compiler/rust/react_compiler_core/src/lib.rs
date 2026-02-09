@@ -1,6 +1,10 @@
-use swc_common::{errors::Handler, sync::Lrc, FileName, SourceMap, Span};
+use std::collections::HashSet;
+use swc_common::{errors::Handler, sync::Lrc, FileName, SourceMap, Span, DUMMY_SP};
 use swc_ecma_ast::{
-    Decl, DefaultDecl, EsVersion, Expr, Module, ModuleDecl, ModuleItem, Pat, Script, Stmt,
+    BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, DefaultDecl, EsVersion, Expr,
+    ExprOrSpread, Ident, ImportDecl, ImportNamedSpecifier, ImportSpecifier, Lit, Module,
+    ModuleDecl, ModuleExportName, ModuleItem, Number, Pat, Script, Stmt, VarDecl, VarDeclKind,
+    VarDeclarator,
 };
 use swc_ecma_codegen::{text_writer::JsWriter, Config as CodegenConfig, Emitter};
 use swc_ecma_parser::{lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax};
@@ -113,7 +117,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
 
     let mut parser = Parser::new_from(lexer);
     let (metadata, code) = if options.is_module {
-        let module = parser.parse_module().map_err(|err| {
+        let mut module = parser.parse_module().map_err(|err| {
             let message = err.kind().msg().to_string();
             err.into_diagnostic(&handler).emit();
             CompilerError::ParseFailure { message }
@@ -124,6 +128,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             detected_react_functions: react_functions.len(),
             react_functions,
         };
+        apply_placeholder_compilation_to_module(&mut module, &metadata.react_functions);
         (metadata, emit_module(&cm, &module)?)
     } else {
         let script = parser.parse_script().map_err(|err| {
@@ -311,6 +316,206 @@ fn collect_react_functions_in_script(cm: &Lrc<SourceMap>, script: &Script) -> Ve
         .collect()
 }
 
+fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions: &[ReactFunction]) {
+    let react_function_names: HashSet<&str> = react_functions
+        .iter()
+        .map(|function| function.name.as_str())
+        .collect();
+    if react_function_names.is_empty() {
+        return;
+    }
+
+    let mut transformed = false;
+    for item in module.body.iter_mut() {
+        match item {
+            ModuleItem::Stmt(stmt) => {
+                if apply_placeholder_compilation_to_stmt(stmt, &react_function_names) {
+                    transformed = true;
+                }
+            }
+            ModuleItem::ModuleDecl(module_decl) => {
+                if apply_placeholder_compilation_to_module_decl(module_decl, &react_function_names)
+                {
+                    transformed = true;
+                }
+            }
+        }
+    }
+
+    if transformed && !has_runtime_memo_import(module) {
+        module.body.insert(
+            0,
+            ModuleItem::ModuleDecl(ModuleDecl::Import(make_runtime_import_decl())),
+        );
+    }
+}
+
+fn apply_placeholder_compilation_to_module_decl(
+    module_decl: &mut ModuleDecl,
+    react_function_names: &HashSet<&str>,
+) -> bool {
+    match module_decl {
+        ModuleDecl::ExportDecl(export_decl) => {
+            apply_placeholder_compilation_to_decl(&mut export_decl.decl, react_function_names)
+        }
+        _ => false,
+    }
+}
+
+fn apply_placeholder_compilation_to_stmt(
+    stmt: &mut Stmt,
+    react_function_names: &HashSet<&str>,
+) -> bool {
+    match stmt {
+        Stmt::Decl(decl) => apply_placeholder_compilation_to_decl(decl, react_function_names),
+        _ => false,
+    }
+}
+
+fn apply_placeholder_compilation_to_decl(
+    decl: &mut Decl,
+    react_function_names: &HashSet<&str>,
+) -> bool {
+    match decl {
+        Decl::Fn(fn_decl) => {
+            if react_function_names.contains(fn_decl.ident.sym.as_ref()) {
+                inject_placeholder_memo_init_into_function(&mut fn_decl.function);
+                return true;
+            }
+            false
+        }
+        Decl::Var(var_decl) => {
+            let mut transformed = false;
+            for declarator in var_decl.decls.iter_mut() {
+                let Pat::Ident(binding) = &declarator.name else {
+                    continue;
+                };
+                if !react_function_names.contains(binding.id.sym.as_ref()) {
+                    continue;
+                }
+                let Some(init) = declarator.init.as_mut() else {
+                    continue;
+                };
+                match &mut **init {
+                    Expr::Fn(fn_expr) => {
+                        inject_placeholder_memo_init_into_function(&mut fn_expr.function);
+                        transformed = true;
+                    }
+                    Expr::Arrow(arrow_expr) => {
+                        inject_placeholder_memo_init_into_arrow_function(arrow_expr);
+                        transformed = true;
+                    }
+                    _ => {}
+                }
+            }
+            transformed
+        }
+        _ => false,
+    }
+}
+
+fn inject_placeholder_memo_init_into_function(function: &mut swc_ecma_ast::Function) {
+    let memo_stmt = make_placeholder_memo_stmt();
+    match function.body.as_mut() {
+        Some(body) => body.stmts.insert(0, memo_stmt),
+        None => {
+            function.body = Some(BlockStmt {
+                span: DUMMY_SP,
+                ctxt: Default::default(),
+                stmts: vec![memo_stmt],
+            });
+        }
+    }
+}
+
+fn inject_placeholder_memo_init_into_arrow_function(arrow: &mut swc_ecma_ast::ArrowExpr) {
+    let memo_stmt = make_placeholder_memo_stmt();
+    match arrow.body.as_mut() {
+        BlockStmtOrExpr::BlockStmt(block) => {
+            block.stmts.insert(0, memo_stmt);
+        }
+        BlockStmtOrExpr::Expr(expr) => {
+            let return_stmt = Stmt::Return(swc_ecma_ast::ReturnStmt {
+                span: DUMMY_SP,
+                arg: Some(expr.clone()),
+            });
+            arrow.body = Box::new(BlockStmtOrExpr::BlockStmt(BlockStmt {
+                span: DUMMY_SP,
+                ctxt: Default::default(),
+                stmts: vec![memo_stmt, return_stmt],
+            }));
+        }
+    }
+}
+
+fn make_placeholder_memo_stmt() -> Stmt {
+    Stmt::Decl(Decl::Var(Box::new(VarDecl {
+        span: DUMMY_SP,
+        ctxt: Default::default(),
+        kind: VarDeclKind::Const,
+        declare: false,
+        decls: vec![VarDeclarator {
+            span: DUMMY_SP,
+            name: Pat::Ident(BindingIdent::from(Ident::new_no_ctxt("$".into(), DUMMY_SP))),
+            init: Some(Box::new(Expr::Call(CallExpr {
+                span: DUMMY_SP,
+                ctxt: Default::default(),
+                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new_no_ctxt(
+                    "_c".into(),
+                    DUMMY_SP,
+                )))),
+                args: vec![ExprOrSpread {
+                    spread: None,
+                    expr: Box::new(Expr::Lit(Lit::Num(Number {
+                        span: DUMMY_SP,
+                        value: 0.0,
+                        raw: None,
+                    }))),
+                }],
+                type_args: None,
+            }))),
+            definite: false,
+        }],
+    })))
+}
+
+fn make_runtime_import_decl() -> ImportDecl {
+    ImportDecl {
+        span: DUMMY_SP,
+        specifiers: vec![ImportSpecifier::Named(ImportNamedSpecifier {
+            span: DUMMY_SP,
+            local: Ident::new_no_ctxt("_c".into(), DUMMY_SP),
+            imported: Some(ModuleExportName::Ident(Ident::new_no_ctxt(
+                "c".into(),
+                DUMMY_SP,
+            ))),
+            is_type_only: false,
+        })],
+        src: Box::new("react/compiler-runtime".into()),
+        type_only: false,
+        with: None,
+        phase: Default::default(),
+    }
+}
+
+fn has_runtime_memo_import(module: &Module) -> bool {
+    module.body.iter().any(|item| {
+        let ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl)) = item else {
+            return false;
+        };
+        if import_decl.src.value != *"react/compiler-runtime" {
+            return false;
+        }
+        import_decl
+            .specifiers
+            .iter()
+            .any(|specifier| match specifier {
+                ImportSpecifier::Named(named) => named.local.sym == *"_c",
+                _ => false,
+            })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{compile, CompilerError, CompilerOptions, InputDialect};
@@ -335,6 +540,10 @@ mod tests {
             output.metadata.react_functions[0].kind,
             super::ReactFunctionKind::Component
         );
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
     }
 
     #[test]
@@ -352,6 +561,7 @@ mod tests {
         assert_eq!(output.metadata.statement_count, 1);
         assert_eq!(output.metadata.detected_react_functions, 0);
         assert!(output.metadata.react_functions.is_empty());
+        assert!(!output.code.contains("react/compiler-runtime"));
     }
 
     #[test]
@@ -373,6 +583,7 @@ mod tests {
             output.metadata.react_functions[0].kind,
             super::ReactFunctionKind::Hook
         );
+        assert!(!output.code.contains("react/compiler-runtime"));
     }
 
     #[test]
@@ -390,6 +601,7 @@ mod tests {
         assert_eq!(output.metadata.statement_count, 1);
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
+        assert!(!output.code.contains("react/compiler-runtime"));
     }
 
     #[test]
