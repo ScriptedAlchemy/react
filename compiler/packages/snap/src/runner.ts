@@ -13,7 +13,7 @@ import ts from 'typescript';
 import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
 import {BABEL_PLUGIN_ROOT, PROJECT_ROOT} from './constants';
-import {TestFilter, getFixtures} from './fixture-utils';
+import {TestFilter, TestFixture, getFixtures} from './fixture-utils';
 import {TestResult, TestResults, report, update} from './reporter';
 import {
   RunnerAction,
@@ -58,6 +58,14 @@ type MinimizeOptions = {
 type CompileOptions = {
   path: string;
   debug: boolean;
+};
+
+type ParityOptions = {
+  pattern?: string;
+  verbose: boolean;
+  output?: string;
+  evaluator: boolean;
+  failOnMismatch: boolean;
 };
 
 async function runTestCommand(opts: TestOptions): Promise<void> {
@@ -338,6 +346,151 @@ async function runCompileCommand(opts: CompileOptions): Promise<void> {
   }
 }
 
+type ParityMismatchKind = 'output_mismatch' | 'unexpected_error_mismatch';
+
+type ParityMismatch = {
+  fixture: string;
+  kind: ParityMismatchKind;
+  babelUnexpectedError: string | null;
+  rustUnexpectedError: string | null;
+  outputPath: string;
+};
+
+async function transformFixtureWithEnv(
+  fixture: TestFixture,
+  compilerVersion: number,
+  includeEvaluator: boolean,
+  env: {
+    compilerEngine: 'babel' | 'rust';
+    strictRust: boolean;
+  },
+): Promise<TestResult> {
+  const previousCompilerEngine = process.env['REACT_COMPILER_ENGINE'];
+  const previousRustStrict = process.env['REACT_COMPILER_RUST_STRICT'];
+
+  if (env.compilerEngine === 'rust') {
+    process.env['REACT_COMPILER_ENGINE'] = 'rust';
+  } else {
+    delete process.env['REACT_COMPILER_ENGINE'];
+  }
+  if (env.strictRust) {
+    process.env['REACT_COMPILER_RUST_STRICT'] = '1';
+  } else {
+    delete process.env['REACT_COMPILER_RUST_STRICT'];
+  }
+
+  try {
+    return await runnerWorker.transformFixture(
+      fixture,
+      compilerVersion,
+      false,
+      includeEvaluator,
+    );
+  } finally {
+    if (previousCompilerEngine == null) {
+      delete process.env['REACT_COMPILER_ENGINE'];
+    } else {
+      process.env['REACT_COMPILER_ENGINE'] = previousCompilerEngine;
+    }
+    if (previousRustStrict == null) {
+      delete process.env['REACT_COMPILER_RUST_STRICT'];
+    } else {
+      process.env['REACT_COMPILER_RUST_STRICT'] = previousRustStrict;
+    }
+  }
+}
+
+async function runParityCommand(opts: ParityOptions): Promise<void> {
+  execSync('yarn build', {cwd: BABEL_PLUGIN_ROOT, stdio: 'inherit'});
+
+  let testFilter: TestFilter | null = null;
+  if (opts.pattern) {
+    testFilter = {
+      paths: [opts.pattern],
+    };
+  }
+
+  const fixtures = await getFixtures(testFilter);
+  const mismatches: Array<ParityMismatch> = [];
+
+  for (const [fixtureName, fixture] of fixtures) {
+    const babelResult = await transformFixtureWithEnv(
+      fixture,
+      0,
+      opts.evaluator,
+      {
+        compilerEngine: 'babel',
+        strictRust: false,
+      },
+    );
+    const strictRustResult = await transformFixtureWithEnv(
+      fixture,
+      0,
+      opts.evaluator,
+      {
+        compilerEngine: 'rust',
+        strictRust: true,
+      },
+    );
+
+    const hasUnexpectedErrorMismatch =
+      babelResult.unexpectedError !== strictRustResult.unexpectedError;
+    const hasOutputMismatch = babelResult.actual !== strictRustResult.actual;
+    if (!hasUnexpectedErrorMismatch && !hasOutputMismatch) {
+      continue;
+    }
+
+    const mismatch: ParityMismatch = {
+      fixture: fixtureName,
+      kind: hasUnexpectedErrorMismatch
+        ? 'unexpected_error_mismatch'
+        : 'output_mismatch',
+      babelUnexpectedError: babelResult.unexpectedError,
+      rustUnexpectedError: strictRustResult.unexpectedError,
+      outputPath: strictRustResult.outputPath,
+    };
+    mismatches.push(mismatch);
+
+    if (opts.verbose) {
+      const message = `${mismatch.fixture}: ${mismatch.kind}`;
+      console.log(chalk.yellow(message));
+      if (hasUnexpectedErrorMismatch) {
+        console.log(
+          chalk.red(`  babel error: ${mismatch.babelUnexpectedError ?? '<none>'}`),
+        );
+        console.log(
+          chalk.red(`  rust error: ${mismatch.rustUnexpectedError ?? '<none>'}`),
+        );
+      }
+    }
+  }
+
+  const output = {
+    generatedAt: new Date().toISOString(),
+    fixtureCount: fixtures.size,
+    mismatchCount: mismatches.length,
+    evaluatorEnabled: opts.evaluator,
+    pattern: opts.pattern ?? null,
+    mismatches,
+  };
+
+  if (opts.output != null) {
+    const outputPath = path.isAbsolute(opts.output)
+      ? opts.output
+      : path.resolve(PROJECT_ROOT, opts.output);
+    fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+    fs.writeFileSync(outputPath, JSON.stringify(output, null, 2) + '\n', 'utf8');
+    console.log(`Wrote parity report to ${outputPath}`);
+  }
+
+  const paritySummary =
+    mismatches.length === 0
+      ? `Parity success: ${fixtures.size} fixtures matched.`
+      : `Parity mismatches: ${mismatches.length}/${fixtures.size} fixtures differ.`;
+  console.log(paritySummary);
+  process.exit(mismatches.length === 0 || !opts.failOnMismatch ? 0 : 1);
+}
+
 yargs(hideBin(process.argv))
   .command(
     ['test', '$0'],
@@ -425,6 +578,44 @@ yargs(hideBin(process.argv))
     },
     async argv => {
       await runCompileCommand(argv as unknown as CompileOptions);
+    },
+  )
+  .command(
+    'parity',
+    'Compare Babel vs strict Rust fixture outputs',
+    yargs => {
+      return yargs
+        .string('pattern')
+        .alias('p', 'pattern')
+        .describe(
+          'pattern',
+          'Optional glob pattern to filter fixtures (e.g., "while-*")',
+        )
+        .boolean('verbose')
+        .alias('v', 'verbose')
+        .describe('verbose', 'Print each mismatching fixture')
+        .default('verbose', false)
+        .string('output')
+        .alias('o', 'output')
+        .describe(
+          'output',
+          'Optional path to write machine-readable JSON parity report',
+        )
+        .boolean('evaluator')
+        .describe(
+          'evaluator',
+          'Include evaluator output when comparing parity (default true)',
+        )
+        .default('evaluator', true)
+        .boolean('fail-on-mismatch')
+        .describe(
+          'fail-on-mismatch',
+          'Exit with non-zero status when mismatches are found (default true)',
+        )
+        .default('fail-on-mismatch', true);
+    },
+    async argv => {
+      await runParityCommand(argv as unknown as ParityOptions);
     },
   )
   .help('help')
