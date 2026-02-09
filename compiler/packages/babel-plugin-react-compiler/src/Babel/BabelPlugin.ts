@@ -71,7 +71,9 @@ function parseProgramFromRustOutput(
 function maybeRunRustProgramCompiler(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
-): void {
+  logger: Logger | null,
+  filename: string | null,
+): number {
   const sourceCode = pass.file.code ?? '';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
   const rustRequest: RustCompileRequest = {
@@ -85,11 +87,16 @@ function maybeRunRustProgramCompiler(
   const rustResult = runRustCompilerCli(rustRequest);
 
   if (rustResult.status === 'error') {
+    logger?.logEvent(filename, {
+      kind: 'PipelineError',
+      fnLoc: null,
+      data: `[RustCompiler] ${rustResult.message}`,
+    });
     throw new Error(`[RustCompiler] ${rustResult.message}`);
   }
 
   if (rustResult.code === sourceCode) {
-    return;
+    return rustResult.detected_react_functions;
   }
 
   const parsed = parseProgramFromRustOutput(
@@ -102,6 +109,7 @@ function maybeRunRustProgramCompiler(
   prog.node.directives = parsed.program.directives;
   prog.node.sourceType = parsed.program.sourceType;
   prog.node.interpreter = parsed.program.interpreter ?? null;
+  return rustResult.detected_react_functions;
 }
 
 /*
@@ -152,7 +160,24 @@ export default function BabelPluginReactCompiler(
               };
             }
             if (opts.compilerEngine === 'rust') {
-              maybeRunRustProgramCompiler(prog, pass);
+              const detectedReactFunctions = maybeRunRustProgramCompiler(
+                prog,
+                pass,
+                opts.logger,
+                pass.filename ?? null,
+              );
+              for (let ii = 0; ii < detectedReactFunctions; ii++) {
+                opts.logger?.logEvent(pass.filename ?? null, {
+                  kind: 'CompileSuccess',
+                  fnLoc: null,
+                  fnName: null,
+                  memoSlots: 0,
+                  memoBlocks: 0,
+                  memoValues: 0,
+                  prunedMemoBlocks: 0,
+                  prunedMemoValues: 0,
+                });
+              }
               markCompilationEnd(filename);
               return;
             }
