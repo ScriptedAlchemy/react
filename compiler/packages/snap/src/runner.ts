@@ -284,8 +284,16 @@ async function runCompileCommand(opts: CompileOptions): Promise<void> {
 
   // Build plugin options
   const config = parseConfigPragmaForTests(firstLine, {compilationMode: 'all'});
+  const compilerEngine = process.env['REACT_COMPILER_ENGINE'];
+  const engineConfig =
+    compilerEngine === 'rust'
+      ? ({
+          compilerEngine: 'rust',
+        } as const)
+      : {};
   const options = {
     ...config,
+    ...engineConfig,
     environment: {
       ...config.environment,
     },

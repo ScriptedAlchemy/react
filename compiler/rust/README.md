@@ -17,6 +17,12 @@ yarn rust:test
 yarn rust:fmt
 ```
 
+To execute compiler fixture runs through the Rust engine path:
+
+```sh
+REACT_COMPILER_ENGINE=rust yarn snap -p simple
+```
+
 ## Notes
 
 - The workspace pins the Rust toolchain to `stable` via `rust-toolchain.toml`.

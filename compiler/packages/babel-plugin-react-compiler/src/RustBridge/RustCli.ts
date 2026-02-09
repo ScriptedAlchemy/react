@@ -22,12 +22,24 @@ export type RustCompileResponse =
 
 function resolveRustManifestPath(): string {
   const explicitPath = process.env['REACT_COMPILER_RUST_MANIFEST'];
-  const candidates = [
-    explicitPath,
-    path.resolve(process.cwd(), 'rust', 'Cargo.toml'),
-    path.resolve(process.cwd(), 'compiler', 'rust', 'Cargo.toml'),
-    path.resolve(__dirname, '../../../../rust/Cargo.toml'),
-  ].filter((candidate): candidate is string => candidate != null);
+  const candidates = new Set<string>();
+  if (explicitPath != null) {
+    candidates.add(explicitPath);
+  }
+
+  let currentDir = process.cwd();
+  for (let depth = 0; depth < 8; depth++) {
+    candidates.add(path.resolve(currentDir, 'rust', 'Cargo.toml'));
+    candidates.add(path.resolve(currentDir, 'compiler', 'rust', 'Cargo.toml'));
+    const nextDir = path.dirname(currentDir);
+    if (nextDir === currentDir) {
+      break;
+    }
+    currentDir = nextDir;
+  }
+
+  candidates.add(path.resolve(__dirname, '../../../../rust/Cargo.toml'));
+  candidates.add(path.resolve(__dirname, '../../../rust/Cargo.toml'));
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
