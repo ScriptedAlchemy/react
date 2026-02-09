@@ -17,7 +17,12 @@ export type RustCompileRequest = {
 };
 
 export type RustCompileResponse =
-  | {status: 'ok'; code: string; statement_count: number}
+  | {
+      status: 'ok';
+      code: string;
+      statement_count: number;
+      detected_react_functions: number;
+    }
   | {status: 'error'; message: string};
 
 function resolveRustManifestPath(): string {

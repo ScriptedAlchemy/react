@@ -1,5 +1,5 @@
 use swc_common::{errors::Handler, sync::Lrc, FileName, SourceMap};
-use swc_ecma_ast::EsVersion;
+use swc_ecma_ast::{Decl, DefaultDecl, EsVersion, Module, ModuleDecl, ModuleItem, Script, Stmt};
 use swc_ecma_parser::{lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax};
 use thiserror::Error;
 
@@ -30,6 +30,7 @@ impl Default for CompilerOptions {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseMetadata {
     pub statement_count: usize,
+    pub detected_react_functions: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,10 +85,13 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     let lexer = Lexer::new(syntax, EsVersion::EsNext, StringInput::from(&*fm), None);
 
     let mut parser = Parser::new_from(lexer);
-    let statement_count = if options.is_module {
+    let metadata = if options.is_module {
         parser
             .parse_module()
-            .map(|module| module.body.len())
+            .map(|module| ParseMetadata {
+                statement_count: module.body.len(),
+                detected_react_functions: count_react_functions_in_module(&module),
+            })
             .map_err(|err| {
                 let message = err.kind().msg().to_string();
                 err.into_diagnostic(&handler).emit();
@@ -96,7 +100,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     } else {
         parser
             .parse_script()
-            .map(|script| script.body.len())
+            .map(|script| ParseMetadata {
+                statement_count: script.body.len(),
+                detected_react_functions: count_react_functions_in_script(&script),
+            })
             .map_err(|err| {
                 let message = err.kind().msg().to_string();
                 err.into_diagnostic(&handler).emit();
@@ -106,8 +113,73 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
 
     Ok(CompileOutput {
         code: source.to_string(),
-        metadata: ParseMetadata { statement_count },
+        metadata,
     })
+}
+
+fn is_component_name(name: &str) -> bool {
+    name.chars()
+        .next()
+        .map(|ch| ch.is_ascii_uppercase())
+        .unwrap_or(false)
+}
+
+fn is_hook_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    if chars.next() != Some('u') || chars.next() != Some('s') || chars.next() != Some('e') {
+        return false;
+    }
+
+    chars
+        .next()
+        .map(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit())
+        .unwrap_or(false)
+}
+
+fn is_react_function_name(name: &str) -> bool {
+    is_component_name(name) || is_hook_name(name)
+}
+
+fn count_react_functions_in_decl(decl: &Decl) -> usize {
+    match decl {
+        Decl::Fn(fn_decl) => usize::from(is_react_function_name(fn_decl.ident.sym.as_ref())),
+        _ => 0,
+    }
+}
+
+fn count_react_functions_in_stmt(stmt: &Stmt) -> usize {
+    match stmt {
+        Stmt::Decl(decl) => count_react_functions_in_decl(decl),
+        _ => 0,
+    }
+}
+
+fn count_react_functions_in_module(module: &Module) -> usize {
+    module
+        .body
+        .iter()
+        .map(|item| match item {
+            ModuleItem::Stmt(stmt) => count_react_functions_in_stmt(stmt),
+            ModuleItem::ModuleDecl(module_decl) => match module_decl {
+                ModuleDecl::ExportDecl(export_decl) => {
+                    count_react_functions_in_decl(&export_decl.decl)
+                }
+                ModuleDecl::ExportDefaultDecl(default_decl) => match &default_decl.decl {
+                    DefaultDecl::Fn(fn_expr) => fn_expr
+                        .ident
+                        .as_ref()
+                        .map(|ident| usize::from(is_react_function_name(ident.sym.as_ref())))
+                        .unwrap_or(0),
+                    _ => 0,
+                },
+                _ => 0,
+            },
+        })
+        .sum()
+}
+
+fn count_react_functions_in_script(script: &Script) -> usize {
+    script.body.iter().map(count_react_functions_in_stmt).sum()
 }
 
 #[cfg(test)]
@@ -127,6 +199,7 @@ mod tests {
         .expect("expected valid JavaScript to parse");
 
         assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.detected_react_functions, 1);
     }
 
     #[test]
@@ -142,6 +215,23 @@ mod tests {
         .expect("expected valid TypeScript to parse");
 
         assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.detected_react_functions, 0);
+    }
+
+    #[test]
+    fn detects_hook_by_name() {
+        let output = compile(
+            "function useValue() { return 1; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+            },
+        )
+        .expect("expected valid source to parse");
+
+        assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.detected_react_functions, 1);
     }
 
     #[test]

@@ -27,6 +27,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.statement_count).toBe(1);
+      expect(result.detected_react_functions).toBe(0);
       expect(result.code).toContain('export const value = 1;');
     }
   });

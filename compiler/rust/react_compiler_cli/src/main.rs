@@ -17,6 +17,7 @@ enum CompileResponse {
     Ok {
         code: String,
         statement_count: usize,
+        detected_react_functions: usize,
     },
     #[serde(rename = "error")]
     Error { message: String },
@@ -49,6 +50,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
         Ok(output) => CompileResponse::Ok {
             code: output.code,
             statement_count: output.metadata.statement_count,
+            detected_react_functions: output.metadata.detected_react_functions,
         },
         Err(error) => CompileResponse::Error {
             message: error.to_string(),
@@ -115,8 +117,13 @@ mod tests {
 
         match response {
             CompileResponse::Ok {
-                statement_count, ..
-            } => assert_eq!(statement_count, 1),
+                statement_count,
+                detected_react_functions,
+                ..
+            } => {
+                assert_eq!(statement_count, 1);
+                assert_eq!(detected_react_functions, 0);
+            }
             CompileResponse::Error { message } => {
                 panic!("expected successful compile response, got error: {message}")
             }
