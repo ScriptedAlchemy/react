@@ -73,7 +73,19 @@ function maybeRunRustProgramCompiler(
   pass: BabelCore.PluginPass,
   logger: Logger | null,
   filename: string | null,
-): number {
+): {
+  detectedReactFunctions: number;
+  reactFunctions: Array<{
+    name: string;
+    kind: 'Component' | 'Hook';
+    loc: null | {
+      start_line: number;
+      start_column: number;
+      end_line: number;
+      end_column: number;
+    };
+  }>;
+} {
   const sourceCode = pass.file.code ?? '';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
   const rustRequest: RustCompileRequest = {
@@ -96,7 +108,10 @@ function maybeRunRustProgramCompiler(
   }
 
   if (rustResult.code === sourceCode) {
-    return rustResult.detected_react_functions;
+    return {
+      detectedReactFunctions: rustResult.detected_react_functions,
+      reactFunctions: rustResult.react_functions,
+    };
   }
 
   const parsed = parseProgramFromRustOutput(
@@ -109,7 +124,10 @@ function maybeRunRustProgramCompiler(
   prog.node.directives = parsed.program.directives;
   prog.node.sourceType = parsed.program.sourceType;
   prog.node.interpreter = parsed.program.interpreter ?? null;
-  return rustResult.detected_react_functions;
+  return {
+    detectedReactFunctions: rustResult.detected_react_functions,
+    reactFunctions: rustResult.react_functions,
+  };
 }
 
 /*
@@ -160,13 +178,45 @@ export default function BabelPluginReactCompiler(
               };
             }
             if (opts.compilerEngine === 'rust') {
-              const detectedReactFunctions = maybeRunRustProgramCompiler(
+              const rustCompilation = maybeRunRustProgramCompiler(
                 prog,
                 pass,
                 opts.logger,
                 pass.filename ?? null,
               );
-              for (let ii = 0; ii < detectedReactFunctions; ii++) {
+              for (const reactFunction of rustCompilation.reactFunctions) {
+                const functionLocation =
+                  reactFunction.loc == null
+                    ? null
+                    : {
+                        filename: pass.filename ?? 'unknown',
+                        identifierName: reactFunction.name,
+                        start: {
+                          line: reactFunction.loc.start_line,
+                          column: reactFunction.loc.start_column,
+                          index: 0,
+                        },
+                        end: {
+                          line: reactFunction.loc.end_line,
+                          column: reactFunction.loc.end_column,
+                          index: 0,
+                        },
+                      };
+                opts.logger?.logEvent(pass.filename ?? null, {
+                  kind: 'CompileSuccess',
+                  fnLoc: functionLocation,
+                  fnName: reactFunction.name,
+                  memoSlots: 0,
+                  memoBlocks: 0,
+                  memoValues: 0,
+                  prunedMemoBlocks: 0,
+                  prunedMemoValues: 0,
+                });
+              }
+              const remainder =
+                rustCompilation.detectedReactFunctions -
+                rustCompilation.reactFunctions.length;
+              for (let ii = 0; ii < remainder; ii++) {
                 opts.logger?.logEvent(pass.filename ?? null, {
                   kind: 'CompileSuccess',
                   fnLoc: null,

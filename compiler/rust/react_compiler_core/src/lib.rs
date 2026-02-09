@@ -1,5 +1,7 @@
-use swc_common::{errors::Handler, sync::Lrc, FileName, SourceMap};
-use swc_ecma_ast::{Decl, DefaultDecl, EsVersion, Module, ModuleDecl, ModuleItem, Script, Stmt};
+use swc_common::{errors::Handler, sync::Lrc, FileName, SourceMap, Span};
+use swc_ecma_ast::{
+    Decl, DefaultDecl, EsVersion, Expr, Module, ModuleDecl, ModuleItem, Pat, Script, Stmt,
+};
 use swc_ecma_codegen::{text_writer::JsWriter, Config as CodegenConfig, Emitter};
 use swc_ecma_parser::{lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax};
 use thiserror::Error;
@@ -32,6 +34,28 @@ impl Default for CompilerOptions {
 pub struct ParseMetadata {
     pub statement_count: usize,
     pub detected_react_functions: usize,
+    pub react_functions: Vec<ReactFunction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReactFunctionKind {
+    Component,
+    Hook,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceLocation {
+    pub start_line: usize,
+    pub start_column: usize,
+    pub end_line: usize,
+    pub end_column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReactFunction {
+    pub name: String,
+    pub kind: ReactFunctionKind,
+    pub loc: Option<SourceLocation>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,9 +118,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             err.into_diagnostic(&handler).emit();
             CompilerError::ParseFailure { message }
         })?;
+        let react_functions = collect_react_functions_in_module(&cm, &module);
         let metadata = ParseMetadata {
             statement_count: module.body.len(),
-            detected_react_functions: count_react_functions_in_module(&module),
+            detected_react_functions: react_functions.len(),
+            react_functions,
         };
         (metadata, emit_module(&cm, &module)?)
     } else {
@@ -105,9 +131,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             err.into_diagnostic(&handler).emit();
             CompilerError::ParseFailure { message }
         })?;
+        let react_functions = collect_react_functions_in_script(&cm, &script);
         let metadata = ParseMetadata {
             statement_count: script.body.len(),
-            detected_react_functions: count_react_functions_in_script(&script),
+            detected_react_functions: react_functions.len(),
+            react_functions,
         };
         (metadata, emit_script(&cm, &script)?)
     };
@@ -176,50 +204,111 @@ fn is_hook_name(name: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn is_react_function_name(name: &str) -> bool {
-    is_component_name(name) || is_hook_name(name)
+fn react_function_kind(name: &str) -> Option<ReactFunctionKind> {
+    if is_component_name(name) {
+        Some(ReactFunctionKind::Component)
+    } else if is_hook_name(name) {
+        Some(ReactFunctionKind::Hook)
+    } else {
+        None
+    }
 }
 
-fn count_react_functions_in_decl(decl: &Decl) -> usize {
+fn span_to_location(cm: &Lrc<SourceMap>, span: Span) -> Option<SourceLocation> {
+    if span.is_dummy() {
+        return None;
+    }
+    let start = cm.lookup_char_pos(span.lo());
+    let end = cm.lookup_char_pos(span.hi());
+    Some(SourceLocation {
+        start_line: start.line,
+        start_column: start.col_display,
+        end_line: end.line,
+        end_column: end.col_display,
+    })
+}
+
+fn collect_react_functions_in_decl(cm: &Lrc<SourceMap>, decl: &Decl) -> Vec<ReactFunction> {
     match decl {
-        Decl::Fn(fn_decl) => usize::from(is_react_function_name(fn_decl.ident.sym.as_ref())),
-        _ => 0,
+        Decl::Fn(fn_decl) => react_function_kind(fn_decl.ident.sym.as_ref())
+            .map(|kind| ReactFunction {
+                name: fn_decl.ident.sym.to_string(),
+                kind,
+                loc: span_to_location(cm, fn_decl.ident.span),
+            })
+            .into_iter()
+            .collect(),
+        Decl::Var(var_decl) => var_decl
+            .decls
+            .iter()
+            .filter_map(|declarator| {
+                let Pat::Ident(binding) = &declarator.name else {
+                    return None;
+                };
+                let is_function_value = declarator
+                    .init
+                    .as_ref()
+                    .map(|expr| matches!(&**expr, Expr::Fn(_) | Expr::Arrow(_)))
+                    .unwrap_or(false);
+                if !is_function_value {
+                    return None;
+                }
+
+                react_function_kind(binding.id.sym.as_ref()).map(|kind| ReactFunction {
+                    name: binding.id.sym.to_string(),
+                    kind,
+                    loc: span_to_location(cm, binding.id.span),
+                })
+            })
+            .collect(),
+        _ => Vec::new(),
     }
 }
 
-fn count_react_functions_in_stmt(stmt: &Stmt) -> usize {
+fn collect_react_functions_in_stmt(cm: &Lrc<SourceMap>, stmt: &Stmt) -> Vec<ReactFunction> {
     match stmt {
-        Stmt::Decl(decl) => count_react_functions_in_decl(decl),
-        _ => 0,
+        Stmt::Decl(decl) => collect_react_functions_in_decl(cm, decl),
+        _ => Vec::new(),
     }
 }
 
-fn count_react_functions_in_module(module: &Module) -> usize {
+fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Vec<ReactFunction> {
     module
         .body
         .iter()
-        .map(|item| match item {
-            ModuleItem::Stmt(stmt) => count_react_functions_in_stmt(stmt),
+        .flat_map(|item| match item {
+            ModuleItem::Stmt(stmt) => collect_react_functions_in_stmt(cm, stmt),
             ModuleItem::ModuleDecl(module_decl) => match module_decl {
                 ModuleDecl::ExportDecl(export_decl) => {
-                    count_react_functions_in_decl(&export_decl.decl)
+                    collect_react_functions_in_decl(cm, &export_decl.decl)
                 }
                 ModuleDecl::ExportDefaultDecl(default_decl) => match &default_decl.decl {
                     DefaultDecl::Fn(fn_expr) => fn_expr
                         .ident
                         .as_ref()
-                        .map(|ident| usize::from(is_react_function_name(ident.sym.as_ref())))
-                        .unwrap_or(0),
-                    _ => 0,
+                        .and_then(|ident| {
+                            react_function_kind(ident.sym.as_ref()).map(|kind| ReactFunction {
+                                name: ident.sym.to_string(),
+                                kind,
+                                loc: span_to_location(cm, ident.span),
+                            })
+                        })
+                        .into_iter()
+                        .collect(),
+                    _ => Vec::new(),
                 },
-                _ => 0,
+                _ => Vec::new(),
             },
         })
-        .sum()
+        .collect()
 }
 
-fn count_react_functions_in_script(script: &Script) -> usize {
-    script.body.iter().map(count_react_functions_in_stmt).sum()
+fn collect_react_functions_in_script(cm: &Lrc<SourceMap>, script: &Script) -> Vec<ReactFunction> {
+    script
+        .body
+        .iter()
+        .flat_map(|stmt| collect_react_functions_in_stmt(cm, stmt))
+        .collect()
 }
 
 #[cfg(test)]
@@ -240,6 +329,12 @@ mod tests {
 
         assert_eq!(output.metadata.statement_count, 1);
         assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions.len(), 1);
+        assert_eq!(output.metadata.react_functions[0].name, "Component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
     }
 
     #[test]
@@ -256,6 +351,7 @@ mod tests {
 
         assert_eq!(output.metadata.statement_count, 1);
         assert_eq!(output.metadata.detected_react_functions, 0);
+        assert!(output.metadata.react_functions.is_empty());
     }
 
     #[test]
@@ -272,6 +368,28 @@ mod tests {
 
         assert_eq!(output.metadata.statement_count, 1);
         assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "useValue");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Hook
+        );
+    }
+
+    #[test]
+    fn detects_react_function_from_variable_declarator() {
+        let output = compile(
+            "const Component = () => <div />;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+            },
+        )
+        .expect("expected valid source to parse");
+
+        assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "Component");
     }
 
     #[test]

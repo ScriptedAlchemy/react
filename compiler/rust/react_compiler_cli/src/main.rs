@@ -1,4 +1,6 @@
-use react_compiler_core::{compile, CompilerOptions, InputDialect};
+use react_compiler_core::{
+    compile, CompilerOptions, InputDialect, ReactFunction, ReactFunctionKind, SourceLocation,
+};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
@@ -18,9 +20,25 @@ enum CompileResponse {
         code: String,
         statement_count: usize,
         detected_react_functions: usize,
+        react_functions: Vec<SerializedReactFunction>,
     },
     #[serde(rename = "error")]
     Error { message: String },
+}
+
+#[derive(Debug, Serialize)]
+struct SerializedReactFunction {
+    name: String,
+    kind: String,
+    loc: Option<SerializedSourceLocation>,
+}
+
+#[derive(Debug, Serialize)]
+struct SerializedSourceLocation {
+    start_line: usize,
+    start_column: usize,
+    end_line: usize,
+    end_column: usize,
 }
 
 fn parse_dialect(dialect: Option<&str>) -> Result<InputDialect, String> {
@@ -51,10 +69,40 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
             code: output.code,
             statement_count: output.metadata.statement_count,
             detected_react_functions: output.metadata.detected_react_functions,
+            react_functions: output
+                .metadata
+                .react_functions
+                .iter()
+                .map(serialize_react_function)
+                .collect(),
         },
         Err(error) => CompileResponse::Error {
             message: error.to_string(),
         },
+    }
+}
+
+fn serialize_react_function(function: &ReactFunction) -> SerializedReactFunction {
+    SerializedReactFunction {
+        name: function.name.clone(),
+        kind: serialize_react_function_kind(function.kind.clone()).to_string(),
+        loc: function.loc.as_ref().map(serialize_source_location),
+    }
+}
+
+fn serialize_react_function_kind(kind: ReactFunctionKind) -> &'static str {
+    match kind {
+        ReactFunctionKind::Component => "Component",
+        ReactFunctionKind::Hook => "Hook",
+    }
+}
+
+fn serialize_source_location(location: &SourceLocation) -> SerializedSourceLocation {
+    SerializedSourceLocation {
+        start_line: location.start_line,
+        start_column: location.start_column,
+        end_line: location.end_line,
+        end_column: location.end_column,
     }
 }
 
@@ -119,10 +167,12 @@ mod tests {
             CompileResponse::Ok {
                 statement_count,
                 detected_react_functions,
+                react_functions,
                 ..
             } => {
                 assert_eq!(statement_count, 1);
                 assert_eq!(detected_react_functions, 0);
+                assert!(react_functions.is_empty());
             }
             CompileResponse::Error { message } => {
                 panic!("expected successful compile response, got error: {message}")

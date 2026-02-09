@@ -22,6 +22,16 @@ export type RustCompileResponse =
       code: string;
       statement_count: number;
       detected_react_functions: number;
+      react_functions: Array<{
+        name: string;
+        kind: 'Component' | 'Hook';
+        loc: null | {
+          start_line: number;
+          start_column: number;
+          end_line: number;
+          end_column: number;
+        };
+      }>;
     }
   | {status: 'error'; message: string};
 

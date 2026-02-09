@@ -28,7 +28,26 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'ok') {
       expect(result.statement_count).toBe(1);
       expect(result.detected_react_functions).toBe(0);
+      expect(result.react_functions).toEqual([]);
       expect(result.code).toContain('export const value = 1;');
+    }
+  });
+
+  it('returns detected React function metadata from Rust frontend', () => {
+    const result = runRustCompilerCli({
+      source: 'function useValue() { return 1; }',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.react_functions).toHaveLength(1);
+      expect(result.react_functions[0]?.name).toBe('useValue');
+      expect(result.react_functions[0]?.kind).toBe('Hook');
+      expect(result.react_functions[0]?.loc).not.toBeNull();
     }
   });
 
