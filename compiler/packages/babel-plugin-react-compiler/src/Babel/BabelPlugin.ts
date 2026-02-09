@@ -6,6 +6,9 @@
  */
 
 import type * as BabelCore from '@babel/core';
+import * as BabelParser from '@babel/parser';
+import {NodePath} from '@babel/traverse';
+import * as t from '@babel/types';
 import {compileProgram, Logger, parsePluginOptions} from '../Entrypoint';
 import {
   injectReanimatedFlag,
@@ -13,9 +16,93 @@ import {
 } from '../Entrypoint/Reanimated';
 import validateNoUntransformedReferences from '../Entrypoint/ValidateNoUntransformedReferences';
 import {CompilerError} from '..';
+import {
+  runRustCompilerCli,
+  type RustCompileRequest,
+} from '../RustBridge/RustCli';
 
 const ENABLE_REACT_COMPILER_TIMINGS =
   process.env['ENABLE_REACT_COMPILER_TIMINGS'] === '1';
+
+function markCompilationEnd(filename: string): void {
+  if (ENABLE_REACT_COMPILER_TIMINGS === true) {
+    performance.mark(`${filename}:end`, {
+      detail: 'BabelPlugin:Program:end',
+    });
+  }
+}
+
+function detectRustDialect(
+  filename: string | null,
+  sourceCode: string | null,
+): 'javascript' | 'typescript' | 'flow' {
+  if (filename != null && /\.(cts|mts|tsx|ts)$/i.test(filename)) {
+    return 'typescript';
+  }
+  if (sourceCode != null && sourceCode.indexOf('@flow') !== -1) {
+    return 'flow';
+  }
+  return 'javascript';
+}
+
+function parseProgramFromRustOutput(
+  transformedCode: string,
+  filename: string | null,
+  dialect: 'javascript' | 'typescript' | 'flow',
+): BabelParser.ParseResult<t.File> {
+  const plugins: BabelParser.ParserPlugin[] = ['jsx'];
+  if (dialect === 'typescript') {
+    plugins.unshift('typescript');
+  } else if (dialect === 'flow') {
+    plugins.unshift('flow');
+  }
+
+  const parserOptions: BabelParser.ParserOptions = {
+    sourceType: 'unambiguous',
+    plugins,
+  };
+  if (filename != null) {
+    parserOptions.sourceFilename = filename;
+  }
+
+  return BabelParser.parse(transformedCode, parserOptions);
+}
+
+function maybeRunRustProgramCompiler(
+  prog: NodePath<t.Program>,
+  pass: BabelCore.PluginPass,
+): void {
+  const sourceCode = pass.file.code ?? '';
+  const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
+  const rustRequest: RustCompileRequest = {
+    source: sourceCode,
+    dialect,
+    is_module: prog.node.sourceType === 'module',
+  };
+  if (pass.filename != null) {
+    rustRequest.filename = pass.filename;
+  }
+  const rustResult = runRustCompilerCli(rustRequest);
+
+  if (rustResult.status === 'error') {
+    throw new Error(`[RustCompiler] ${rustResult.message}`);
+  }
+
+  if (rustResult.code === sourceCode) {
+    return;
+  }
+
+  const parsed = parseProgramFromRustOutput(
+    rustResult.code,
+    pass.filename ?? null,
+    dialect,
+  );
+
+  prog.node.body = parsed.program.body;
+  prog.node.directives = parsed.program.directives;
+  prog.node.sourceType = parsed.program.sourceType;
+  prog.node.interpreter = parsed.program.interpreter ?? null;
+}
 
 /*
  * The React Forget Babel Plugin
@@ -64,6 +151,11 @@ export default function BabelPluginReactCompiler(
                 },
               };
             }
+            if (opts.compilerEngine === 'rust') {
+              maybeRunRustProgramCompiler(prog, pass);
+              markCompilationEnd(filename);
+              return;
+            }
             const result = compileProgram(prog, {
               opts,
               filename: pass.filename ?? null,
@@ -77,11 +169,7 @@ export default function BabelPluginReactCompiler(
               opts.environment,
               result,
             );
-            if (ENABLE_REACT_COMPILER_TIMINGS === true) {
-              performance.mark(`${filename}:end`, {
-                detail: 'BabelPlugin:Program:end',
-              });
-            }
+            markCompilationEnd(filename);
           } catch (e) {
             if (e instanceof CompilerError) {
               throw e.withPrintedMessage(pass.file.code, {eslint: false});

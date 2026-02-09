@@ -177,6 +177,11 @@ export type PluginOptions = Partial<{
    * a userspace approximation of runtime APIs.
    */
   target: CompilerReactTarget;
+
+  /**
+   * Selects which compiler backend implementation is used.
+   */
+  compilerEngine: CompilerEngine;
 }>;
 
 export type ParsedPluginOptions = Required<
@@ -235,6 +240,9 @@ const CompilerOutputModeSchema = z.enum([
 ]);
 
 export type CompilerOutputMode = z.infer<typeof CompilerOutputModeSchema>;
+
+const CompilerEngineSchema = z.enum(['babel', 'rust']);
+export type CompilerEngine = z.infer<typeof CompilerEngineSchema>;
 
 /**
  * Represents 'events' that may occur during compilation. Events are only
@@ -328,6 +336,7 @@ export const defaultOptions: ParsedPluginOptions = {
   enableReanimatedCheck: true,
   customOptOutDirectives: null,
   target: '19',
+  compilerEngine: 'babel',
 };
 
 export function parsePluginOptions(obj: unknown): ParsedPluginOptions {

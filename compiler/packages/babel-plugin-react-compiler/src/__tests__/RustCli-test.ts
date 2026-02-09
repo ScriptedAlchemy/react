@@ -6,8 +6,16 @@
  */
 
 import {runRustCompilerCli} from '../RustBridge/RustCli';
+import {runBabelPluginReactCompiler} from '../Babel/RunReactCompilerBabelPlugin';
+import {spawnSync} from 'child_process';
 
-describe('Rust compiler CLI bridge', () => {
+const hasCargo = spawnSync('cargo', ['--version'], {
+  encoding: 'utf-8',
+}).status === 0;
+
+const describeWithCargo = hasCargo ? describe : describe.skip;
+
+describeWithCargo('Rust compiler CLI bridge', () => {
   it('parses JavaScript input through the Rust frontend', () => {
     const result = runRustCompilerCli({
       source: 'export const value = 1;',
@@ -21,5 +29,20 @@ describe('Rust compiler CLI bridge', () => {
       expect(result.statement_count).toBe(1);
       expect(result.code).toContain('export const value = 1;');
     }
+  });
+
+  it('can be selected as compiler engine in Babel plugin options', () => {
+    const result = runBabelPluginReactCompiler(
+      'export function Component() { return <div />; }',
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+      },
+    );
+
+    expect(result.code).toContain('function Component');
+    expect(result.code).not.toContain('react/compiler-runtime');
   });
 });
