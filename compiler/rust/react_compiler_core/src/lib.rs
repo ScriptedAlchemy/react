@@ -75,7 +75,7 @@ pub struct CompileOutput {
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CompilerError {
     #[error("Flow syntax is not supported by the Rust frontend yet")]
-    UnsupportedFlowSyntax,
+    UnsupportedFlowSyntax { location: Option<SourceLocation> },
     #[error("Failed to parse input: {message}")]
     ParseFailure {
         message: String,
@@ -88,7 +88,7 @@ pub enum CompilerError {
 impl CompilerError {
     pub fn code(&self) -> &'static str {
         match self {
-            CompilerError::UnsupportedFlowSyntax => "unsupported_flow_syntax",
+            CompilerError::UnsupportedFlowSyntax { .. } => "unsupported_flow_syntax",
             CompilerError::ParseFailure { .. } => "parse_failure",
             CompilerError::CodegenFailure { .. } => "codegen_failure",
         }
@@ -96,7 +96,7 @@ impl CompilerError {
 
     pub fn category(&self) -> &'static str {
         match self {
-            CompilerError::UnsupportedFlowSyntax => "syntax",
+            CompilerError::UnsupportedFlowSyntax { .. } => "syntax",
             CompilerError::ParseFailure { .. } => "syntax",
             CompilerError::CodegenFailure { .. } => "internal",
         }
@@ -104,7 +104,7 @@ impl CompilerError {
 
     pub fn reason(&self) -> &'static str {
         match self {
-            CompilerError::UnsupportedFlowSyntax => "unsupported_syntax",
+            CompilerError::UnsupportedFlowSyntax { .. } => "unsupported_syntax",
             CompilerError::ParseFailure { .. } => "parse_error",
             CompilerError::CodegenFailure { .. } => "codegen_error",
         }
@@ -116,6 +116,7 @@ impl CompilerError {
 
     pub fn location(&self) -> Option<&SourceLocation> {
         match self {
+            CompilerError::UnsupportedFlowSyntax { location } => location.as_ref(),
             CompilerError::ParseFailure { location, .. } => location.as_ref(),
             _ => None,
         }
@@ -177,7 +178,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             let message = err.kind().msg().to_string();
             let location = span_to_location(&cm, err.span());
             if options.dialect == InputDialect::Flow {
-                CompilerError::UnsupportedFlowSyntax
+                CompilerError::UnsupportedFlowSyntax { location }
             } else {
                 CompilerError::ParseFailure { message, location }
             }
@@ -197,7 +198,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             let message = err.kind().msg().to_string();
             let location = span_to_location(&cm, err.span());
             if options.dialect == InputDialect::Flow {
-                CompilerError::UnsupportedFlowSyntax
+                CompilerError::UnsupportedFlowSyntax { location }
             } else {
                 CompilerError::ParseFailure { message, location }
             }
@@ -1166,7 +1167,12 @@ mod tests {
         )
         .expect_err("flow is not implemented yet");
 
-        assert_eq!(err, CompilerError::UnsupportedFlowSyntax);
+        match err {
+            CompilerError::UnsupportedFlowSyntax { location } => {
+                assert!(location.is_some());
+            }
+            other => panic!("expected unsupported flow syntax error, got {other:?}"),
+        }
     }
 
     #[test]
