@@ -1800,6 +1800,13 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
                         &mut runtime_callee_bindings,
                         false,
                     );
+                } else if let Decl::TsModule(ts_module_decl) = &export_decl.decl {
+                    collect_runtime_bindings_from_ts_module_decl(
+                        ts_module_decl.as_ref(),
+                        &mut runtime_namespace_bindings,
+                        &mut runtime_callee_bindings,
+                        false,
+                    );
                 }
             }
             ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(default_decl)) => {
@@ -1940,6 +1947,214 @@ fn collect_runtime_bindings_from_ts_enum_decl(
                 may_be_conditional,
             );
         }
+    }
+}
+
+fn collect_runtime_bindings_from_ts_module_decl(
+    ts_module_decl: &swc_ecma_ast::TsModuleDecl,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    if ts_module_decl.declare {
+        return;
+    }
+    let Some(body) = &ts_module_decl.body else {
+        return;
+    };
+    collect_runtime_bindings_from_ts_namespace_body(
+        body,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        may_be_conditional,
+    );
+}
+
+fn collect_runtime_bindings_from_ts_namespace_body(
+    namespace_body: &swc_ecma_ast::TsNamespaceBody,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    match namespace_body {
+        swc_ecma_ast::TsNamespaceBody::TsModuleBlock(module_block) => {
+            collect_runtime_bindings_from_ts_module_block(
+                module_block,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+        swc_ecma_ast::TsNamespaceBody::TsNamespaceDecl(namespace_decl) => {
+            if namespace_decl.declare {
+                return;
+            }
+            collect_runtime_bindings_from_ts_namespace_body(
+                namespace_decl.body.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+    }
+}
+
+fn collect_runtime_bindings_from_ts_module_block(
+    module_block: &swc_ecma_ast::TsModuleBlock,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    let shadowed_bindings = collect_declared_binding_names_from_module_items(&module_block.body);
+    with_shadowed_runtime_bindings(
+        &shadowed_bindings,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        |runtime_namespace_bindings, runtime_callee_bindings| {
+            for item in &module_block.body {
+                collect_runtime_bindings_from_module_item(
+                    item,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
+            }
+        },
+    );
+}
+
+fn collect_runtime_bindings_from_module_item(
+    item: &ModuleItem,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    match item {
+        ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl)) => {
+            if import_decl.src.value != *"react/compiler-runtime" {
+                return;
+            }
+            collect_runtime_bindings_from_import_decl(
+                import_decl,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+        }
+        ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
+            collect_runtime_bindings_from_decl(
+                &export_decl.decl,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+        ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(default_decl)) => {
+            if let DefaultDecl::Class(class_expr) = &default_decl.decl {
+                collect_runtime_bindings_from_class(
+                    &class_expr.class,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
+            }
+        }
+        ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(default_expr)) => {
+            collect_runtime_bindings_from_script_assignment_expr(
+                default_expr.expr.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+        }
+        ModuleItem::ModuleDecl(ModuleDecl::TsExportAssignment(export_assignment)) => {
+            collect_runtime_bindings_from_script_assignment_expr(
+                export_assignment.expr.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+        }
+        ModuleItem::ModuleDecl(ModuleDecl::TsImportEquals(import_equals_decl)) => {
+            collect_runtime_bindings_from_ts_import_equals_decl(
+                import_equals_decl.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+        }
+        ModuleItem::Stmt(stmt) => collect_runtime_bindings_from_static_block_stmt(
+            stmt,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        _ => {}
+    }
+}
+
+fn collect_runtime_bindings_from_decl(
+    decl: &Decl,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    match decl {
+        Decl::Var(var_decl) => {
+            if may_be_conditional {
+                collect_runtime_bindings_from_var_decl_in_static_block(
+                    var_decl,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
+            } else {
+                for declarator in &var_decl.decls {
+                    collect_runtime_bindings_from_script_declarator(
+                        declarator,
+                        runtime_namespace_bindings,
+                        runtime_callee_bindings,
+                    );
+                }
+            }
+        }
+        Decl::Using(using_decl) => {
+            if may_be_conditional {
+                for declarator in &using_decl.decls {
+                    if let Some(init) = declarator.init.as_deref() {
+                        collect_runtime_bindings_from_expression(
+                            runtime_initializer_expr(init),
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
+                    }
+                }
+            } else {
+                for declarator in &using_decl.decls {
+                    collect_runtime_bindings_from_script_declarator(
+                        declarator,
+                        runtime_namespace_bindings,
+                        runtime_callee_bindings,
+                    );
+                }
+            }
+        }
+        Decl::Class(class_decl) => collect_runtime_bindings_from_class(
+            &class_decl.class,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        Decl::TsEnum(ts_enum_decl) => collect_runtime_bindings_from_ts_enum_decl(
+            ts_enum_decl.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        Decl::TsModule(ts_module_decl) => collect_runtime_bindings_from_ts_module_decl(
+            ts_module_decl.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        _ => {}
     }
 }
 
@@ -3002,25 +3217,82 @@ fn collect_declared_binding_names_from_stmts(stmts: &[Stmt]) -> Vec<String> {
 }
 
 fn collect_declared_binding_names_from_stmt(stmt: &Stmt, names: &mut Vec<String>) {
-    match stmt {
-        Stmt::Decl(Decl::Var(var_decl)) => {
+    if let Stmt::Decl(decl) = stmt {
+        collect_declared_binding_names_from_decl(decl, names);
+    }
+}
+
+fn collect_declared_binding_names_from_decl(decl: &Decl, names: &mut Vec<String>) {
+    match decl {
+        Decl::Var(var_decl) => {
             for declarator in &var_decl.decls {
                 collect_binding_names_from_pat_into(&declarator.name, names);
             }
         }
-        Stmt::Decl(Decl::Using(using_decl)) => {
+        Decl::Using(using_decl) => {
             for declarator in &using_decl.decls {
                 collect_binding_names_from_pat_into(&declarator.name, names);
             }
         }
-        Stmt::Decl(Decl::Class(class_decl)) => names.push(class_decl.ident.sym.to_string()),
-        Stmt::Decl(Decl::Fn(fn_decl)) => names.push(fn_decl.ident.sym.to_string()),
-        Stmt::Decl(Decl::TsEnum(enum_decl)) => names.push(enum_decl.id.sym.to_string()),
-        Stmt::Decl(Decl::TsModule(module_decl)) => match &module_decl.id {
+        Decl::Class(class_decl) => names.push(class_decl.ident.sym.to_string()),
+        Decl::Fn(fn_decl) => names.push(fn_decl.ident.sym.to_string()),
+        Decl::TsEnum(enum_decl) => names.push(enum_decl.id.sym.to_string()),
+        Decl::TsModule(module_decl) => match &module_decl.id {
             swc_ecma_ast::TsModuleName::Ident(ident) => names.push(ident.sym.to_string()),
             swc_ecma_ast::TsModuleName::Str(_) => {}
         },
         _ => {}
+    }
+}
+
+fn collect_declared_binding_names_from_module_items(items: &[ModuleItem]) -> Vec<String> {
+    let mut names = Vec::new();
+    for item in items {
+        collect_declared_binding_names_from_module_item(item, &mut names);
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn collect_declared_binding_names_from_module_item(item: &ModuleItem, names: &mut Vec<String>) {
+    match item {
+        ModuleItem::Stmt(stmt) => collect_declared_binding_names_from_stmt(stmt, names),
+        ModuleItem::ModuleDecl(module_decl) => match module_decl {
+            ModuleDecl::Import(import_decl) => {
+                for specifier in &import_decl.specifiers {
+                    match specifier {
+                        ImportSpecifier::Named(named) => names.push(named.local.sym.to_string()),
+                        ImportSpecifier::Default(default_import) => {
+                            names.push(default_import.local.sym.to_string())
+                        }
+                        ImportSpecifier::Namespace(namespace_import) => {
+                            names.push(namespace_import.local.sym.to_string())
+                        }
+                    }
+                }
+            }
+            ModuleDecl::ExportDecl(export_decl) => {
+                collect_declared_binding_names_from_decl(&export_decl.decl, names)
+            }
+            ModuleDecl::ExportDefaultDecl(default_decl) => match &default_decl.decl {
+                DefaultDecl::Class(class_expr) => {
+                    if let Some(ident) = &class_expr.ident {
+                        names.push(ident.sym.to_string());
+                    }
+                }
+                DefaultDecl::Fn(fn_expr) => {
+                    if let Some(ident) = &fn_expr.ident {
+                        names.push(ident.sym.to_string());
+                    }
+                }
+                _ => {}
+            },
+            ModuleDecl::TsImportEquals(import_equals_decl) => {
+                names.push(import_equals_decl.id.sym.to_string())
+            }
+            _ => {}
+        },
     }
 }
 
@@ -3340,6 +3612,12 @@ fn collect_runtime_bindings_from_static_block_stmt(
         ),
         Stmt::Decl(Decl::TsEnum(ts_enum_decl)) => collect_runtime_bindings_from_ts_enum_decl(
             ts_enum_decl.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        Stmt::Decl(Decl::TsModule(ts_module_decl)) => collect_runtime_bindings_from_ts_module_decl(
+            ts_module_decl.as_ref(),
             runtime_namespace_bindings,
             runtime_callee_bindings,
             may_be_conditional,
@@ -4671,6 +4949,38 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_ts_module_assignment_in_module() {
+        let output = compile(
+            "let cache; namespace RuntimeCarrier { export const value = (cache = require('react/compiler-runtime').c); } export function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_ts_module_declares_shadowed_alias_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; namespace RuntimeCarrier { export let cache; cache = unknown; } export function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_conditionally_assigned_in_class_static_block(
     ) {
         let output = compile(
@@ -5520,6 +5830,25 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_ts_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; namespace RuntimeCarrier { export const value = (cache = unknown); } export function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_conditionally_reassigned_in_class_static_block(
     ) {
         let output = compile(
@@ -5972,6 +6301,24 @@ mod tests {
     fn transforms_script_component_with_runtime_alias_from_ts_enum_member_assignment() {
         let output = compile(
             "let cache; enum RuntimeCarrier { Value = (cache = require('react/compiler-runtime').c) } function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_alias_from_ts_module_assignment() {
+        let output = compile(
+            "let cache; namespace RuntimeCarrier { export const value = (cache = require('react/compiler-runtime').c); } function Component(){ return null; }",
             &CompilerOptions {
                 dialect: InputDialect::TypeScript,
                 filename: "fixture.ts".to_string(),
@@ -6657,6 +7004,25 @@ mod tests {
     fn does_not_transform_script_component_when_runtime_alias_is_reassigned_in_ts_enum_member() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; enum RuntimeCarrier { Value = (cache = unknown) } function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_reassigned_in_ts_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; namespace RuntimeCarrier { export const value = (cache = unknown); } function Component(){ return null; }",
             &CompilerOptions {
                 dialect: InputDialect::TypeScript,
                 filename: "fixture.ts".to_string(),
