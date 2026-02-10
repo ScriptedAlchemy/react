@@ -2874,6 +2874,55 @@ fn collect_runtime_bindings_from_try_stmt(
     }
 }
 
+fn collect_runtime_bindings_from_switch_stmt(
+    switch_stmt: &swc_ecma_ast::SwitchStmt,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    collect_runtime_bindings_from_expression(
+        switch_stmt.discriminant.as_ref(),
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        may_be_conditional,
+    );
+
+    let mut shadowed_bindings = Vec::new();
+    for case in &switch_stmt.cases {
+        for stmt in &case.cons {
+            collect_declared_binding_names_from_stmt(stmt, &mut shadowed_bindings);
+        }
+    }
+    shadowed_bindings.sort();
+    shadowed_bindings.dedup();
+
+    with_shadowed_runtime_bindings(
+        &shadowed_bindings,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        |runtime_namespace_bindings, runtime_callee_bindings| {
+            for case in &switch_stmt.cases {
+                if let Some(test) = &case.test {
+                    collect_runtime_bindings_from_expression(
+                        test.as_ref(),
+                        runtime_namespace_bindings,
+                        runtime_callee_bindings,
+                        true,
+                    );
+                }
+                for stmt in &case.cons {
+                    collect_runtime_bindings_from_static_block_stmt(
+                        stmt,
+                        runtime_namespace_bindings,
+                        runtime_callee_bindings,
+                        true,
+                    );
+                }
+            }
+        },
+    );
+}
+
 fn collect_runtime_bindings_from_static_block_stmt(
     stmt: &Stmt,
     runtime_namespace_bindings: &mut HashSet<String>,
@@ -2987,32 +3036,12 @@ fn collect_runtime_bindings_from_static_block_stmt(
                 may_be_conditional,
             );
         }
-        Stmt::Switch(switch_stmt) => {
-            collect_runtime_bindings_from_expression(
-                switch_stmt.discriminant.as_ref(),
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-                may_be_conditional,
-            );
-            for case in &switch_stmt.cases {
-                if let Some(test) = &case.test {
-                    collect_runtime_bindings_from_expression(
-                        test.as_ref(),
-                        runtime_namespace_bindings,
-                        runtime_callee_bindings,
-                        true,
-                    );
-                }
-                for stmt in &case.cons {
-                    collect_runtime_bindings_from_static_block_stmt(
-                        stmt,
-                        runtime_namespace_bindings,
-                        runtime_callee_bindings,
-                        true,
-                    );
-                }
-            }
-        }
+        Stmt::Switch(switch_stmt) => collect_runtime_bindings_from_switch_stmt(
+            switch_stmt,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
         Stmt::Try(try_stmt) => collect_runtime_bindings_from_try_stmt(
             try_stmt,
             runtime_namespace_bindings,
@@ -3941,6 +3970,22 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_when_top_level_switch_decl_shadows_alias_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; switch (value) { case 0: let cache; cache = unknown; break; default: break; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_class_computed_key_assignment_in_module() {
         let output = compile(
             "let cache; class RuntimeCarrier { [cache = require('react/compiler-runtime').c](){} } export function Component(){ return <div />; }",
@@ -4487,6 +4532,26 @@ mod tests {
     ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; while (cond) { cache = unknown; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_conditionally_reassigned_in_top_level_switch(
+    ) {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; switch (value) { case 0: cache = unknown; break; default: break; } export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -5268,6 +5333,24 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_when_top_level_switch_decl_shadows_runtime_alias_mutation() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; switch (value) { case 0: let cache; cache = unknown; break; default: break; } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_alias_from_class_static_do_while_assignment() {
         let output = compile(
             "let cache; class RuntimeCarrier { static { do { cache = require('react/compiler-runtime').c; } while (false); } } function Component(){ return <div />; }",
@@ -5710,6 +5793,26 @@ mod tests {
     ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; while (cond) { cache = unknown; } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_conditionally_reassigned_in_top_level_switch(
+    ) {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; switch (value) { case 0: cache = unknown; break; default: break; } function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
