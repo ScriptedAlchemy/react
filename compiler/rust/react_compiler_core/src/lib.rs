@@ -1,5 +1,7 @@
 mod binding;
 mod compile_driver;
+mod compile_module;
+mod compile_script;
 mod emit;
 mod entrypoint;
 mod error;
