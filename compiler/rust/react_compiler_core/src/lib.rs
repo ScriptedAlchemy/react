@@ -2832,29 +2832,12 @@ fn clear_runtime_bindings_for_for_head(
     runtime_callee_bindings: &mut HashSet<String>,
 ) {
     match for_head {
-        swc_ecma_ast::ForHead::VarDecl(var_decl) => {
-            for declarator in &var_decl.decls {
-                clear_runtime_bindings_for_pat(
-                    &declarator.name,
-                    runtime_namespace_bindings,
-                    runtime_callee_bindings,
-                );
-            }
-        }
         swc_ecma_ast::ForHead::Pat(pattern) => clear_runtime_bindings_for_pat(
             pattern.as_ref(),
             runtime_namespace_bindings,
             runtime_callee_bindings,
         ),
-        swc_ecma_ast::ForHead::UsingDecl(using_decl) => {
-            for declarator in &using_decl.decls {
-                clear_runtime_bindings_for_pat(
-                    &declarator.name,
-                    runtime_namespace_bindings,
-                    runtime_callee_bindings,
-                );
-            }
-        }
+        swc_ecma_ast::ForHead::VarDecl(_) | swc_ecma_ast::ForHead::UsingDecl(_) => {}
     }
 }
 
@@ -3703,6 +3686,38 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_when_class_static_for_in_decl_shadows_alias_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; const source = {}; class RuntimeCarrier { static { for (let cache in source) { break; } } } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_class_static_for_of_decl_shadows_alias_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; const source = []; class RuntimeCarrier { static { for (const cache of source) { break; } } } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_nested_class_static_block_assignment_in_module() {
         let output = compile(
             "let cache; class RuntimeCarrier { static { class Nested { static { cache = require('react/compiler-runtime').c; } } } } export function Component(){ return <div />; }",
@@ -4225,6 +4240,25 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_mutated_via_class_static_for_in_pattern() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; const source = {}; class RuntimeCarrier { static { for (cache in source) { break; } } } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_export_default_class_static_block(
     ) {
         let output = compile(
@@ -4695,6 +4729,24 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_when_class_static_for_in_decl_shadows_alias() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; const source = {}; class RuntimeCarrier { static { for (let cache in source) { break; } } } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_alias_from_nested_class_static_block_assignment() {
         let output = compile(
             "let cache; class RuntimeCarrier { static { class Nested { static { cache = require('react/compiler-runtime').c; } } } } function Component(){ return <div />; }",
@@ -5081,6 +5133,26 @@ mod tests {
     ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; class RuntimeCarrier { static { for (cache = unknown; false;) {} } } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_mutated_via_class_static_for_in_pattern(
+    ) {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; const source = {}; class RuntimeCarrier { static { for (cache in source) { break; } } } function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
