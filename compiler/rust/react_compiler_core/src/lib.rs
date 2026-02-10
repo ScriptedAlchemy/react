@@ -1803,12 +1803,22 @@ fn select_runtime_callee_name(runtime_callee_bindings: &HashSet<String>) -> Opti
     runtime_callee_bindings.iter().min().cloned()
 }
 
+fn runtime_initializer_expr(expr: &Expr) -> &Expr {
+    let expression = unwrap_expression(expr);
+    if let Expr::Seq(sequence_expr) = expression {
+        if let Some(last_expression) = sequence_expr.exprs.last() {
+            return runtime_initializer_expr(last_expression.as_ref());
+        }
+    }
+    expression
+}
+
 fn collect_runtime_bindings_from_script_declarator(
     declarator: &VarDeclarator,
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
 ) {
-    let Some(init) = declarator.init.as_deref().map(unwrap_expression) else {
+    let Some(init) = declarator.init.as_deref().map(runtime_initializer_expr) else {
         return;
     };
     if is_require_runtime_call(init) {
@@ -2692,6 +2702,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_sequence_declarator_in_module() {
+        let output = compile(
+            "const cache = (sideEffect(), require('react/compiler-runtime').c); export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_reassigned() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; cache = unknown; export function Component(){ return <div />; }",
@@ -2909,6 +2936,24 @@ mod tests {
     fn transforms_script_component_with_runtime_alias_from_sequence_assignment() {
         let output = compile(
             "let cache; (cache = require('react/compiler-runtime').c, sideEffect()); function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_alias_from_sequence_declarator() {
+        let output = compile(
+            "const cache = (sideEffect(), require('react/compiler-runtime').c); function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
