@@ -103,6 +103,15 @@ pub(crate) fn collect_placeholder_transform_candidate_names_for_script(
 ) -> HashSet<String> {
     react_functions
         .iter()
+        .map(|function| function.name.clone())
+        .collect()
+}
+
+fn collect_react_like_placeholder_transform_candidate_names(
+    react_functions: &[ReactFunction],
+) -> HashSet<String> {
+    react_functions
+        .iter()
         .filter_map(|function| {
             react_function_kind(function.name.as_str()).map(|_| function.name.clone())
         })
@@ -115,7 +124,7 @@ pub(crate) fn collect_placeholder_transform_candidate_names_for_module(
 ) -> HashSet<String> {
     let bindings = collect_top_level_bindings(module);
     let mut transform_candidate_names =
-        collect_placeholder_transform_candidate_names_for_script(react_functions);
+        collect_react_like_placeholder_transform_candidate_names(react_functions);
     transform_candidate_names.extend(collect_default_export_function_names(module, &bindings));
     if module_has_anonymous_default_export_component_candidate(module) {
         transform_candidate_names.insert(DEFAULT_EXPORT_COMPONENT_NAME.to_string());
