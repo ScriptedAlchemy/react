@@ -1368,6 +1368,44 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(rustRuntimeCalleeDebug?.value).toBe('');
   });
 
+  it('emits runtime callee debug telemetry in strict rust mode', () => {
+    const debugValues: Array<{kind: string; name: string; value: string}> = [];
+    withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(
+        'export function Component() { return <div />; }',
+        '/fixture.tsx',
+        'typescript',
+        {
+          logger: {
+            logEvent() {},
+            debugLogIRs(value) {
+              if (value.kind === 'debug') {
+                debugValues.push({
+                  kind: value.kind,
+                  name: value.name,
+                  value: value.value,
+                });
+              }
+            },
+          },
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        },
+      ),
+    );
+
+    const placeholderDebug = debugValues.find(
+      value => value.name === 'RustFrontendPlaceholderTransforms',
+    );
+    expect(placeholderDebug).toBeDefined();
+    expect(placeholderDebug?.value).toBe('');
+    const runtimeCalleeDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeCallee',
+    );
+    expect(runtimeCalleeDebug).toBeDefined();
+    expect(runtimeCalleeDebug?.value).toBe('');
+  });
+
   it('strict rust mode matches babel output for default export components', () => {
     const rustResult = withStrictRustEngine(() =>
       runBabelPluginReactCompiler(
