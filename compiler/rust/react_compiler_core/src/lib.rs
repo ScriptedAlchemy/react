@@ -2217,6 +2217,24 @@ fn collect_runtime_bindings_from_expression(
         }
         return;
     }
+    if let Expr::JSXElement(jsx_element) = expression {
+        collect_runtime_bindings_from_jsx_element(
+            jsx_element.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        );
+        return;
+    }
+    if let Expr::JSXFragment(jsx_fragment) = expression {
+        collect_runtime_bindings_from_jsx_fragment(
+            jsx_fragment,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        );
+        return;
+    }
     if let Expr::Tpl(template_literal) = expression {
         for expression in &template_literal.exprs {
             collect_runtime_bindings_from_expression(
@@ -2462,6 +2480,154 @@ fn collect_runtime_bindings_from_expression(
         runtime_namespace_bindings,
         runtime_callee_bindings,
     );
+}
+
+fn collect_runtime_bindings_from_jsx_element(
+    jsx_element: &swc_ecma_ast::JSXElement,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    for attr_or_spread in &jsx_element.opening.attrs {
+        match attr_or_spread {
+            swc_ecma_ast::JSXAttrOrSpread::SpreadElement(spread) => {
+                collect_runtime_bindings_from_expression(
+                    spread.expr.as_ref(),
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
+            }
+            swc_ecma_ast::JSXAttrOrSpread::JSXAttr(attr) => {
+                if let Some(value) = &attr.value {
+                    collect_runtime_bindings_from_jsx_attr_value(
+                        value,
+                        runtime_namespace_bindings,
+                        runtime_callee_bindings,
+                        may_be_conditional,
+                    );
+                }
+            }
+        }
+    }
+    for child in &jsx_element.children {
+        collect_runtime_bindings_from_jsx_child(
+            child,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        );
+    }
+}
+
+fn collect_runtime_bindings_from_jsx_fragment(
+    jsx_fragment: &swc_ecma_ast::JSXFragment,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    for child in &jsx_fragment.children {
+        collect_runtime_bindings_from_jsx_child(
+            child,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        );
+    }
+}
+
+fn collect_runtime_bindings_from_jsx_child(
+    child: &swc_ecma_ast::JSXElementChild,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    match child {
+        swc_ecma_ast::JSXElementChild::JSXText(_) => {}
+        swc_ecma_ast::JSXElementChild::JSXExprContainer(container) => {
+            collect_runtime_bindings_from_jsx_expr_container(
+                container,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+        swc_ecma_ast::JSXElementChild::JSXSpreadChild(spread_child) => {
+            collect_runtime_bindings_from_expression(
+                spread_child.expr.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+        swc_ecma_ast::JSXElementChild::JSXElement(element) => {
+            collect_runtime_bindings_from_jsx_element(
+                element.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+        swc_ecma_ast::JSXElementChild::JSXFragment(fragment) => {
+            collect_runtime_bindings_from_jsx_fragment(
+                fragment,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+    }
+}
+
+fn collect_runtime_bindings_from_jsx_attr_value(
+    value: &swc_ecma_ast::JSXAttrValue,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    match value {
+        swc_ecma_ast::JSXAttrValue::Lit(_) => {}
+        swc_ecma_ast::JSXAttrValue::JSXExprContainer(container) => {
+            collect_runtime_bindings_from_jsx_expr_container(
+                container,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+        swc_ecma_ast::JSXAttrValue::JSXElement(element) => {
+            collect_runtime_bindings_from_jsx_element(
+                element.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+        swc_ecma_ast::JSXAttrValue::JSXFragment(fragment) => {
+            collect_runtime_bindings_from_jsx_fragment(
+                fragment,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+        }
+    }
+}
+
+fn collect_runtime_bindings_from_jsx_expr_container(
+    container: &swc_ecma_ast::JSXExprContainer,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    if let swc_ecma_ast::JSXExpr::Expr(expr) = &container.expr {
+        collect_runtime_bindings_from_expression(
+            expr.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        );
+    }
 }
 
 fn clear_runtime_bindings_for_assign_target(
@@ -3933,6 +4099,40 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_top_level_jsx_child_assignment_in_module() {
+        let output = compile(
+            "let cache; <div>{cache = require('react/compiler-runtime').c}</div>; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_from_top_level_jsx_attr_assignment_in_module() {
+        let output = compile(
+            "let cache; <div data-cache={cache = require('react/compiler-runtime').c} />; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_when_top_level_block_decl_shadows_alias_in_module() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; { let cache; cache = unknown; } export function Component(){ return <div />; }",
@@ -4599,6 +4799,25 @@ mod tests {
     fn falls_back_to_import_when_module_runtime_alias_is_mutated_via_top_level_for_in_pattern() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; const source = {}; for (cache in source) { break; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_top_level_jsx_child() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; <div>{cache = unknown}</div>; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -5346,6 +5565,24 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_alias_from_top_level_jsx_child_assignment() {
+        let output = compile(
+            "let cache; <div>{cache = require('react/compiler-runtime').c}</div>; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_when_top_level_block_decl_shadows_runtime_alias_mutation() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; { let cache; cache = unknown; } function Component(){ return <div />; }",
@@ -5920,6 +6157,26 @@ mod tests {
     ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; const source = {}; for (cache in source) { break; } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_reassigned_in_top_level_jsx_child()
+    {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; <div>{cache = unknown}</div>; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
