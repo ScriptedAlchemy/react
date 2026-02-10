@@ -177,6 +177,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('returns structured request error for unsupported CLI protocol version', () => {
+    const result = runRustCompilerCli({
+      source: 'export const value = 1;',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      protocol_version: 999,
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.protocol_version).toBe(1);
+      expect(result.code).toBe('unsupported_protocol_version');
+      expect(result.category).toBe('request');
+      expect(result.reason).toBe('invalid_option');
+      expect(result.severity).toBe('error');
+    }
+  });
+
   it('returns parse diagnostics metadata for JavaScript parse failures', () => {
     const result = runRustCompilerCli({
       source: 'const = 1;',

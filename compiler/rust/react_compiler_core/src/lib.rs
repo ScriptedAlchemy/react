@@ -8923,4 +8923,29 @@ mod tests {
         ));
         assert!(debug.contains("name=Component kind=Component"));
     }
+
+    #[test]
+    fn compile_output_and_debug_snapshot_are_deterministic_across_runs() {
+        let source = r#"
+          import {c as cache} from "react/compiler-runtime";
+          export function Component() {
+            return <div>{cache}</div>;
+          }
+        "#;
+        let options = CompilerOptions {
+            dialect: InputDialect::JavaScript,
+            filename: "fixture.jsx".to_string(),
+            is_module: true,
+            apply_placeholder_transforms: true,
+        };
+
+        let first = compile(source, &options).expect("expected first compile to succeed");
+        let second = compile(source, &options).expect("expected second compile to succeed");
+
+        assert_eq!(first, second);
+        assert_eq!(
+            render_react_functions_debug(&first.metadata),
+            render_react_functions_debug(&second.metadata)
+        );
+    }
 }
