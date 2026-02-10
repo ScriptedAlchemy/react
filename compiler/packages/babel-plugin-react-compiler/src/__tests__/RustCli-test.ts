@@ -530,7 +530,13 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.detected_react_functions).toBe(1);
       expect(result.react_functions[0]?.name).toBe('render');
       expect(result.placeholder_transform_candidates).toEqual(['render']);
+      expect(result.placeholder_transform_candidate_component_count).toBe(1);
+      expect(result.placeholder_transform_candidate_hook_count).toBe(0);
       expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.placeholder_transform_transformed_component_count).toBe(1);
+      expect(result.placeholder_transform_transformed_hook_count).toBe(0);
+      expect(result.placeholder_transform_skipped_component_count).toBe(0);
+      expect(result.placeholder_transform_skipped_hook_count).toBe(0);
       expect(result.placeholder_transform_status).toBe('transformed');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
@@ -552,7 +558,13 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.detected_react_functions).toBe(1);
       expect(result.react_functions[0]?.name).toBe('render');
       expect(result.placeholder_transform_candidates).toEqual(['render']);
+      expect(result.placeholder_transform_candidate_component_count).toBe(1);
+      expect(result.placeholder_transform_candidate_hook_count).toBe(0);
       expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.placeholder_transform_transformed_component_count).toBe(1);
+      expect(result.placeholder_transform_transformed_hook_count).toBe(0);
+      expect(result.placeholder_transform_skipped_component_count).toBe(0);
+      expect(result.placeholder_transform_skipped_hook_count).toBe(0);
       expect(result.placeholder_transform_status).toBe('transformed');
       expect(result.placeholder_runtime_callee_name).toBe('_c');
       expect(result.code).toContain('const $ = _c(0);');
