@@ -8061,6 +8061,23 @@ mod tests {
     }
 
     #[test]
+    fn does_not_duplicate_existing_placeholder_memo_stmt_with_let_binding() {
+        let output = compile(
+            "import { c as _c } from 'react/compiler-runtime'; export function Component(){ let $ = _c(0); return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.code.matches("let $ = _c(0);").count(), 1);
+        assert_eq!(output.code.matches("const $ = _c(0);").count(), 0);
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn inserts_placeholder_memo_stmt_after_function_directives() {
         let output = compile(
             "export function Component(){ \"use strict\"; return <div />; }",

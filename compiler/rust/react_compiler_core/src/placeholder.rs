@@ -139,7 +139,7 @@ fn stmt_is_placeholder_memo_init(stmt: &Stmt, runtime_callee_name: &str) -> bool
     let Stmt::Decl(Decl::Var(var_decl)) = stmt else {
         return false;
     };
-    if var_decl.kind != VarDeclKind::Const || var_decl.decls.len() != 1 {
+    if var_decl.decls.len() != 1 {
         return false;
     }
     let Some(declarator) = var_decl.decls.first() else {
