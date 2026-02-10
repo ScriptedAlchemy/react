@@ -515,6 +515,50 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('transforms module fixture entrypoint functions even when names are not react-like', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function render() { return <div />; } export const FIXTURE_ENTRYPOINT = { fn: render, params: [] };',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('render');
+      expect(result.placeholder_transform_candidates).toEqual(['render']);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.placeholder_transform_status).toBe('transformed');
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
+  it('transforms script fixture entrypoint functions when runtime cache alias exists', () => {
+    const result = runRustCompilerCli({
+      source:
+        "const { c: _c } = require('react/compiler-runtime'); function render() { return <div />; } const FIXTURE_ENTRYPOINT = { fn: render, params: [] };",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('render');
+      expect(result.placeholder_transform_candidates).toEqual(['render']);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.placeholder_transform_status).toBe('transformed');
+      expect(result.placeholder_runtime_callee_name).toBe('_c');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
   it('transforms hooks in module mode and reports hook transform counters', () => {
     const result = runRustCompilerCli({
       source: 'export function useValue() { return 1; }',
