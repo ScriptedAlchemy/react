@@ -322,6 +322,44 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('logs strict rust fallback location for recoverable flow frontend errors', () => {
+    const loggedEvents: Array<unknown> = [];
+    const source = [
+      '// @flow',
+      'function Component(props: {name: string}) {',
+      '  return props.name;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [{name: "A"}] };',
+    ].join('\n');
+
+    withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+        logger: {
+          logEvent(_filename, event) {
+            loggedEvents.push(event);
+          },
+        },
+      }),
+    );
+
+    const fallbackEvent = loggedEvents.find(
+      (event: any) =>
+        event.kind === 'CompileSkip' &&
+        typeof event.reason === 'string' &&
+        event.reason.startsWith(
+          'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported',
+        ),
+    ) as any;
+
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent.loc).not.toBeNull();
+    if (fallbackEvent.loc != null) {
+      expect(fallbackEvent.loc.start.line).toBeGreaterThan(0);
+    }
+  });
+
   it('strict rust mode skips rust invocation for obvious flow-only syntax', () => {
     const source = [
       '// @flow',

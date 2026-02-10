@@ -49,16 +49,47 @@ function isRecoverableRustFrontendErrorCode(code: string): boolean {
   );
 }
 
+function toBabelSourceLocation(
+  location:
+    | {
+        start_line: number;
+        start_column: number;
+        end_line: number;
+        end_column: number;
+      }
+    | null
+    | undefined,
+): t.SourceLocation | null {
+  if (location == null) {
+    return null;
+  }
+  return {
+    filename: '',
+    identifierName: '',
+    start: {
+      line: location.start_line,
+      column: location.start_column,
+      index: 0,
+    },
+    end: {
+      line: location.end_line,
+      column: location.end_column,
+      index: 0,
+    },
+  };
+}
+
 function logStrictRustFrontendFallback(
   logger: Logger | null,
   filename: string | null,
   reason: string,
+  loc: t.SourceLocation | null = null,
 ): void {
   logger?.logEvent(filename, {
     kind: 'CompileSkip',
     fnLoc: null,
     reason,
-    loc: null,
+    loc,
   });
 }
 
@@ -183,6 +214,7 @@ function maybeRunRustProgramCompiler(
           logger,
           filename,
           `rust_frontend_error:${rustResult.code}:${rustResult.reason}`,
+          toBabelSourceLocation(rustResult.location),
         );
       }
       return;
