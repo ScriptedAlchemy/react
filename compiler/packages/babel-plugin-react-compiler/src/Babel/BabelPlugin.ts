@@ -20,6 +20,7 @@ import {CompilerError} from '..';
 import {
   runRustCompilerCli,
   type RustCompileRequest,
+  type RustCompileResponse,
 } from '../RustBridge/RustCli';
 
 const ENABLE_REACT_COMPILER_TIMINGS =
@@ -260,6 +261,58 @@ function maybeRunRustProgramCompiler(
     });
     throw new Error(`[RustCompiler:${rustResult.code}] ${rustResult.message}`);
   }
+  emitRustFrontendDebugTelemetry(logger, rustResult);
+  if (!strictRustEngine || rustResult.code === sourceCode) {
+    return;
+  }
+  let parsed: BabelParser.ParseResult<t.File>;
+  let canonicalSource: string;
+  let canonicalRustOutput: string;
+  try {
+    parsed = parseProgramFromRustOutput(
+      rustResult.code,
+      pass.filename ?? null,
+      dialect,
+      sourceType,
+    );
+    stripTypeOnlyUnsupportedExpressions(parsed);
+    canonicalSource = canonicalizeProgramForComparison(
+      sourceCode,
+      pass.filename ?? null,
+      dialect,
+      sourceType,
+    );
+    canonicalRustOutput = canonicalizeProgramForComparison(
+      rustResult.code,
+      pass.filename ?? null,
+      dialect,
+      sourceType,
+    );
+  } catch {
+    if (strictRustEngine) {
+      logStrictRustFrontendFallback(
+        logger,
+        filename,
+        'rust_frontend_parse_or_canonicalization_failure',
+      );
+    }
+    return;
+  }
+  if (canonicalSource === canonicalRustOutput) {
+    return;
+  }
+
+  prog.node.body = parsed.program.body;
+  prog.node.directives = parsed.program.directives;
+  prog.node.sourceType = parsed.program.sourceType;
+  prog.node.interpreter = parsed.program.interpreter ?? null;
+  prog.scope.crawl();
+}
+
+function emitRustFrontendDebugTelemetry(
+  logger: Logger | null,
+  rustResult: Extract<RustCompileResponse, {status: 'ok'}>,
+): void {
   if (rustResult.debug_ir != null) {
     logger?.debugLogIRs?.({
       kind: 'debug',
@@ -448,51 +501,6 @@ function maybeRunRustProgramCompiler(
       rustResult.placeholder_runtime_namespace_candidate_count_before_transform,
     ),
   });
-  if (!strictRustEngine || rustResult.code === sourceCode) {
-    return;
-  }
-  let parsed: BabelParser.ParseResult<t.File>;
-  let canonicalSource: string;
-  let canonicalRustOutput: string;
-  try {
-    parsed = parseProgramFromRustOutput(
-      rustResult.code,
-      pass.filename ?? null,
-      dialect,
-      sourceType,
-    );
-    stripTypeOnlyUnsupportedExpressions(parsed);
-    canonicalSource = canonicalizeProgramForComparison(
-      sourceCode,
-      pass.filename ?? null,
-      dialect,
-      sourceType,
-    );
-    canonicalRustOutput = canonicalizeProgramForComparison(
-      rustResult.code,
-      pass.filename ?? null,
-      dialect,
-      sourceType,
-    );
-  } catch {
-    if (strictRustEngine) {
-      logStrictRustFrontendFallback(
-        logger,
-        filename,
-        'rust_frontend_parse_or_canonicalization_failure',
-      );
-    }
-    return;
-  }
-  if (canonicalSource === canonicalRustOutput) {
-    return;
-  }
-
-  prog.node.body = parsed.program.body;
-  prog.node.directives = parsed.program.directives;
-  prog.node.sourceType = parsed.program.sourceType;
-  prog.node.interpreter = parsed.program.interpreter ?? null;
-  prog.scope.crawl();
 }
 
 /*
