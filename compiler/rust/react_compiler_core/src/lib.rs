@@ -48,6 +48,8 @@ pub struct ParseMetadata {
     pub placeholder_runtime_helper_import_count_before_transform: usize,
     pub placeholder_runtime_helper_import_count_after_transform: usize,
     pub placeholder_runtime_helper_import_added: bool,
+    pub placeholder_runtime_callee_reused: bool,
+    pub placeholder_runtime_callee_generated: bool,
     pub placeholder_transform_status: String,
     pub placeholder_transform_candidates: Vec<String>,
     pub placeholder_transform_skipped_functions: Vec<String>,
@@ -113,6 +115,14 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "placeholder_runtime_helper_import_added={}",
             metadata.placeholder_runtime_helper_import_added
+        ),
+        format!(
+            "placeholder_runtime_callee_reused={}",
+            metadata.placeholder_runtime_callee_reused
+        ),
+        format!(
+            "placeholder_runtime_callee_generated={}",
+            metadata.placeholder_runtime_callee_generated
         ),
         format!(
             "placeholder_transform_status={}",
@@ -381,6 +391,15 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             } else {
                 (None, Vec::new(), Vec::new())
             };
+        let placeholder_runtime_callee_reused = options.apply_placeholder_transforms
+            && transformed_count > 0
+            && placeholder_runtime_callee_name_before_transform.is_some()
+            && placeholder_runtime_callee_name_before_transform == placeholder_runtime_callee_name;
+        let placeholder_runtime_callee_generated = options.apply_placeholder_transforms
+            && transformed_count > 0
+            && placeholder_runtime_callee_name_before_transform.is_none()
+            && placeholder_runtime_callee_name.is_some()
+            && runtime_helper_import_added;
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let placeholder_transform_skipped_functions = compute_placeholder_transform_skipped_functions(
             &placeholder_transform_candidates,
@@ -402,6 +421,8 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_helper_import_count_after_transform:
                 runtime_helper_import_count_after_transform,
             placeholder_runtime_helper_import_added: runtime_helper_import_added,
+            placeholder_runtime_callee_reused,
+            placeholder_runtime_callee_generated,
             placeholder_transform_status,
             placeholder_transform_candidate_count: placeholder_transform_candidates.len(),
             placeholder_transform_skipped_count: placeholder_transform_skipped_functions.len(),
@@ -479,6 +500,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             } else {
                 (None, Vec::new(), Vec::new())
             };
+        let placeholder_runtime_callee_reused = options.apply_placeholder_transforms
+            && transformed_count > 0
+            && placeholder_runtime_callee_name_before_transform.is_some()
+            && placeholder_runtime_callee_name_before_transform == placeholder_runtime_callee_name;
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let placeholder_transform_skipped_functions = compute_placeholder_transform_skipped_functions(
             &placeholder_transform_candidates,
@@ -498,6 +523,8 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_helper_import_count_before_transform: 0,
             placeholder_runtime_helper_import_count_after_transform: 0,
             placeholder_runtime_helper_import_added: false,
+            placeholder_runtime_callee_reused,
+            placeholder_runtime_callee_generated: false,
             placeholder_transform_status,
             placeholder_transform_candidate_count: placeholder_transform_candidates.len(),
             placeholder_transform_skipped_count: placeholder_transform_skipped_functions.len(),
@@ -4406,6 +4433,8 @@ mod tests {
             1
         );
         assert!(output.metadata.placeholder_runtime_helper_import_added);
+        assert!(!output.metadata.placeholder_runtime_callee_reused);
+        assert!(output.metadata.placeholder_runtime_callee_generated);
         assert_eq!(
             output.metadata.placeholder_transform_candidates,
             vec!["Component".to_string()]
@@ -4705,6 +4734,8 @@ mod tests {
             1
         );
         assert!(!output.metadata.placeholder_runtime_helper_import_added);
+        assert!(output.metadata.placeholder_runtime_callee_reused);
+        assert!(!output.metadata.placeholder_runtime_callee_generated);
     }
 
     #[test]
@@ -11880,6 +11911,8 @@ mod tests {
             output.metadata.placeholder_transform_status,
             "blocked_missing_runtime_callee"
         );
+        assert!(!output.metadata.placeholder_runtime_callee_reused);
+        assert!(!output.metadata.placeholder_runtime_callee_generated);
         assert!(output.metadata.placeholder_transformed_functions.is_empty());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
@@ -11949,6 +11982,8 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
         assert_eq!(output.metadata.placeholder_transform_status, "transformed");
+        assert!(!output.metadata.placeholder_runtime_callee_reused);
+        assert!(output.metadata.placeholder_runtime_callee_generated);
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
@@ -12574,6 +12609,8 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_helper_import_count_before_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_added=false"));
+        assert!(debug.contains("placeholder_runtime_callee_reused=false"));
+        assert!(debug.contains("placeholder_runtime_callee_generated=false"));
         assert!(debug.contains("placeholder_transform_candidates=Component,useThing"));
         assert!(debug.contains("placeholder_transform_skipped_functions=Component,useThing"));
         assert!(debug.contains("placeholder_transform_candidate_count=2"));
@@ -12612,6 +12649,8 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_helper_import_count_before_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=1"));
         assert!(debug.contains("placeholder_runtime_helper_import_added=true"));
+        assert!(debug.contains("placeholder_runtime_callee_reused=false"));
+        assert!(debug.contains("placeholder_runtime_callee_generated=true"));
         assert!(debug.contains("placeholder_transform_candidates=Component"));
         assert!(debug.contains("placeholder_transform_skipped_functions="));
         assert!(debug.contains("placeholder_transform_candidate_count=1"));
