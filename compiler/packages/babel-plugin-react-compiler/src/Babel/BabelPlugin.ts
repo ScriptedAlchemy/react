@@ -307,6 +307,11 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformStatus',
+    value: rustResult.placeholder_transform_status,
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCallee',
     value: rustResult.placeholder_runtime_callee_name ?? '',
   });

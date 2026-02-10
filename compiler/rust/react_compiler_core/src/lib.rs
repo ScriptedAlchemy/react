@@ -48,6 +48,7 @@ pub struct ParseMetadata {
     pub placeholder_runtime_helper_import_count_before_transform: usize,
     pub placeholder_runtime_helper_import_count_after_transform: usize,
     pub placeholder_runtime_helper_import_added: bool,
+    pub placeholder_transform_status: String,
     pub placeholder_transform_candidates: Vec<String>,
     pub placeholder_transform_skipped_functions: Vec<String>,
     pub placeholder_transform_candidate_count: usize,
@@ -112,6 +113,10 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "placeholder_runtime_helper_import_added={}",
             metadata.placeholder_runtime_helper_import_added
+        ),
+        format!(
+            "placeholder_transform_status={}",
+            metadata.placeholder_transform_status
         ),
         format!(
             "placeholder_transform_candidates={}",
@@ -381,6 +386,14 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             &placeholder_transform_candidates,
             &placeholder_transformed_functions,
         );
+        let placeholder_transform_status = derive_placeholder_transform_status(
+            options.apply_placeholder_transforms,
+            true,
+            placeholder_transform_candidates.len(),
+            transformed_count,
+            placeholder_runtime_callee_name_before_transform.is_some(),
+        )
+        .to_string();
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
@@ -389,6 +402,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_helper_import_count_after_transform:
                 runtime_helper_import_count_after_transform,
             placeholder_runtime_helper_import_added: runtime_helper_import_added,
+            placeholder_transform_status,
             placeholder_transform_candidate_count: placeholder_transform_candidates.len(),
             placeholder_transform_skipped_count: placeholder_transform_skipped_functions.len(),
             placeholder_transform_candidates,
@@ -470,12 +484,21 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             &placeholder_transform_candidates,
             &placeholder_transformed_functions,
         );
+        let placeholder_transform_status = derive_placeholder_transform_status(
+            options.apply_placeholder_transforms,
+            false,
+            placeholder_transform_candidates.len(),
+            transformed_count,
+            placeholder_runtime_callee_name_before_transform.is_some(),
+        )
+        .to_string();
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
             placeholder_runtime_helper_import_count_before_transform: 0,
             placeholder_runtime_helper_import_count_after_transform: 0,
             placeholder_runtime_helper_import_added: false,
+            placeholder_transform_status,
             placeholder_transform_candidate_count: placeholder_transform_candidates.len(),
             placeholder_transform_skipped_count: placeholder_transform_skipped_functions.len(),
             placeholder_transform_candidates,
@@ -890,6 +913,28 @@ fn compute_placeholder_transform_skipped_functions(
         .filter(|candidate| !transformed_names.contains(candidate.as_str()))
         .cloned()
         .collect()
+}
+
+fn derive_placeholder_transform_status(
+    apply_placeholder_transforms: bool,
+    is_module: bool,
+    candidate_count: usize,
+    transformed_count: usize,
+    runtime_callee_available_before_transform: bool,
+) -> &'static str {
+    if !apply_placeholder_transforms {
+        return "disabled";
+    }
+    if candidate_count == 0 {
+        return "no_candidates";
+    }
+    if transformed_count > 0 {
+        return "transformed";
+    }
+    if !is_module && !runtime_callee_available_before_transform {
+        return "blocked_missing_runtime_callee";
+    }
+    "no_op"
 }
 
 fn react_function_sort_key(function: &ReactFunction) -> (usize, usize, usize, usize, &str, &str) {
@@ -4371,6 +4416,7 @@ mod tests {
             .is_empty());
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions.len(), 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
@@ -11830,6 +11876,10 @@ mod tests {
         );
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_transform_status,
+            "blocked_missing_runtime_callee"
+        );
         assert!(output.metadata.placeholder_transformed_functions.is_empty());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
@@ -11898,6 +11948,7 @@ mod tests {
             .is_empty());
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
@@ -12527,6 +12578,7 @@ mod tests {
         assert!(debug.contains("placeholder_transform_skipped_functions=Component,useThing"));
         assert!(debug.contains("placeholder_transform_candidate_count=2"));
         assert!(debug.contains("placeholder_transform_skipped_count=2"));
+        assert!(debug.contains("placeholder_transform_status=disabled"));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
@@ -12564,6 +12616,7 @@ mod tests {
         assert!(debug.contains("placeholder_transform_skipped_functions="));
         assert!(debug.contains("placeholder_transform_candidate_count=1"));
         assert!(debug.contains("placeholder_transform_skipped_count=0"));
+        assert!(debug.contains("placeholder_transform_status=transformed"));
         assert!(debug.contains("placeholder_transforms_applied=1"));
         assert!(debug.contains("placeholder_transformed_functions=Component"));
         assert!(debug.contains("placeholder_runtime_callee_name=_c"));

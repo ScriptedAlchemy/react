@@ -93,6 +93,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transform_skipped_functions).toEqual([]);
       expect(result.placeholder_transform_candidate_count).toBe(0);
       expect(result.placeholder_transform_skipped_count).toBe(0);
+      expect(result.placeholder_transform_status).toBe('disabled');
       expect(result.detected_react_functions).toBe(0);
       expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.react_functions).toEqual([]);
@@ -402,6 +403,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transform_skipped_functions).toEqual([]);
       expect(result.placeholder_transform_candidate_count).toBe(1);
       expect(result.placeholder_transform_skipped_count).toBe(0);
+      expect(result.placeholder_transform_status).toBe('transformed');
       expect(result.placeholder_transforms_applied).toBeGreaterThan(0);
       expect(result.placeholder_transformed_functions).toEqual(['Component']);
       expect(result.placeholder_runtime_callee_name_before_transform).toBeUndefined();
@@ -7018,6 +7020,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       );
       expect(result.debug_ir).toContain('placeholder_transform_candidate_count=1');
       expect(result.debug_ir).toContain('placeholder_transform_skipped_count=1');
+      expect(result.debug_ir).toContain('placeholder_transform_status=disabled');
       expect(result.debug_ir).toContain('name=Component kind=Component');
     }
   });
@@ -7050,6 +7053,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.debug_ir).toContain('placeholder_transform_skipped_functions=');
       expect(result.debug_ir).toContain('placeholder_transform_candidate_count=1');
       expect(result.debug_ir).toContain('placeholder_transform_skipped_count=0');
+      expect(result.debug_ir).toContain('placeholder_transform_status=transformed');
       expect(result.debug_ir).toContain('placeholder_transforms_applied=1');
       expect(result.debug_ir).toContain('placeholder_transformed_functions=Component');
       expect(result.debug_ir).toContain('placeholder_runtime_callee_name=_c');
@@ -7172,6 +7176,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustPlaceholderTransformSkippedCountDebug).toBeDefined();
     expect(rustPlaceholderTransformSkippedCountDebug?.value).toBe('1');
+    const rustPlaceholderTransformStatusDebug = debugValues.find(
+      value => value.name === 'RustFrontendPlaceholderTransformStatus',
+    );
+    expect(rustPlaceholderTransformStatusDebug).toBeDefined();
+    expect(rustPlaceholderTransformStatusDebug?.value).toBe('disabled');
     const rustRuntimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );
@@ -7282,6 +7291,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(placeholderTransformSkippedCountDebug).toBeDefined();
     expect(placeholderTransformSkippedCountDebug?.value).toBe('1');
+    const placeholderTransformStatusDebug = debugValues.find(
+      value => value.name === 'RustFrontendPlaceholderTransformStatus',
+    );
+    expect(placeholderTransformStatusDebug).toBeDefined();
+    expect(placeholderTransformStatusDebug?.value).toBe('disabled');
     const runtimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );
