@@ -482,6 +482,78 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('strict rust mode preflight-skips flow function return annotations', () => {
+    const source = [
+      '// @flow',
+      'function Component(): string {',
+      "  return 'ok';",
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        }),
+      ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.js',
+      'flow',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
+  it('logs strict rust preflight reason and location for flow type-cast syntax', () => {
+    const loggedEvents: Array<unknown> = [];
+    const source = [
+      '// @flow',
+      'function Component(props) {',
+      '  const name = (props.name: string);',
+      '  return name;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [{name: "A"}] };',
+    ].join('\n');
+
+    withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+          logger: {
+            logEvent(_filename, event) {
+              loggedEvents.push(event);
+            },
+          },
+        }),
+      ),
+    );
+
+    const fallbackEvent = loggedEvents.find(
+      (event: any) =>
+        event.kind === 'CompileSkip' &&
+        event.reason ===
+          'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported:flow_type_cast',
+    ) as any;
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent.loc).not.toBeNull();
+    if (fallbackEvent.loc != null) {
+      expect(fallbackEvent.loc.start.index).toBe(
+        source.indexOf('(props.name: string)'),
+      );
+    }
+  });
+
   it('strict rust mode preflight-skips TS instantiation expression syntax', () => {
     const source = [
       'function id<T>(x: T): T {',

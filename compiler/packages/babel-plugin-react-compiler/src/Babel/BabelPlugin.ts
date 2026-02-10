@@ -162,10 +162,19 @@ function findObviousFlowTypeSyntaxMarker(
       pattern: /\bfunction\s+[A-Za-z_$][\w$]*\s*\([^)]*:\s*[^)]*\)/,
       kind: 'typed_function_params',
     },
+    {
+      pattern:
+        /\bfunction\s+[A-Za-z_$][\w$]*\s*\([^)]*\)\s*:\s*[A-Za-z_$][\w$<>{}\[\]|?,\s]*/,
+      kind: 'typed_function_return',
+    },
     {pattern: /\([^)]*:\s*[^)]*\)\s*=>/, kind: 'typed_arrow_params'},
     {
       pattern: /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:\s*[^=;]+[=;]/,
       kind: 'typed_variable',
+    },
+    {
+      pattern: /\(\s*[A-Za-z_$][\w$.]*\s*:\s*[^)]+\)/,
+      kind: 'flow_type_cast',
     },
     {pattern: /\/\*::/, kind: 'flow_comment_block'},
     {pattern: /\/\/::/, kind: 'flow_comment_line'},
