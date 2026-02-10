@@ -2,6 +2,30 @@ use std::collections::HashSet;
 
 use swc_ecma_ast::{Decl, Stmt, VarDecl};
 
+pub(crate) fn collect_runtime_bindings_from_static_block_stmts(
+    stmts: &[Stmt],
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    let shadowed_bindings = crate::runtime_scope::collect_declared_binding_names_from_stmts(stmts);
+    crate::runtime_scope::with_shadowed_runtime_bindings(
+        &shadowed_bindings,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        |runtime_namespace_bindings, runtime_callee_bindings| {
+            for stmt in stmts {
+                collect_runtime_bindings_from_static_block_stmt(
+                    stmt,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
+            }
+        },
+    );
+}
+
 pub(crate) fn collect_runtime_bindings_from_static_block_stmt(
     stmt: &Stmt,
     runtime_namespace_bindings: &mut HashSet<String>,
@@ -75,7 +99,7 @@ pub(crate) fn collect_runtime_bindings_from_static_block_stmt(
                 );
             }
         }
-        Stmt::Block(block_stmt) => crate::collect_runtime_bindings_from_static_block_stmts(
+        Stmt::Block(block_stmt) => collect_runtime_bindings_from_static_block_stmts(
             &block_stmt.stmts,
             runtime_namespace_bindings,
             runtime_callee_bindings,
@@ -317,7 +341,7 @@ fn collect_runtime_bindings_from_try_stmt(
     runtime_callee_bindings: &mut HashSet<String>,
     may_be_conditional: bool,
 ) {
-    crate::collect_runtime_bindings_from_static_block_stmts(
+    collect_runtime_bindings_from_static_block_stmts(
         &try_stmt.block.stmts,
         runtime_namespace_bindings,
         runtime_callee_bindings,
@@ -330,7 +354,7 @@ fn collect_runtime_bindings_from_try_stmt(
             runtime_namespace_bindings,
             runtime_callee_bindings,
             |runtime_namespace_bindings, runtime_callee_bindings| {
-                crate::collect_runtime_bindings_from_static_block_stmts(
+                collect_runtime_bindings_from_static_block_stmts(
                     &handler.body.stmts,
                     runtime_namespace_bindings,
                     runtime_callee_bindings,
@@ -340,7 +364,7 @@ fn collect_runtime_bindings_from_try_stmt(
         );
     }
     if let Some(finalizer) = &try_stmt.finalizer {
-        crate::collect_runtime_bindings_from_static_block_stmts(
+        collect_runtime_bindings_from_static_block_stmts(
             &finalizer.stmts,
             runtime_namespace_bindings,
             runtime_callee_bindings,

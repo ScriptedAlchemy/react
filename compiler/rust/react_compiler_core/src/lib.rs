@@ -59,13 +59,7 @@ use runtime_scan::{
     select_runtime_callee_name, sorted_runtime_callee_candidates,
     sorted_runtime_namespace_candidates,
 };
-use runtime_stmt::{
-    collect_runtime_bindings_from_static_block_stmt,
-};
 use runtime_expr::collect_runtime_bindings_from_expression;
-use runtime_scope::{
-    collect_declared_binding_names_from_stmts, with_shadowed_runtime_bindings,
-};
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
     let cm: Lrc<SourceMap> = Default::default();
@@ -1034,30 +1028,6 @@ fn apply_placeholder_compilation_to_decl(
         }
         _ => Vec::new(),
     }
-}
-
-pub(crate) fn collect_runtime_bindings_from_static_block_stmts(
-    stmts: &[Stmt],
-    runtime_namespace_bindings: &mut HashSet<String>,
-    runtime_callee_bindings: &mut HashSet<String>,
-    may_be_conditional: bool,
-) {
-    let shadowed_bindings = collect_declared_binding_names_from_stmts(stmts);
-    with_shadowed_runtime_bindings(
-        &shadowed_bindings,
-        runtime_namespace_bindings,
-        runtime_callee_bindings,
-        |runtime_namespace_bindings, runtime_callee_bindings| {
-            for stmt in stmts {
-                collect_runtime_bindings_from_static_block_stmt(
-                    stmt,
-                    runtime_namespace_bindings,
-                    runtime_callee_bindings,
-                    may_be_conditional,
-                );
-            }
-        },
-    );
 }
 
 #[cfg(test)]

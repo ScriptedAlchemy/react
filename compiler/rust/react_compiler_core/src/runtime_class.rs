@@ -165,7 +165,7 @@ fn collect_runtime_bindings_from_static_block(
     runtime_callee_bindings: &mut HashSet<String>,
     may_be_conditional: bool,
 ) {
-    crate::collect_runtime_bindings_from_static_block_stmts(
+    crate::runtime_stmt::collect_runtime_bindings_from_static_block_stmts(
         &static_block.body.stmts,
         runtime_namespace_bindings,
         runtime_callee_bindings,
