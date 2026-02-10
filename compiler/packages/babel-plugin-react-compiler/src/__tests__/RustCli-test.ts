@@ -413,7 +413,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (fallbackEvent.loc != null) {
       expect(fallbackEvent.loc.start.line).toBeGreaterThan(0);
       expect(fallbackEvent.loc.start.column).toBeGreaterThanOrEqual(0);
-      expect(fallbackEvent.loc.start.index).toBeGreaterThan(0);
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('type Props'));
     }
   });
 
@@ -583,7 +583,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(fallbackEvent.loc).not.toBeNull();
     if (fallbackEvent.loc != null) {
       expect(fallbackEvent.loc.start.line).toBeGreaterThan(0);
-      expect(fallbackEvent.loc.start.index).toBeGreaterThan(0);
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('satisfies'));
     }
   });
 
