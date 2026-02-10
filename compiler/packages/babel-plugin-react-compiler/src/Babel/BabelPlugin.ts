@@ -59,24 +59,63 @@ function toBabelSourceLocation(
       }
     | null
     | undefined,
+  sourceCode: string,
+  filename: string | null,
 ): t.SourceLocation | null {
   if (location == null) {
     return null;
   }
+  const startIndex = lineColumnToIndex(
+    sourceCode,
+    location.start_line,
+    location.start_column,
+  );
+  const endIndex = lineColumnToIndex(
+    sourceCode,
+    location.end_line,
+    location.end_column,
+  );
   return {
-    filename: '',
+    filename: filename ?? '',
     identifierName: '',
     start: {
       line: location.start_line,
       column: location.start_column,
-      index: 0,
+      index: startIndex ?? 0,
     },
     end: {
       line: location.end_line,
       column: location.end_column,
-      index: 0,
+      index: endIndex ?? startIndex ?? 0,
     },
   };
+}
+
+function lineColumnToIndex(
+  sourceCode: string,
+  line: number,
+  column: number,
+): number | null {
+  if (line < 1 || column < 0) {
+    return null;
+  }
+  let currentLine = 1;
+  let offset = 0;
+  while (currentLine < line) {
+    const nextLineBreak = sourceCode.indexOf('\n', offset);
+    if (nextLineBreak === -1) {
+      return null;
+    }
+    offset = nextLineBreak + 1;
+    currentLine += 1;
+  }
+  const lineEnd = sourceCode.indexOf('\n', offset);
+  const effectiveLineEnd = lineEnd === -1 ? sourceCode.length : lineEnd;
+  const maxColumn = effectiveLineEnd - offset;
+  if (column > maxColumn) {
+    return null;
+  }
+  return offset + column;
 }
 
 function logStrictRustFrontendFallback(
@@ -140,6 +179,7 @@ function sourceOffsetToLocation(
   sourceCode: string,
   offset: number,
   length: number,
+  filename: string | null,
 ): t.SourceLocation | null {
   if (offset < 0 || length <= 0 || offset > sourceCode.length) {
     return null;
@@ -156,7 +196,7 @@ function sourceOffsetToLocation(
       ? startColumn + marker.length
       : markerLines[markerLines.length - 1]?.length ?? startColumn;
   return {
-    filename: '',
+    filename: filename ?? '',
     identifierName: '',
     start: {
       line: startLine,
@@ -248,6 +288,7 @@ function maybeRunRustProgramCompiler(
           sourceCode,
           flowTypeMarker.index,
           flowTypeMarker.length,
+          pass.filename ?? null,
         ),
       );
     }
@@ -274,7 +315,11 @@ function maybeRunRustProgramCompiler(
           logger,
           filename,
           `rust_frontend_error:${rustResult.code}:${rustResult.reason}`,
-          toBabelSourceLocation(rustResult.location),
+          toBabelSourceLocation(
+            rustResult.location,
+            sourceCode,
+            pass.filename ?? null,
+          ),
         );
       }
       return;
