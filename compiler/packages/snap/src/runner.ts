@@ -361,11 +361,22 @@ type ParityMismatch = {
   hasRawOutputMismatch: boolean;
   hasNormalizedOutputMismatch: boolean;
   hasUnexpectedErrorMismatch: boolean;
+  hasCodeSectionMismatch: boolean;
+  hasEvalSectionMismatch: boolean;
+  hasLogsSectionMismatch: boolean;
+  hasErrorSectionMismatch: boolean;
   babelUnexpectedError: string | null;
   rustUnexpectedError: string | null;
   outputPath: string;
   babelActual?: string | null;
   rustActual?: string | null;
+};
+
+type SnapshotSections = {
+  code: string | null;
+  evalOutput: string | null;
+  logs: string | null;
+  error: string | null;
 };
 
 function canonicalizeCodeForParity(code: string): string {
@@ -420,6 +431,40 @@ function stripLogsFromSnapshot(snapshot: string | null): string | null {
   }
   const logsSectionRegex = /\n## Logs\n\n```[\s\S]*?```\n?/m;
   return snapshot.replace(logsSectionRegex, '\n');
+}
+
+function extractSnapshotSections(snapshot: string | null): SnapshotSections {
+  if (snapshot == null) {
+    return {
+      code: null,
+      evalOutput: null,
+      logs: null,
+      error: null,
+    };
+  }
+
+  const codeMatch = snapshot.match(/## Code\s+```javascript\n([\s\S]*?)\n```/m);
+  const logsMatch = snapshot.match(/## Logs\s+```\n([\s\S]*?)\n```/m);
+  const errorMatch = snapshot.match(/## Error\s+```\n([\s\S]*?)\n```/m);
+
+  const evalSeparator = '\n### Eval output\n';
+  const evalIndex = snapshot.indexOf(evalSeparator);
+  const evalOutput =
+    evalIndex === -1 ? null : snapshot.slice(evalIndex + evalSeparator.length).trim();
+
+  return {
+    code: codeMatch?.[1] ?? null,
+    evalOutput,
+    logs: logsMatch?.[1] ?? null,
+    error: errorMatch?.[1] ?? null,
+  };
+}
+
+function normalizeSectionText(value: string | null): string {
+  if (value == null) {
+    return '';
+  }
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 async function transformFixtureWithEnv(
@@ -516,6 +561,20 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
     const hasNormalizedOutputMismatch =
       canonicalizeSnapshotForParity(babelComparableActual) !==
       canonicalizeSnapshotForParity(rustComparableActual);
+    const rawBabelSections = extractSnapshotSections(babelResult.actual);
+    const rawRustSections = extractSnapshotSections(strictRustResult.actual);
+    const hasCodeSectionMismatch =
+      canonicalizeCodeForParity(rawBabelSections.code ?? '') !==
+      canonicalizeCodeForParity(rawRustSections.code ?? '');
+    const hasEvalSectionMismatch =
+      normalizeSectionText(rawBabelSections.evalOutput) !==
+      normalizeSectionText(rawRustSections.evalOutput);
+    const hasLogsSectionMismatch =
+      normalizeSectionText(rawBabelSections.logs) !==
+      normalizeSectionText(rawRustSections.logs);
+    const hasErrorSectionMismatch =
+      normalizeSectionText(rawBabelSections.error) !==
+      normalizeSectionText(rawRustSections.error);
     const hasOutputMismatch = opts.ignoreFormatting
       ? hasNormalizedOutputMismatch
       : hasRawOutputMismatch;
@@ -532,6 +591,10 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       hasRawOutputMismatch,
       hasNormalizedOutputMismatch,
       hasUnexpectedErrorMismatch,
+      hasCodeSectionMismatch,
+      hasEvalSectionMismatch,
+      hasLogsSectionMismatch,
+      hasErrorSectionMismatch,
       babelUnexpectedError: babelResult.unexpectedError,
       rustUnexpectedError: strictRustResult.unexpectedError,
       outputPath: strictRustResult.outputPath,
@@ -561,6 +624,20 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
     }
   }
 
+  const mismatchSummary = {
+    unexpectedErrorMismatchCount: mismatches.filter(
+      mismatch => mismatch.hasUnexpectedErrorMismatch,
+    ).length,
+    codeSectionMismatchCount: mismatches.filter(mismatch => mismatch.hasCodeSectionMismatch)
+      .length,
+    evalSectionMismatchCount: mismatches.filter(mismatch => mismatch.hasEvalSectionMismatch)
+      .length,
+    logsSectionMismatchCount: mismatches.filter(mismatch => mismatch.hasLogsSectionMismatch)
+      .length,
+    errorSectionMismatchCount: mismatches.filter(mismatch => mismatch.hasErrorSectionMismatch)
+      .length,
+  };
+
   const output = {
     generatedAt: new Date().toISOString(),
     fixtureCount: fixtures.size,
@@ -573,6 +650,7 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
     ignoreFormatting: opts.ignoreFormatting,
     ignoreLogs: opts.ignoreLogs,
     pattern: opts.pattern ?? null,
+    mismatchSummary,
     mismatches,
   };
 
