@@ -410,6 +410,20 @@ fn span_to_location(cm: &Lrc<SourceMap>, span: Span) -> Option<SourceLocation> {
     })
 }
 
+fn unwrap_expression(expr: &Expr) -> &Expr {
+    match expr {
+        Expr::Paren(paren_expr) => unwrap_expression(paren_expr.expr.as_ref()),
+        _ => expr,
+    }
+}
+
+fn unwrap_expression_mut(expr: &mut Expr) -> &mut Expr {
+    match expr {
+        Expr::Paren(paren_expr) => unwrap_expression_mut(paren_expr.expr.as_mut()),
+        _ => expr,
+    }
+}
+
 fn collect_react_functions_in_decl(cm: &Lrc<SourceMap>, decl: &Decl) -> Vec<ReactFunction> {
     match decl {
         Decl::Fn(fn_decl) => react_function_kind(fn_decl.ident.sym.as_ref())
@@ -427,7 +441,7 @@ fn collect_react_functions_in_decl(cm: &Lrc<SourceMap>, decl: &Decl) -> Vec<Reac
                 let Pat::Ident(binding) = &declarator.name else {
                     return None;
                 };
-                let function_span = match declarator.init.as_deref() {
+                let function_span = match declarator.init.as_deref().map(unwrap_expression) {
                     Some(Expr::Fn(fn_expr)) => Some(fn_expr.function.span),
                     Some(Expr::Arrow(arrow_expr)) => Some(arrow_expr.span),
                     _ => None,
@@ -517,7 +531,7 @@ fn collect_react_functions_from_default_export_expr(
     cm: &Lrc<SourceMap>,
     default_expr: &swc_ecma_ast::ExportDefaultExpr,
 ) -> Vec<ReactFunction> {
-    match default_expr.expr.as_ref() {
+    match unwrap_expression(default_expr.expr.as_ref()) {
         Expr::Fn(fn_expr) => match fn_expr.ident.as_ref() {
             Some(ident) => react_function_kind(ident.sym.as_ref())
                 .map(|kind| ReactFunction {
@@ -736,7 +750,7 @@ fn collect_named_functions_in_decl(
                 if !target_names.contains(binding.id.sym.as_ref()) {
                     return None;
                 }
-                let function_span = match declarator.init.as_deref() {
+                let function_span = match declarator.init.as_deref().map(unwrap_expression) {
                     Some(Expr::Fn(fn_expr)) => Some(fn_expr.function.span),
                     Some(Expr::Arrow(arrow_expr)) => Some(arrow_expr.span),
                     _ => None,
@@ -844,7 +858,7 @@ fn apply_placeholder_compilation_to_module_decl(
             if !should_transform_default_export {
                 return false;
             }
-            match default_expr.expr.as_mut() {
+            match unwrap_expression_mut(default_expr.expr.as_mut()) {
                 Expr::Fn(fn_expr) => {
                     inject_placeholder_memo_init_into_function(
                         &mut fn_expr.function,
@@ -907,7 +921,7 @@ fn apply_placeholder_compilation_to_decl(
                 let Some(init) = declarator.init.as_mut() else {
                     continue;
                 };
-                match &mut **init {
+                match unwrap_expression_mut(init.as_mut()) {
                     Expr::Fn(fn_expr) => {
                         inject_placeholder_memo_init_into_function(
                             &mut fn_expr.function,
@@ -1277,6 +1291,27 @@ mod tests {
     }
 
     #[test]
+    fn transforms_parenthesized_export_default_arrow_component() {
+        let output = compile(
+            "export default (() => <div />);",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(
+            output.metadata.react_functions[0].name,
+            super::DEFAULT_EXPORT_COMPONENT_NAME
+        );
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn does_not_duplicate_existing_placeholder_memo_stmt() {
         let output = compile(
             "import { c as _c } from 'react/compiler-runtime'; export function Component(){ const $ = _c(0); return <div />; }",
@@ -1350,6 +1385,24 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
         assert!(!output.code.contains("react/compiler-runtime"));
+    }
+
+    #[test]
+    fn detects_react_function_from_parenthesized_variable_declarator() {
+        let output = compile(
+            "const Component = (() => <div />);",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid source to parse");
+
+        assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "Component");
     }
 
     #[test]
