@@ -3,7 +3,7 @@ use swc_common::{
     comments::SingleThreadedComments, sync::Lrc, FileName, SourceMap, Spanned,
 };
 use swc_ecma_ast::{
-    AssignTarget, CallExpr, Callee, Decl, DefaultDecl, EsVersion, Expr, ImportDecl,
+    AssignTarget, Callee, Decl, DefaultDecl, EsVersion, Expr, ImportDecl,
     ImportSpecifier, Lit, MemberProp, Module, ModuleDecl, ModuleItem, Pat, Prop, PropName,
     PropOrSpread, Script, SimpleAssignTarget, Stmt, VarDecl, VarDeclarator,
 };
@@ -19,6 +19,7 @@ mod model;
 mod parse;
 mod placeholder;
 mod react_fn;
+mod runtime_binding_utils;
 mod runtime_scan;
 
 pub use error::CompilerError;
@@ -28,11 +29,11 @@ pub use model::{
 };
 use binding::{
     assign_target_ident, collect_top_level_bindings, expression_ident,
-    resolve_function_binding_names, simple_assign_target_ident,
+    resolve_function_binding_names,
 };
 use entrypoint::{
     collect_default_export_function_names, collect_fixture_entrypoint_function_names,
-    is_member_prop_with, is_prop_name_with, module_has_default_export_component_candidate,
+    module_has_default_export_component_candidate,
 };
 use emit::{emit_module, emit_script};
 use helpers::{span_to_location, unwrap_expression, unwrap_expression_mut};
@@ -50,6 +51,12 @@ use react_fn::{
 use runtime_scan::{
     select_runtime_callee_name, sorted_runtime_callee_candidates,
     sorted_runtime_namespace_candidates, RuntimeMemoCalleeScan,
+};
+use runtime_binding_utils::{
+    assign_target_object_pat, collect_binding_names_from_assign_target,
+    collect_binding_names_from_object_pat, collect_binding_names_from_pat,
+    collect_binding_names_from_pat_into, extract_runtime_callee_from_object_pat,
+    is_require_runtime_call, member_expr_is_runtime_namespace_c,
 };
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
@@ -3217,161 +3224,6 @@ fn clear_runtime_bindings_for_for_head(
         ),
         swc_ecma_ast::ForHead::VarDecl(_) | swc_ecma_ast::ForHead::UsingDecl(_) => {}
     }
-}
-
-fn collect_binding_names_from_pat(pattern: &Pat) -> Vec<String> {
-    let mut names = Vec::new();
-    collect_binding_names_from_pat_into(pattern, &mut names);
-    names
-}
-
-fn collect_binding_names_from_assign_target(target: &AssignTarget) -> Vec<String> {
-    let mut names = Vec::new();
-    match target {
-        AssignTarget::Simple(simple) => {
-            if let Some(name) = simple_assign_target_ident(simple) {
-                names.push(name);
-            }
-        }
-        AssignTarget::Pat(pattern) => {
-            collect_binding_names_from_assign_target_pat_into(pattern, &mut names)
-        }
-    }
-    names
-}
-
-fn collect_binding_names_from_assign_target_pat_into(
-    pattern: &swc_ecma_ast::AssignTargetPat,
-    names: &mut Vec<String>,
-) {
-    match pattern {
-        swc_ecma_ast::AssignTargetPat::Object(object_pat) => {
-            collect_binding_names_from_object_pat_into(object_pat, names)
-        }
-        swc_ecma_ast::AssignTargetPat::Array(array_pat) => {
-            for elem in array_pat.elems.iter().flatten() {
-                collect_binding_names_from_pat_into(elem, names);
-            }
-        }
-        swc_ecma_ast::AssignTargetPat::Invalid(_) => {}
-    }
-}
-
-fn collect_binding_names_from_object_pat(object_pat: &swc_ecma_ast::ObjectPat) -> Vec<String> {
-    let mut names = Vec::new();
-    collect_binding_names_from_object_pat_into(object_pat, &mut names);
-    names
-}
-
-fn collect_binding_names_from_object_pat_into(
-    object_pat: &swc_ecma_ast::ObjectPat,
-    names: &mut Vec<String>,
-) {
-    for prop in &object_pat.props {
-        match prop {
-            swc_ecma_ast::ObjectPatProp::Assign(assign) => {
-                names.push(assign.key.id.sym.to_string());
-            }
-            swc_ecma_ast::ObjectPatProp::KeyValue(key_value) => {
-                collect_binding_names_from_pat_into(key_value.value.as_ref(), names);
-            }
-            swc_ecma_ast::ObjectPatProp::Rest(rest) => {
-                collect_binding_names_from_pat_into(rest.arg.as_ref(), names);
-            }
-        }
-    }
-}
-
-fn collect_binding_names_from_pat_into(pattern: &Pat, names: &mut Vec<String>) {
-    match pattern {
-        Pat::Ident(binding) => names.push(binding.id.sym.to_string()),
-        Pat::Array(array_pat) => {
-            for elem in array_pat.elems.iter().flatten() {
-                collect_binding_names_from_pat_into(elem, names);
-            }
-        }
-        Pat::Object(object_pat) => collect_binding_names_from_object_pat_into(object_pat, names),
-        Pat::Assign(assign_pat) => {
-            collect_binding_names_from_pat_into(assign_pat.left.as_ref(), names)
-        }
-        Pat::Rest(rest_pat) => collect_binding_names_from_pat_into(rest_pat.arg.as_ref(), names),
-        _ => {}
-    }
-}
-
-fn assign_target_object_pat(target: &AssignTarget) -> Option<&swc_ecma_ast::ObjectPat> {
-    let AssignTarget::Pat(pattern) = target else {
-        return None;
-    };
-    let swc_ecma_ast::AssignTargetPat::Object(object_pat) = pattern else {
-        return None;
-    };
-    Some(object_pat)
-}
-
-fn extract_runtime_callee_from_object_pat(object_pat: &swc_ecma_ast::ObjectPat) -> Option<String> {
-    for prop in &object_pat.props {
-        match prop {
-            swc_ecma_ast::ObjectPatProp::KeyValue(key_value) => {
-                if !is_prop_name_with(&key_value.key, "c") {
-                    continue;
-                }
-                if let Pat::Ident(binding) = key_value.value.as_ref() {
-                    return Some(binding.id.sym.to_string());
-                }
-            }
-            swc_ecma_ast::ObjectPatProp::Assign(assign) if assign.key.id.sym == *"c" => {
-                return Some(assign.key.id.sym.to_string());
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-fn is_require_runtime_call(expr: &Expr) -> bool {
-    let Expr::Call(call_expr) = unwrap_expression(expr) else {
-        return false;
-    };
-    is_require_runtime_call_expr(call_expr)
-}
-
-fn is_require_runtime_call_expr(call_expr: &CallExpr) -> bool {
-    let Callee::Expr(callee_expr) = &call_expr.callee else {
-        return false;
-    };
-    let Expr::Ident(callee_ident) = unwrap_expression(callee_expr.as_ref()) else {
-        return false;
-    };
-    if callee_ident.sym != *"require" {
-        return false;
-    }
-    if call_expr.args.len() != 1 {
-        return false;
-    }
-    let Some(first_arg) = call_expr.args.first() else {
-        return false;
-    };
-    match unwrap_expression(first_arg.expr.as_ref()) {
-        Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"react/compiler-runtime",
-        _ => false,
-    }
-}
-
-fn member_expr_is_runtime_namespace_c(expr: &Expr, runtime_namespaces: &HashSet<String>) -> bool {
-    let Expr::Member(member_expr) = unwrap_expression(expr) else {
-        return false;
-    };
-    if !is_member_prop_with(&member_expr.prop, "c") {
-        return false;
-    }
-    if is_require_runtime_call(member_expr.obj.as_ref()) {
-        return true;
-    }
-    let Some(namespace_name) = expression_ident(member_expr.obj.as_ref()) else {
-        return false;
-    };
-    runtime_namespaces.contains(namespace_name.as_str())
 }
 
 #[cfg(test)]
