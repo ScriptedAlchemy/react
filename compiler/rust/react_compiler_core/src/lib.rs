@@ -4623,6 +4623,16 @@ mod tests {
         assert!(output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("import { c as _c }"));
         assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform,
+            vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_namespace_candidates,
+            vec!["runtime".to_string()]
+        );
     }
 
     #[test]
@@ -4713,6 +4723,16 @@ mod tests {
         assert!(output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("import { c as _c }"));
         assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform,
+            vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_namespace_candidates,
+            vec!["runtime".to_string()]
+        );
     }
 
     #[test]
@@ -6010,6 +6030,16 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform
+                .is_empty()
+        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates
+            .is_empty());
     }
 
     #[test]
@@ -7036,6 +7066,16 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform
+                .is_empty()
+        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8089,6 +8129,16 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
+        assert!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform
+                .is_empty()
+        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates
+            .is_empty());
     }
 
     #[test]
@@ -9095,6 +9145,16 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
+        assert!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform
+                .is_empty()
+        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates
+            .is_empty());
     }
 
     #[test]
@@ -9413,6 +9473,16 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
         assert!(output.code.contains("const $ = cache(0);"));
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform,
+            vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_namespace_candidates,
+            vec!["runtime".to_string()]
+        );
     }
 
     #[test]
@@ -9508,6 +9578,16 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
         assert!(output.code.contains("const $ = cache(0);"));
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform,
+            vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_namespace_candidates,
+            vec!["runtime".to_string()]
+        );
     }
 
     #[test]
