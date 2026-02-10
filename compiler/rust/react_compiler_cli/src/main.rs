@@ -24,6 +24,7 @@ enum CompileResponse {
         statement_count: usize,
         detected_react_functions: usize,
         react_functions: Vec<SerializedReactFunction>,
+        placeholder_transforms_applied: usize,
         #[serde(skip_serializing_if = "Option::is_none")]
         debug_ir: Option<String>,
     },
@@ -103,6 +104,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                     .iter()
                     .map(serialize_react_function)
                     .collect(),
+                placeholder_transforms_applied: output.metadata.placeholder_transforms_applied,
                 debug_ir,
             }
         }
@@ -210,11 +212,13 @@ mod tests {
                 statement_count,
                 detected_react_functions,
                 react_functions,
+                placeholder_transforms_applied,
                 ..
             } => {
                 assert_eq!(statement_count, 1);
                 assert_eq!(detected_react_functions, 0);
                 assert!(react_functions.is_empty());
+                assert_eq!(placeholder_transforms_applied, 0);
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -300,6 +304,30 @@ mod tests {
                 let debug_ir = debug_ir.expect("expected debug_ir payload when requested");
                 assert!(debug_ir.contains("ReactiveFunctionsDebug v0"));
                 assert!(debug_ir.contains("name=Component kind=Component"));
+            }
+            CompileResponse::Error { message, .. } => {
+                panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
+
+    #[test]
+    fn compile_request_reports_placeholder_transform_count() {
+        let response = handle_request(CompileRequest {
+            source: "export default (() => <div />);".to_string(),
+            filename: Some("fixture.jsx".to_string()),
+            dialect: Some("javascript".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: Some(true),
+            emit_debug_ir: Some(false),
+        });
+
+        match response {
+            CompileResponse::Ok {
+                placeholder_transforms_applied,
+                ..
+            } => {
+                assert_eq!(placeholder_transforms_applied, 1);
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")

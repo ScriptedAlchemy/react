@@ -31,6 +31,7 @@ export type RustCompileResponse =
       code: string;
       statement_count: number;
       detected_react_functions: number;
+      placeholder_transforms_applied: number;
       react_functions: Array<{
         name: string;
         kind: 'Component' | 'Hook';

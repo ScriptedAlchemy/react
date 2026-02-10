@@ -82,6 +82,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'ok') {
       expect(result.statement_count).toBe(1);
       expect(result.detected_react_functions).toBe(0);
+      expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.react_functions).toEqual([]);
       expect(result.code).toContain('export const value = 1;');
     }
@@ -99,6 +100,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
       expect(result.react_functions).toHaveLength(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.react_functions[0]?.name).toBe('useValue');
       expect(result.react_functions[0]?.kind).toBe('Hook');
       expect(result.react_functions[0]?.loc).not.toBeNull();
@@ -151,6 +153,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.react_functions[0]?.name).toBe('Component');
     }
   });
@@ -166,6 +169,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
+      expect(result.placeholder_transforms_applied).toBeGreaterThan(0);
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
     }
@@ -183,6 +187,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.react_functions[0]?.name).toBe('__default_export_component__');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
@@ -201,6 +206,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.react_functions[0]?.name).toBe('__default_export_component__');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
@@ -219,6 +225,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.react_functions[0]?.name).toBe('__default_export_component__');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
@@ -237,6 +244,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.react_functions[0]?.name).toBe('component');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
@@ -255,6 +263,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.react_functions[0]?.name).toBe('component');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');

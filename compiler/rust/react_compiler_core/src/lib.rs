@@ -46,6 +46,7 @@ pub struct ParseMetadata {
     pub statement_count: usize,
     pub detected_react_functions: usize,
     pub react_functions: Vec<ReactFunction>,
+    pub placeholder_transforms_applied: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +85,10 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "detected_react_functions={}",
             metadata.detected_react_functions
+        ),
+        format!(
+            "placeholder_transforms_applied={}",
+            metadata.placeholder_transforms_applied
         ),
     ];
     for (index, function) in metadata.react_functions.iter().enumerate() {
@@ -230,14 +235,18 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             }
         })?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
+        let original_statement_count = module.body.len();
+        let transformed_count = if options.apply_placeholder_transforms {
+            apply_placeholder_compilation_to_module(&mut module, &react_functions)
+        } else {
+            0
+        };
         let metadata = ParseMetadata {
-            statement_count: module.body.len(),
+            statement_count: original_statement_count,
             detected_react_functions: react_functions.len(),
             react_functions,
+            placeholder_transforms_applied: transformed_count,
         };
-        if options.apply_placeholder_transforms {
-            apply_placeholder_compilation_to_module(&mut module, &metadata.react_functions);
-        }
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
         let script = parser.parse_script().map_err(|err| {
@@ -259,6 +268,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             statement_count: script.body.len(),
             detected_react_functions: react_functions.len(),
             react_functions,
+            placeholder_transforms_applied: 0,
         };
         (metadata, emit_script(&cm, &comments, &script)?)
     };
@@ -872,7 +882,10 @@ fn collect_named_functions_in_decl(
     }
 }
 
-fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions: &[ReactFunction]) {
+fn apply_placeholder_compilation_to_module(
+    module: &mut Module,
+    react_functions: &[ReactFunction],
+) -> usize {
     let should_transform_default_export = module_has_default_export_component_candidate(module);
     let mut transform_candidate_names: HashSet<String> = react_functions
         .iter()
@@ -882,7 +895,7 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
         .collect();
     transform_candidate_names.extend(collect_default_export_function_names(module));
     if transform_candidate_names.is_empty() && !should_transform_default_export {
-        return;
+        return 0;
     }
 
     let existing_runtime_callee_name = runtime_memo_callee_name(module);
@@ -891,37 +904,35 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
         .unwrap_or("_c")
         .to_string();
 
-    let mut transformed = false;
+    let mut transformed_count = 0;
     for item in module.body.iter_mut() {
         match item {
             ModuleItem::Stmt(stmt) => {
-                if apply_placeholder_compilation_to_stmt(
+                transformed_count += apply_placeholder_compilation_to_stmt(
                     stmt,
                     &transform_candidate_names,
                     runtime_callee_name.as_str(),
-                ) {
-                    transformed = true;
-                }
+                );
             }
             ModuleItem::ModuleDecl(module_decl) => {
-                if apply_placeholder_compilation_to_module_decl(
+                transformed_count += apply_placeholder_compilation_to_module_decl(
                     module_decl,
                     &transform_candidate_names,
                     runtime_callee_name.as_str(),
                     should_transform_default_export,
-                ) {
-                    transformed = true;
-                }
+                );
             }
         }
     }
 
-    if transformed && existing_runtime_callee_name.is_none() {
+    if transformed_count > 0 && existing_runtime_callee_name.is_none() {
         module.body.insert(
             0,
             ModuleItem::ModuleDecl(ModuleDecl::Import(make_runtime_import_decl())),
         );
     }
+
+    transformed_count
 }
 
 fn apply_placeholder_compilation_to_module_decl(
@@ -929,7 +940,7 @@ fn apply_placeholder_compilation_to_module_decl(
     react_function_names: &HashSet<String>,
     runtime_callee_name: &str,
     should_transform_default_export: bool,
-) -> bool {
+) -> usize {
     match module_decl {
         ModuleDecl::ExportDecl(export_decl) => apply_placeholder_compilation_to_decl(
             &mut export_decl.decl,
@@ -939,39 +950,48 @@ fn apply_placeholder_compilation_to_module_decl(
         ModuleDecl::ExportDefaultDecl(default_decl) => match &mut default_decl.decl {
             DefaultDecl::Fn(fn_expr) => {
                 if !should_transform_default_export {
-                    return false;
+                    return 0;
                 }
-                inject_placeholder_memo_init_into_function(
+                if inject_placeholder_memo_init_into_function(
                     &mut fn_expr.function,
                     runtime_callee_name,
-                );
-                true
+                ) {
+                    1
+                } else {
+                    0
+                }
             }
-            _ => false,
+            _ => 0,
         },
         ModuleDecl::ExportDefaultExpr(default_expr) => {
             if !should_transform_default_export {
-                return false;
+                return 0;
             }
             match unwrap_expression_mut(default_expr.expr.as_mut()) {
                 Expr::Fn(fn_expr) => {
-                    inject_placeholder_memo_init_into_function(
+                    if inject_placeholder_memo_init_into_function(
                         &mut fn_expr.function,
                         runtime_callee_name,
-                    );
-                    true
+                    ) {
+                        1
+                    } else {
+                        0
+                    }
                 }
                 Expr::Arrow(arrow_expr) => {
-                    inject_placeholder_memo_init_into_arrow_function(
+                    if inject_placeholder_memo_init_into_arrow_function(
                         arrow_expr,
                         runtime_callee_name,
-                    );
-                    true
+                    ) {
+                        1
+                    } else {
+                        0
+                    }
                 }
-                _ => false,
+                _ => 0,
             }
         }
-        _ => false,
+        _ => 0,
     }
 }
 
@@ -979,12 +999,12 @@ fn apply_placeholder_compilation_to_stmt(
     stmt: &mut Stmt,
     react_function_names: &HashSet<String>,
     runtime_callee_name: &str,
-) -> bool {
+) -> usize {
     match stmt {
         Stmt::Decl(decl) => {
             apply_placeholder_compilation_to_decl(decl, react_function_names, runtime_callee_name)
         }
-        _ => false,
+        _ => 0,
     }
 }
 
@@ -992,20 +1012,21 @@ fn apply_placeholder_compilation_to_decl(
     decl: &mut Decl,
     react_function_names: &HashSet<String>,
     runtime_callee_name: &str,
-) -> bool {
+) -> usize {
     match decl {
         Decl::Fn(fn_decl) => {
             if react_function_names.contains(fn_decl.ident.sym.as_ref()) {
-                inject_placeholder_memo_init_into_function(
+                if inject_placeholder_memo_init_into_function(
                     &mut fn_decl.function,
                     runtime_callee_name,
-                );
-                return true;
+                ) {
+                    return 1;
+                }
             }
-            false
+            0
         }
         Decl::Var(var_decl) => {
-            let mut transformed = false;
+            let mut transformed_count = 0;
             for declarator in var_decl.decls.iter_mut() {
                 let Pat::Ident(binding) = &declarator.name else {
                     continue;
@@ -1018,34 +1039,36 @@ fn apply_placeholder_compilation_to_decl(
                 };
                 match unwrap_expression_mut(init.as_mut()) {
                     Expr::Fn(fn_expr) => {
-                        inject_placeholder_memo_init_into_function(
+                        if inject_placeholder_memo_init_into_function(
                             &mut fn_expr.function,
                             runtime_callee_name,
-                        );
-                        transformed = true;
+                        ) {
+                            transformed_count += 1;
+                        }
                     }
                     Expr::Arrow(arrow_expr) => {
-                        inject_placeholder_memo_init_into_arrow_function(
+                        if inject_placeholder_memo_init_into_arrow_function(
                             arrow_expr,
                             runtime_callee_name,
-                        );
-                        transformed = true;
+                        ) {
+                            transformed_count += 1;
+                        }
                     }
                     _ => {}
                 }
             }
-            transformed
+            transformed_count
         }
-        _ => false,
+        _ => 0,
     }
 }
 
 fn inject_placeholder_memo_init_into_function(
     function: &mut swc_ecma_ast::Function,
     runtime_callee_name: &str,
-) {
+) -> bool {
     if function_has_placeholder_memo_init(function, runtime_callee_name) {
-        return;
+        return false;
     }
     let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match function.body.as_mut() {
@@ -1058,14 +1081,15 @@ fn inject_placeholder_memo_init_into_function(
             });
         }
     }
+    true
 }
 
 fn inject_placeholder_memo_init_into_arrow_function(
     arrow: &mut swc_ecma_ast::ArrowExpr,
     runtime_callee_name: &str,
-) {
+) -> bool {
     if arrow_has_placeholder_memo_init(arrow, runtime_callee_name) {
-        return;
+        return false;
     }
     let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match arrow.body.as_mut() {
@@ -1084,6 +1108,7 @@ fn inject_placeholder_memo_init_into_arrow_function(
             }));
         }
     }
+    true
 }
 
 fn make_placeholder_memo_stmt(runtime_callee_name: &str) -> Stmt {
@@ -1789,6 +1814,7 @@ mod tests {
         assert!(debug.contains("ReactiveFunctionsDebug v0"));
         assert!(debug.contains("statement_count=2"));
         assert!(debug.contains("detected_react_functions=2"));
+        assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("name=Component kind=Component"));
         assert!(debug.contains("name=useThing kind=Hook"));
     }
