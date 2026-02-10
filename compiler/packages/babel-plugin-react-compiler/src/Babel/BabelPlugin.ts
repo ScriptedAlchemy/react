@@ -147,29 +147,39 @@ function detectRustDialect(
 
 function findObviousFlowTypeSyntaxMarker(
   sourceCode: string,
-): null | {index: number; length: number} {
+): null | {index: number; length: number; kind: string} {
   const flowTypeMarkers = [
-    /\bimport\s+type\b/,
-    /\bexport\s+type\b/,
-    /\bopaque\s+type\b/,
-    /\binterface\s+[A-Za-z_$]/,
-    /\bdeclare\s+(class|function|module|var|type|interface)\b/,
-    /\btype\s+[A-Za-z_$][\w$]*\s*=/,
-    /\bfunction\s+[A-Za-z_$][\w$]*\s*\([^)]*:\s*[^)]*\)/,
-    /\([^)]*:\s*[^)]*\)\s*=>/,
-    /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:\s*[^=;]+[=;]/,
-    /\/\*::/,
-    /\/\/::/,
+    {pattern: /\bimport\s+type\b/, kind: 'import_type'},
+    {pattern: /\bexport\s+type\b/, kind: 'export_type'},
+    {pattern: /\bopaque\s+type\b/, kind: 'opaque_type'},
+    {pattern: /\binterface\s+[A-Za-z_$]/, kind: 'interface'},
+    {
+      pattern: /\bdeclare\s+(class|function|module|var|type|interface)\b/,
+      kind: 'declare',
+    },
+    {pattern: /\btype\s+[A-Za-z_$][\w$]*\s*=/, kind: 'type_alias'},
+    {
+      pattern: /\bfunction\s+[A-Za-z_$][\w$]*\s*\([^)]*:\s*[^)]*\)/,
+      kind: 'typed_function_params',
+    },
+    {pattern: /\([^)]*:\s*[^)]*\)\s*=>/, kind: 'typed_arrow_params'},
+    {
+      pattern: /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:\s*[^=;]+[=;]/,
+      kind: 'typed_variable',
+    },
+    {pattern: /\/\*::/, kind: 'flow_comment_block'},
+    {pattern: /\/\/::/, kind: 'flow_comment_line'},
   ];
-  let firstMatch: null | {index: number; length: number} = null;
-  for (const pattern of flowTypeMarkers) {
-    const match = pattern.exec(sourceCode);
+  let firstMatch: null | {index: number; length: number; kind: string} = null;
+  for (const marker of flowTypeMarkers) {
+    const match = marker.pattern.exec(sourceCode);
     if (match == null || match.index == null) {
       continue;
     }
     const candidate = {
       index: match.index,
       length: match[0].length,
+      kind: marker.kind,
     };
     if (firstMatch == null || candidate.index < firstMatch.index) {
       firstMatch = candidate;
@@ -286,7 +296,7 @@ function maybeRunRustProgramCompiler(
       logStrictRustFrontendFallback(
         logger,
         filename,
-        'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported',
+        `rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported:${flowTypeMarker.kind}`,
         sourceOffsetToLocation(
           sourceCode,
           flowTypeMarker.index,
