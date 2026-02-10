@@ -6993,6 +6993,48 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.debug_ir).toContain('ReactiveFunctionsDebug v0');
+      expect(result.debug_ir).toContain('statement_count=1');
+      expect(result.debug_ir).toContain('statement_count_after_transform=1');
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_helper_import_count_before_transform=0',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_helper_import_count_after_transform=0',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_helper_import_added=false',
+      );
+      expect(result.debug_ir).toContain('name=Component kind=Component');
+    }
+  });
+
+  it('can request debug IR output from Rust CLI with transform pass state', () => {
+    const result = runRustCompilerCli({
+      source: 'export function Component() { return <div />; }',
+      dialect: 'javascript',
+      filename: 'fixture.jsx',
+      is_module: true,
+      apply_placeholder_transforms: true,
+      emit_debug_ir: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.debug_ir).toContain('ReactiveFunctionsDebug v0');
+      expect(result.debug_ir).toContain('statement_count=1');
+      expect(result.debug_ir).toContain('statement_count_after_transform=2');
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_helper_import_count_before_transform=0',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_helper_import_count_after_transform=1',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_helper_import_added=true',
+      );
+      expect(result.debug_ir).toContain('placeholder_transforms_applied=1');
+      expect(result.debug_ir).toContain('placeholder_transformed_functions=Component');
+      expect(result.debug_ir).toContain('placeholder_runtime_callee_name=_c');
       expect(result.debug_ir).toContain('name=Component kind=Component');
     }
   });

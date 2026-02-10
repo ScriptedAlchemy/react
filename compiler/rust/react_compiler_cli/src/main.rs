@@ -434,6 +434,40 @@ mod tests {
     }
 
     #[test]
+    fn compile_request_debug_ir_reports_transform_pass_state() {
+        let response = handle_request(CompileRequest {
+            source: "export function Component() { return <div />; }".to_string(),
+            filename: Some("fixture.jsx".to_string()),
+            dialect: Some("javascript".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: Some(true),
+            emit_debug_ir: Some(true),
+        });
+
+        match response {
+            CompileResponse::Ok { debug_ir, .. } => {
+                let debug_ir = debug_ir.expect("debug_ir should be populated");
+                assert!(debug_ir.contains("statement_count=1"));
+                assert!(debug_ir.contains("statement_count_after_transform=2"));
+                assert!(debug_ir.contains(
+                    "placeholder_runtime_helper_import_count_before_transform=0"
+                ));
+                assert!(debug_ir.contains(
+                    "placeholder_runtime_helper_import_count_after_transform=1"
+                ));
+                assert!(debug_ir.contains("placeholder_runtime_helper_import_added=true"));
+                assert!(debug_ir.contains("placeholder_transforms_applied=1"));
+                assert!(debug_ir.contains("placeholder_transformed_functions=Component"));
+                assert!(debug_ir.contains("placeholder_runtime_callee_name=_c"));
+                assert!(debug_ir.contains("name=Component kind=Component"));
+            }
+            CompileResponse::Error { message, .. } => {
+                panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
+
+    #[test]
     fn compile_request_reports_placeholder_transform_count() {
         let response = handle_request(CompileRequest {
             source: "export default (() => <div />);".to_string(),

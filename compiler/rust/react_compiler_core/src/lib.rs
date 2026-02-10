@@ -12411,4 +12411,31 @@ mod tests {
         assert!(debug.contains("name=Component kind=Component"));
         assert!(debug.contains("name=useThing kind=Hook"));
     }
+
+    #[test]
+    fn renders_react_function_debug_snapshot_with_transform_state() {
+        let output = compile(
+            "export function Component() { return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                is_module: true,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected compile to succeed");
+
+        let debug = render_react_functions_debug(&output.metadata);
+        assert!(debug.contains("ReactiveFunctionsDebug v0"));
+        assert!(debug.contains("statement_count=1"));
+        assert!(debug.contains("statement_count_after_transform=2"));
+        assert!(debug.contains("placeholder_runtime_helper_import_count_before_transform=0"));
+        assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=1"));
+        assert!(debug.contains("placeholder_runtime_helper_import_added=true"));
+        assert!(debug.contains("placeholder_transforms_applied=1"));
+        assert!(debug.contains("placeholder_transformed_functions=Component"));
+        assert!(debug.contains("placeholder_runtime_callee_name=_c"));
+        assert!(debug.contains("placeholder_runtime_callee_name_before_transform=none"));
+        assert!(debug.contains("name=Component kind=Component"));
+    }
 }
