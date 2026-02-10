@@ -15,6 +15,7 @@ export type RustCompileRequest = {
   dialect?: 'javascript' | 'typescript' | 'flow';
   is_module?: boolean;
   apply_placeholder_transforms?: boolean;
+  emit_debug_ir?: boolean;
 };
 
 type RustSourceLocation = {
@@ -35,6 +36,7 @@ export type RustCompileResponse =
         kind: 'Component' | 'Hook';
         loc: null | RustSourceLocation;
       }>;
+      debug_ir?: string;
     }
   | {
       status: 'error';

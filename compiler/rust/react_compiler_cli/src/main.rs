@@ -1,5 +1,6 @@
 use react_compiler_core::{
-    compile, CompilerOptions, InputDialect, ReactFunction, ReactFunctionKind, SourceLocation,
+    compile, render_react_functions_debug, CompilerOptions, InputDialect, ReactFunction,
+    ReactFunctionKind, SourceLocation,
 };
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -11,6 +12,7 @@ struct CompileRequest {
     dialect: Option<String>,
     is_module: Option<bool>,
     apply_placeholder_transforms: Option<bool>,
+    emit_debug_ir: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -22,6 +24,8 @@ enum CompileResponse {
         statement_count: usize,
         detected_react_functions: usize,
         react_functions: Vec<SerializedReactFunction>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        debug_ir: Option<String>,
     },
     #[serde(rename = "error")]
     Error {
@@ -83,17 +87,25 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
     };
 
     match compile(&request.source, &options) {
-        Ok(output) => CompileResponse::Ok {
-            code: output.code,
-            statement_count: output.metadata.statement_count,
-            detected_react_functions: output.metadata.detected_react_functions,
-            react_functions: output
-                .metadata
-                .react_functions
-                .iter()
-                .map(serialize_react_function)
-                .collect(),
-        },
+        Ok(output) => {
+            let debug_ir = if request.emit_debug_ir.unwrap_or(false) {
+                Some(render_react_functions_debug(&output.metadata))
+            } else {
+                None
+            };
+            CompileResponse::Ok {
+                code: output.code,
+                statement_count: output.metadata.statement_count,
+                detected_react_functions: output.metadata.detected_react_functions,
+                react_functions: output
+                    .metadata
+                    .react_functions
+                    .iter()
+                    .map(serialize_react_function)
+                    .collect(),
+                debug_ir,
+            }
+        }
         Err(error) => CompileResponse::Error {
             code: error.code().to_string(),
             category: error.category().to_string(),
@@ -190,6 +202,7 @@ mod tests {
             dialect: Some("javascript".to_string()),
             is_module: Some(true),
             apply_placeholder_transforms: None,
+            emit_debug_ir: None,
         });
 
         match response {
@@ -217,6 +230,7 @@ mod tests {
             dialect: Some("unknown".to_string()),
             is_module: Some(true),
             apply_placeholder_transforms: None,
+            emit_debug_ir: None,
         });
 
         match response {
@@ -246,6 +260,7 @@ mod tests {
             dialect: Some("javascript".to_string()),
             is_module: Some(false),
             apply_placeholder_transforms: None,
+            emit_debug_ir: None,
         });
 
         match response {
@@ -265,6 +280,29 @@ mod tests {
             }
             CompileResponse::Ok { .. } => {
                 panic!("expected parse failure for invalid javascript source")
+            }
+        }
+    }
+
+    #[test]
+    fn compile_request_can_emit_debug_ir() {
+        let response = handle_request(CompileRequest {
+            source: "function Component() { return <div />; }".to_string(),
+            filename: Some("fixture.jsx".to_string()),
+            dialect: Some("javascript".to_string()),
+            is_module: Some(false),
+            apply_placeholder_transforms: Some(false),
+            emit_debug_ir: Some(true),
+        });
+
+        match response {
+            CompileResponse::Ok { debug_ir, .. } => {
+                let debug_ir = debug_ir.expect("expected debug_ir payload when requested");
+                assert!(debug_ir.contains("ReactiveFunctionsDebug v0"));
+                assert!(debug_ir.contains("name=Component kind=Component"));
+            }
+            CompileResponse::Error { message, .. } => {
+                panic!("expected successful compile response, got error: {message}")
             }
         }
     }

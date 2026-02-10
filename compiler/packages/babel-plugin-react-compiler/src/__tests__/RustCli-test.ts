@@ -171,6 +171,22 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('can request debug IR output from Rust CLI', () => {
+    const result = runRustCompilerCli({
+      source: 'function Component() { return <div />; }',
+      dialect: 'javascript',
+      filename: 'fixture.jsx',
+      is_module: false,
+      emit_debug_ir: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.debug_ir).toContain('ReactiveFunctionsDebug v0');
+      expect(result.debug_ir).toContain('name=Component kind=Component');
+    }
+  });
+
   it('uses explicit rust cli binary override when configured', () => {
     withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () => {
       expect(() =>

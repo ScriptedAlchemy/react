@@ -75,6 +75,41 @@ pub struct CompileOutput {
     pub metadata: ParseMetadata,
 }
 
+pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
+    let mut lines = vec![
+        "ReactiveFunctionsDebug v0".to_string(),
+        format!("statement_count={}", metadata.statement_count),
+        format!(
+            "detected_react_functions={}",
+            metadata.detected_react_functions
+        ),
+    ];
+    for (index, function) in metadata.react_functions.iter().enumerate() {
+        let kind = match function.kind {
+            ReactFunctionKind::Component => "Component",
+            ReactFunctionKind::Hook => "Hook",
+        };
+        let loc = function
+            .loc
+            .as_ref()
+            .map(|location| {
+                format!(
+                    "{}:{}-{}:{}",
+                    location.start_line,
+                    location.start_column,
+                    location.end_line,
+                    location.end_column
+                )
+            })
+            .unwrap_or_else(|| "none".to_string());
+        lines.push(format!(
+            "fn[{index}] name={} kind={} loc={loc}",
+            function.name, kind
+        ));
+    }
+    lines.join("\n")
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CompilerError {
     #[error("Flow syntax is not supported by the Rust frontend yet")]
@@ -1029,7 +1064,9 @@ fn runtime_memo_callee_name_from_specifier(specifier: &ImportSpecifier) -> Optio
 
 #[cfg(test)]
 mod tests {
-    use super::{compile, CompilerError, CompilerOptions, InputDialect};
+    use super::{
+        compile, render_react_functions_debug, CompilerError, CompilerOptions, InputDialect,
+    };
 
     #[test]
     fn parses_javascript_source() {
@@ -1376,5 +1413,26 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["useAlpha", "Component", "useBeta"]
         );
+    }
+
+    #[test]
+    fn renders_react_function_debug_snapshot() {
+        let output = compile(
+            "function Component() { return <div />; } function useThing() { return 1; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: false,
+            },
+        )
+        .expect("expected compile to succeed");
+
+        let debug = render_react_functions_debug(&output.metadata);
+        assert!(debug.contains("ReactiveFunctionsDebug v0"));
+        assert!(debug.contains("statement_count=2"));
+        assert!(debug.contains("detected_react_functions=2"));
+        assert!(debug.contains("name=Component kind=Component"));
+        assert!(debug.contains("name=useThing kind=Hook"));
     }
 }
