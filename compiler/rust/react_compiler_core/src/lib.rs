@@ -3124,7 +3124,7 @@ fn clear_runtime_namespace_binding_for_member_expr(
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
 ) {
-    if !is_member_prop_with(&member_expr.prop, "c") {
+    if !member_prop_may_target_runtime_c(&member_expr.prop) {
         return;
     }
     let Some(object_name) = expression_ident(member_expr.obj.as_ref()) else {
@@ -3136,6 +3136,18 @@ fn clear_runtime_namespace_binding_for_member_expr(
             runtime_namespace_bindings,
             runtime_callee_bindings,
         );
+    }
+}
+
+fn member_prop_may_target_runtime_c(prop: &MemberProp) -> bool {
+    match prop {
+        MemberProp::Ident(ident_name) => ident_name.sym == *"c",
+        MemberProp::Computed(computed_prop) => match unwrap_expression(computed_prop.expr.as_ref()) {
+            Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"c",
+            Expr::Lit(_) => false,
+            _ => true,
+        },
+        MemberProp::PrivateName(_) => false,
     }
 }
 
@@ -4391,6 +4403,24 @@ mod tests {
     fn reuses_existing_runtime_cache_when_runtime_namespace_non_c_member_is_mutated_in_module() {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); runtime.x = unknown; const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_runtime_namespace_non_c_computed_member_is_mutated_in_module(
+    ) {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); runtime['x'] = unknown; const cache = runtime.c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -6147,6 +6177,25 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_namespace_computed_member_may_target_c() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); const prop = maybe ? 'c' : 'x'; runtime[prop] = unknown; const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_destructure_alias() {
         let output = compile(
             "const { c: cache } = require('react/compiler-runtime'); function Component(){ return <div />; }",
@@ -7417,6 +7466,25 @@ mod tests {
     }
 
     #[test]
+    fn does_not_transform_script_component_when_runtime_namespace_computed_member_may_target_c() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); const prop = maybe ? 'c' : 'x'; runtime[prop] = unknown; const cache = runtime.c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn does_not_transform_script_component_when_runtime_alias_uses_compound_assignment() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; cache += 1; function Component(){ return <div />; }",
@@ -7571,6 +7639,24 @@ mod tests {
     fn transforms_script_component_when_runtime_namespace_non_c_member_is_mutated() {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); runtime.x = unknown; const cache = runtime.c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_when_runtime_namespace_non_c_computed_member_is_mutated() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); runtime['x'] = unknown; const cache = runtime.c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
