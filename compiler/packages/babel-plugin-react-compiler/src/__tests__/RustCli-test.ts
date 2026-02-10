@@ -514,6 +514,43 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('logs strict rust preflight reason and location for flow return annotations', () => {
+    const loggedEvents: Array<unknown> = [];
+    const source = [
+      '// @flow',
+      'function Component(): string {',
+      "  return 'ok';",
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+          logger: {
+            logEvent(_filename, event) {
+              loggedEvents.push(event);
+            },
+          },
+        }),
+      ),
+    );
+
+    const fallbackEvent = loggedEvents.find(
+      (event: any) =>
+        event.kind === 'CompileSkip' &&
+        event.reason ===
+          'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported:typed_function_return',
+    ) as any;
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent.loc).not.toBeNull();
+    if (fallbackEvent.loc != null) {
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('function Component():'));
+    }
+  });
+
   it('logs strict rust preflight reason and location for flow type-cast syntax', () => {
     const loggedEvents: Array<unknown> = [];
     const source = [
