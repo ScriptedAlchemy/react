@@ -1793,6 +1793,13 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
                             &mut runtime_callee_bindings,
                         );
                     }
+                } else if let Decl::TsEnum(ts_enum_decl) = &export_decl.decl {
+                    collect_runtime_bindings_from_ts_enum_decl(
+                        ts_enum_decl.as_ref(),
+                        &mut runtime_namespace_bindings,
+                        &mut runtime_callee_bindings,
+                        false,
+                    );
                 }
             }
             ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(default_decl)) => {
@@ -1914,6 +1921,24 @@ fn collect_runtime_bindings_from_ts_import_equals_decl(
                     runtime_namespace_bindings.remove(binding_name.as_str());
                 }
             }
+        }
+    }
+}
+
+fn collect_runtime_bindings_from_ts_enum_decl(
+    ts_enum_decl: &swc_ecma_ast::TsEnumDecl,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    for member in &ts_enum_decl.members {
+        if let Some(init) = &member.init {
+            collect_runtime_bindings_from_expression(
+                runtime_initializer_expr(init.as_ref()),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
         }
     }
 }
@@ -2990,6 +3015,11 @@ fn collect_declared_binding_names_from_stmt(stmt: &Stmt, names: &mut Vec<String>
         }
         Stmt::Decl(Decl::Class(class_decl)) => names.push(class_decl.ident.sym.to_string()),
         Stmt::Decl(Decl::Fn(fn_decl)) => names.push(fn_decl.ident.sym.to_string()),
+        Stmt::Decl(Decl::TsEnum(enum_decl)) => names.push(enum_decl.id.sym.to_string()),
+        Stmt::Decl(Decl::TsModule(module_decl)) => match &module_decl.id {
+            swc_ecma_ast::TsModuleName::Ident(ident) => names.push(ident.sym.to_string()),
+            swc_ecma_ast::TsModuleName::Str(_) => {}
+        },
         _ => {}
     }
 }
@@ -3304,6 +3334,12 @@ fn collect_runtime_bindings_from_static_block_stmt(
         }
         Stmt::Decl(Decl::Class(class_decl)) => collect_runtime_bindings_from_class(
             &class_decl.class,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        Stmt::Decl(Decl::TsEnum(ts_enum_decl)) => collect_runtime_bindings_from_ts_enum_decl(
+            ts_enum_decl.as_ref(),
             runtime_namespace_bindings,
             runtime_callee_bindings,
             may_be_conditional,
@@ -4619,6 +4655,22 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_ts_enum_member_assignment_in_module() {
+        let output = compile(
+            "let cache; enum RuntimeCarrier { Value = (cache = require('react/compiler-runtime').c) } export function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_conditionally_assigned_in_class_static_block(
     ) {
         let output = compile(
@@ -5449,6 +5501,25 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_ts_enum_member() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; enum RuntimeCarrier { Value = (cache = unknown) } export function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_conditionally_reassigned_in_class_static_block(
     ) {
         let output = compile(
@@ -5891,6 +5962,24 @@ mod tests {
             },
         )
         .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_alias_from_ts_enum_member_assignment() {
+        let output = compile(
+            "let cache; enum RuntimeCarrier { Value = (cache = require('react/compiler-runtime').c) } function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid TypeScript to parse");
 
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
@@ -6557,6 +6646,25 @@ mod tests {
             },
         )
         .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_reassigned_in_ts_enum_member() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; enum RuntimeCarrier { Value = (cache = unknown) } function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid TypeScript to parse");
 
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
