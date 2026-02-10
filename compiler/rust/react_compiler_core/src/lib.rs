@@ -1256,6 +1256,48 @@ mod tests {
     }
 
     #[test]
+    fn parse_failure_reason_is_classified_as_unexpected_token() {
+        let err = compile(
+            "const = 1;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "broken.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect_err("invalid JavaScript should fail parsing");
+
+        match err {
+            CompilerError::ParseFailure { reason, .. } => {
+                assert_eq!(reason, "unexpected_token");
+            }
+            other => panic!("expected parse failure error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_failure_reason_is_classified_as_unterminated_syntax() {
+        let err = compile(
+            "const value = /foo",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "broken.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect_err("invalid JavaScript should fail parsing");
+
+        match err {
+            CompilerError::ParseFailure { reason, .. } => {
+                assert_eq!(reason, "unterminated_syntax");
+            }
+            other => panic!("expected parse failure error, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn react_function_metadata_order_is_stable() {
         let source = r#"
           function useAlpha() { return 1; }
