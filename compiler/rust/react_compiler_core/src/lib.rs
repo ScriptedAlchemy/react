@@ -360,15 +360,18 @@ fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Ve
         functions = merge_react_functions(functions, fixture_entrypoint_functions);
     }
 
+    sort_react_functions(&mut functions);
     functions
 }
 
 fn collect_react_functions_in_script(cm: &Lrc<SourceMap>, script: &Script) -> Vec<ReactFunction> {
-    script
+    let mut functions: Vec<ReactFunction> = script
         .body
         .iter()
         .flat_map(|stmt| collect_react_functions_in_stmt(cm, stmt))
-        .collect()
+        .collect();
+    sort_react_functions(&mut functions);
+    functions
 }
 
 fn merge_react_functions(
@@ -393,6 +396,34 @@ fn react_function_key(function: &ReactFunction) -> String {
         ),
         None => format!("{}:none", function.name),
     }
+}
+
+fn sort_react_functions(functions: &mut [ReactFunction]) {
+    functions.sort_by(|a, b| react_function_sort_key(a).cmp(&react_function_sort_key(b)));
+}
+
+fn react_function_sort_key(function: &ReactFunction) -> (usize, usize, usize, usize, &str, &str) {
+    let (start_line, start_column, end_line, end_column) = match &function.loc {
+        Some(loc) => (
+            loc.start_line,
+            loc.start_column,
+            loc.end_line,
+            loc.end_column,
+        ),
+        None => (usize::MAX, usize::MAX, usize::MAX, usize::MAX),
+    };
+    let kind = match function.kind {
+        ReactFunctionKind::Component => "component",
+        ReactFunctionKind::Hook => "hook",
+    };
+    (
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+        function.name.as_str(),
+        kind,
+    )
 }
 
 fn collect_fixture_entrypoint_function_names(module: &Module) -> HashSet<String> {
@@ -1108,5 +1139,38 @@ mod tests {
         .expect_err("flow is not implemented yet");
 
         assert_eq!(err, CompilerError::UnsupportedFlowSyntax);
+    }
+
+    #[test]
+    fn react_function_metadata_order_is_stable() {
+        let source = r#"
+          function useAlpha() { return 1; }
+          function Component() { return <div />; }
+          function useBeta() { return 2; }
+        "#;
+        let options = CompilerOptions {
+            dialect: InputDialect::JavaScript,
+            filename: "fixture.jsx".to_string(),
+            is_module: false,
+            ..CompilerOptions::default()
+        };
+
+        let first = compile(source, &options)
+            .expect("expected first compile to succeed")
+            .metadata
+            .react_functions;
+        let second = compile(source, &options)
+            .expect("expected second compile to succeed")
+            .metadata
+            .react_functions;
+
+        assert_eq!(first, second);
+        assert_eq!(
+            first
+                .iter()
+                .map(|item| item.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["useAlpha", "Component", "useBeta"]
+        );
     }
 }
