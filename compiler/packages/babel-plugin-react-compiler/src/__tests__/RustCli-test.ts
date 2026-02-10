@@ -497,6 +497,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_namespace_candidates).toEqual([
         'runtime',
       ]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBe(
+        'cache',
+      );
+      expect(result.placeholder_runtime_callee_name).toBe('cache');
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        ['cache'],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
     }
   });
 
@@ -598,6 +606,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_namespace_candidates).toEqual([
         'runtime',
       ]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBe(
+        'cache',
+      );
+      expect(result.placeholder_runtime_callee_name).toBe('cache');
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        ['cache'],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
     }
   });
 
@@ -2104,6 +2120,12 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         result.placeholder_runtime_namespace_candidates_before_transform,
       ).toEqual([]);
       expect(result.placeholder_runtime_namespace_candidates).toEqual([]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBeUndefined();
+      expect(result.placeholder_runtime_callee_name).toBeUndefined();
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        [],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual([]);
     }
   });
 
@@ -3128,6 +3150,12 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         result.placeholder_runtime_namespace_candidates_before_transform,
       ).toEqual([]);
       expect(result.placeholder_runtime_namespace_candidates).toEqual([]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBeUndefined();
+      expect(result.placeholder_runtime_callee_name).toBeUndefined();
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        [],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual([]);
     }
   });
 
@@ -3332,6 +3360,12 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         result.placeholder_runtime_namespace_candidates_before_transform,
       ).toEqual([]);
       expect(result.placeholder_runtime_namespace_candidates).toEqual([]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBeUndefined();
+      expect(result.placeholder_runtime_callee_name).toBeUndefined();
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        [],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual([]);
     }
   });
 
@@ -3356,6 +3390,12 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         result.placeholder_runtime_namespace_candidates_before_transform,
       ).toEqual([]);
       expect(result.placeholder_runtime_namespace_candidates).toEqual([]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBeUndefined();
+      expect(result.placeholder_runtime_callee_name).toBeUndefined();
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        [],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual([]);
     }
   });
 
@@ -5467,6 +5507,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_namespace_candidates).toEqual([
         'runtime',
       ]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBe(
+        'cache',
+      );
+      expect(result.placeholder_runtime_callee_name).toBe('cache');
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        ['cache'],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
     }
   });
 
@@ -5563,6 +5611,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_namespace_candidates).toEqual([
         'runtime',
       ]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBe(
+        'cache',
+      );
+      expect(result.placeholder_runtime_callee_name).toBe('cache');
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        ['cache'],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
     }
   });
 
@@ -5659,6 +5715,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_namespace_candidates).toEqual([
         'runtime',
       ]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBe(
+        'cache',
+      );
+      expect(result.placeholder_runtime_callee_name).toBe('cache');
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        ['cache'],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
     }
   });
 
@@ -5683,6 +5747,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_namespace_candidates).toEqual([
         'runtime',
       ]);
+      expect(result.placeholder_runtime_callee_name_before_transform).toBe(
+        'cache',
+      );
+      expect(result.placeholder_runtime_callee_name).toBe('cache');
+      expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
+        ['cache'],
+      );
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
     }
   });
 

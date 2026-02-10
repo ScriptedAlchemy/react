@@ -4498,6 +4498,25 @@ mod tests {
             output.metadata.placeholder_runtime_namespace_candidates,
             vec!["runtime".to_string()]
         );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_name_before_transform
+                .as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            vec!["cache".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["cache".to_string()]
+        );
     }
 
     #[test]
@@ -4632,6 +4651,25 @@ mod tests {
         assert_eq!(
             output.metadata.placeholder_runtime_namespace_candidates,
             vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_name_before_transform
+                .as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            vec!["cache".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["cache".to_string()]
         );
     }
 
@@ -6040,6 +6078,13 @@ mod tests {
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output.metadata.placeholder_runtime_callee_name.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates_before_transform
+            .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
     }
 
     #[test]
@@ -7076,6 +7121,13 @@ mod tests {
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output.metadata.placeholder_runtime_callee_name.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates_before_transform
+            .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
     }
 
     #[test]
@@ -7280,6 +7332,13 @@ mod tests {
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output.metadata.placeholder_runtime_callee_name.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates_before_transform
+            .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
     }
 
     #[test]
@@ -7310,6 +7369,13 @@ mod tests {
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output.metadata.placeholder_runtime_callee_name.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates_before_transform
+            .is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
     }
 
     #[test]
@@ -9398,6 +9464,25 @@ mod tests {
             output.metadata.placeholder_runtime_namespace_candidates,
             vec!["runtime".to_string()]
         );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_name_before_transform
+                .as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            vec!["cache".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["cache".to_string()]
+        );
     }
 
     #[test]
@@ -9482,6 +9567,25 @@ mod tests {
         assert_eq!(
             output.metadata.placeholder_runtime_namespace_candidates,
             vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_name_before_transform
+                .as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            vec!["cache".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["cache".to_string()]
         );
     }
 
@@ -9588,6 +9692,25 @@ mod tests {
             output.metadata.placeholder_runtime_namespace_candidates,
             vec!["runtime".to_string()]
         );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_name_before_transform
+                .as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            vec!["cache".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["cache".to_string()]
+        );
     }
 
     #[test]
@@ -9691,6 +9814,25 @@ mod tests {
         assert_eq!(
             output.metadata.placeholder_runtime_namespace_candidates,
             vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_name_before_transform
+                .as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("cache")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            vec!["cache".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["cache".to_string()]
         );
     }
 
