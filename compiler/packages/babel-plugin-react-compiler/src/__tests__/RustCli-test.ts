@@ -168,6 +168,34 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('classifies parse failure reasons across syntax categories', () => {
+    const cases = [
+      {source: 'const = 1;', reason: 'unexpected_token'},
+      {source: 'const value = /foo', reason: 'unterminated_syntax'},
+      {source: 'const value = ;', reason: 'expected_token'},
+      {source: 'function Component(', reason: 'unexpected_eof'},
+      {source: 'const \\u00ZZ = 1;', reason: 'invalid_syntax'},
+    ] as const;
+
+    for (const testCase of cases) {
+      const result = runRustCompilerCli({
+        source: testCase.source,
+        dialect: 'javascript',
+        filename: 'broken.js',
+        is_module: false,
+      });
+
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.code).toBe('parse_failure');
+        expect(result.category).toBe('syntax');
+        expect(result.reason).toBe(testCase.reason);
+        expect(result.severity).toBe('error');
+        expect(result.location).not.toBeNull();
+      }
+    }
+  });
+
   it('accepts flow dialect when source uses plain JavaScript syntax', () => {
     const result = runRustCompilerCli({
       source: '/* @flow */\nfunction Component() { return <div />; }',

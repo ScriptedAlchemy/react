@@ -362,6 +362,38 @@ mod tests {
     }
 
     #[test]
+    fn compile_request_returns_invalid_syntax_reason() {
+        let response = handle_request(CompileRequest {
+            source: "const \\u00ZZ = 1;".to_string(),
+            filename: Some("broken.js".to_string()),
+            dialect: Some("javascript".to_string()),
+            is_module: Some(false),
+            apply_placeholder_transforms: None,
+            emit_debug_ir: None,
+        });
+
+        match response {
+            CompileResponse::Error {
+                code,
+                category,
+                reason,
+                severity,
+                location,
+                ..
+            } => {
+                assert_eq!(code, "parse_failure");
+                assert_eq!(category, "syntax");
+                assert_eq!(reason, "invalid_syntax");
+                assert_eq!(severity, "error");
+                assert!(location.is_some());
+            }
+            CompileResponse::Ok { .. } => {
+                panic!("expected parse failure for invalid javascript source")
+            }
+        }
+    }
+
+    #[test]
     fn compile_request_can_emit_debug_ir() {
         let response = handle_request(CompileRequest {
             source: "function Component() { return <div />; }".to_string(),
