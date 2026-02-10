@@ -3347,6 +3347,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_top_level_await_assignment_in_module() {
+        let output = compile(
+            "let cache; await (cache = require('react/compiler-runtime').c); export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_class_computed_key_assignment_in_module() {
         let output = compile(
             "let cache; class RuntimeCarrier { [cache = require('react/compiler-runtime').c](){} } export function Component(){ return <div />; }",
@@ -3700,6 +3717,25 @@ mod tests {
     fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_unary_expression() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; void (cache = unknown); export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_top_level_await() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; await (cache = unknown); export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
