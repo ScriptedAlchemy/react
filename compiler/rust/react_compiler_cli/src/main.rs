@@ -28,6 +28,8 @@ enum CompileResponse {
         placeholder_runtime_helper_import_added: bool,
         placeholder_transform_candidates: Vec<String>,
         placeholder_transform_skipped_functions: Vec<String>,
+        placeholder_transform_candidate_count: usize,
+        placeholder_transform_skipped_count: usize,
         detected_react_functions: usize,
         react_functions: Vec<SerializedReactFunction>,
         placeholder_transforms_applied: usize,
@@ -130,6 +132,12 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                     .metadata
                     .placeholder_transform_skipped_functions
                     .clone(),
+                placeholder_transform_candidate_count: output
+                    .metadata
+                    .placeholder_transform_candidate_count,
+                placeholder_transform_skipped_count: output
+                    .metadata
+                    .placeholder_transform_skipped_count,
                 detected_react_functions: output.metadata.detected_react_functions,
                 react_functions: output
                     .metadata
@@ -277,6 +285,8 @@ mod tests {
                 placeholder_runtime_helper_import_added,
                 placeholder_transform_candidates,
                 placeholder_transform_skipped_functions,
+                placeholder_transform_candidate_count,
+                placeholder_transform_skipped_count,
                 detected_react_functions,
                 react_functions,
                 placeholder_transforms_applied,
@@ -296,6 +306,8 @@ mod tests {
                 assert!(!placeholder_runtime_helper_import_added);
                 assert!(placeholder_transform_candidates.is_empty());
                 assert!(placeholder_transform_skipped_functions.is_empty());
+                assert_eq!(placeholder_transform_candidate_count, 0);
+                assert_eq!(placeholder_transform_skipped_count, 0);
                 assert_eq!(detected_react_functions, 0);
                 assert!(react_functions.is_empty());
                 assert_eq!(placeholder_transforms_applied, 0);
@@ -435,6 +447,8 @@ mod tests {
                 assert!(debug_ir.contains("name=Component kind=Component"));
                 assert!(debug_ir.contains("placeholder_transform_candidates=Component"));
                 assert!(debug_ir.contains("placeholder_transform_skipped_functions=Component"));
+                assert!(debug_ir.contains("placeholder_transform_candidate_count=1"));
+                assert!(debug_ir.contains("placeholder_transform_skipped_count=1"));
                 assert!(placeholder_transformed_functions.is_empty());
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
@@ -474,6 +488,8 @@ mod tests {
                 assert!(debug_ir.contains("placeholder_runtime_helper_import_added=true"));
                 assert!(debug_ir.contains("placeholder_transform_candidates=Component"));
                 assert!(debug_ir.contains("placeholder_transform_skipped_functions="));
+                assert!(debug_ir.contains("placeholder_transform_candidate_count=1"));
+                assert!(debug_ir.contains("placeholder_transform_skipped_count=0"));
                 assert!(debug_ir.contains("placeholder_transforms_applied=1"));
                 assert!(debug_ir.contains("placeholder_transformed_functions=Component"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_name=_c"));
@@ -505,6 +521,8 @@ mod tests {
                 placeholder_runtime_helper_import_added,
                 placeholder_transform_candidates,
                 placeholder_transform_skipped_functions,
+                placeholder_transform_candidate_count,
+                placeholder_transform_skipped_count,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
                 placeholder_runtime_namespace_candidates_before_transform,
@@ -526,6 +544,8 @@ mod tests {
                     vec!["__default_export_component__"]
                 );
                 assert!(placeholder_transform_skipped_functions.is_empty());
+                assert_eq!(placeholder_transform_candidate_count, 1);
+                assert_eq!(placeholder_transform_skipped_count, 0);
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
                 assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());

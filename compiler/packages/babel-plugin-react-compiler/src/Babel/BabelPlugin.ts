@@ -297,6 +297,16 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformCandidateCount',
+    value: String(rustResult.placeholder_transform_candidate_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformSkippedCount',
+    value: String(rustResult.placeholder_transform_skipped_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCallee',
     value: rustResult.placeholder_runtime_callee_name ?? '',
   });
