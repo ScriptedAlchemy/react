@@ -109,6 +109,8 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transform_transformed_hook_count).toBe(0);
       expect(result.placeholder_transform_skipped_component_count).toBe(0);
       expect(result.placeholder_transform_skipped_hook_count).toBe(0);
+      expect(result.detected_component_function_count).toBe(0);
+      expect(result.detected_hook_function_count).toBe(0);
       expect(result.placeholder_transform_status).toBe('disabled');
       expect(result.detected_react_functions).toBe(0);
       expect(result.placeholder_transforms_applied).toBe(0);
@@ -427,6 +429,8 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transform_transformed_hook_count).toBe(0);
       expect(result.placeholder_transform_skipped_component_count).toBe(0);
       expect(result.placeholder_transform_skipped_hook_count).toBe(0);
+      expect(result.detected_component_function_count).toBe(1);
+      expect(result.detected_hook_function_count).toBe(0);
       expect(result.placeholder_transform_status).toBe('transformed');
       expect(result.placeholder_transforms_applied).toBeGreaterThan(0);
       expect(result.placeholder_transformed_functions).toEqual(['Component']);
@@ -477,6 +481,8 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transform_transformed_hook_count).toBe(1);
       expect(result.placeholder_transform_skipped_component_count).toBe(0);
       expect(result.placeholder_transform_skipped_hook_count).toBe(0);
+      expect(result.detected_component_function_count).toBe(0);
+      expect(result.detected_hook_function_count).toBe(1);
       expect(result.placeholder_runtime_helper_import_count_before_transform).toBe(
         0,
       );
@@ -7153,6 +7159,8 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         'placeholder_transform_skipped_component_count=1',
       );
       expect(result.debug_ir).toContain('placeholder_transform_skipped_hook_count=0');
+      expect(result.debug_ir).toContain('detected_component_function_count=1');
+      expect(result.debug_ir).toContain('detected_hook_function_count=0');
       expect(result.debug_ir).toContain('placeholder_transform_status=disabled');
       expect(result.debug_ir).toContain('name=Component kind=Component');
     }
@@ -7212,6 +7220,8 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         'placeholder_transform_skipped_component_count=0',
       );
       expect(result.debug_ir).toContain('placeholder_transform_skipped_hook_count=0');
+      expect(result.debug_ir).toContain('detected_component_function_count=1');
+      expect(result.debug_ir).toContain('detected_hook_function_count=0');
       expect(result.debug_ir).toContain('placeholder_transform_status=transformed');
       expect(result.debug_ir).toContain('placeholder_transforms_applied=1');
       expect(result.debug_ir).toContain('placeholder_transformed_functions=Component');
@@ -7371,6 +7381,16 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustPlaceholderTransformSkippedHookCountDebug).toBeDefined();
     expect(rustPlaceholderTransformSkippedHookCountDebug?.value).toBe('0');
+    const rustDetectedComponentFunctionCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendDetectedComponentFunctionCount',
+    );
+    expect(rustDetectedComponentFunctionCountDebug).toBeDefined();
+    expect(rustDetectedComponentFunctionCountDebug?.value).toBe('1');
+    const rustDetectedHookFunctionCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendDetectedHookFunctionCount',
+    );
+    expect(rustDetectedHookFunctionCountDebug).toBeDefined();
+    expect(rustDetectedHookFunctionCountDebug?.value).toBe('0');
     const rustRuntimeCalleeReusedDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCalleeReused',
     );
@@ -7555,6 +7575,16 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(placeholderTransformSkippedHookCountDebug).toBeDefined();
     expect(placeholderTransformSkippedHookCountDebug?.value).toBe('0');
+    const detectedComponentFunctionCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendDetectedComponentFunctionCount',
+    );
+    expect(detectedComponentFunctionCountDebug).toBeDefined();
+    expect(detectedComponentFunctionCountDebug?.value).toBe('1');
+    const detectedHookFunctionCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendDetectedHookFunctionCount',
+    );
+    expect(detectedHookFunctionCountDebug).toBeDefined();
+    expect(detectedHookFunctionCountDebug?.value).toBe('0');
     const runtimeCalleeReusedDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCalleeReused',
     );

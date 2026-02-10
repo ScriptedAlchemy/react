@@ -337,6 +337,16 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendDetectedComponentFunctionCount',
+    value: String(rustResult.detected_component_function_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendDetectedHookFunctionCount',
+    value: String(rustResult.detected_hook_function_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCalleeReused',
     value: String(rustResult.placeholder_runtime_callee_reused),
   });

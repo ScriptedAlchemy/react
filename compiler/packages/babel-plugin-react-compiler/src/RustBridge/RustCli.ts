@@ -47,6 +47,8 @@ export type RustCompileResponse =
       placeholder_transform_transformed_hook_count: number;
       placeholder_transform_skipped_component_count: number;
       placeholder_transform_skipped_hook_count: number;
+      detected_component_function_count: number;
+      detected_hook_function_count: number;
       detected_react_functions: number;
       placeholder_transforms_applied: number;
       placeholder_transformed_functions: Array<string>;
