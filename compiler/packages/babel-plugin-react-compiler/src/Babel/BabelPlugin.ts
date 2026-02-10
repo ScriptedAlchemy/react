@@ -277,8 +277,20 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendRuntimeNamespaceCandidates',
+    value: rustResult.placeholder_runtime_namespace_candidates.join(','),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCalleeCandidatesBeforeTransform',
     value: rustResult.placeholder_runtime_callee_candidates_before_transform.join(
+      ',',
+    ),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendRuntimeNamespaceCandidatesBeforeTransform',
+    value: rustResult.placeholder_runtime_namespace_candidates_before_transform.join(
       ',',
     ),
   });

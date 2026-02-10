@@ -50,8 +50,10 @@ pub struct ParseMetadata {
     pub placeholder_transformed_functions: Vec<String>,
     pub placeholder_runtime_callee_name_before_transform: Option<String>,
     pub placeholder_runtime_callee_candidates_before_transform: Vec<String>,
+    pub placeholder_runtime_namespace_candidates_before_transform: Vec<String>,
     pub placeholder_runtime_callee_name: Option<String>,
     pub placeholder_runtime_callee_candidates: Vec<String>,
+    pub placeholder_runtime_namespace_candidates: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,6 +123,16 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
             "placeholder_runtime_callee_candidates_before_transform={}",
             metadata
                 .placeholder_runtime_callee_candidates_before_transform
+                .join(",")
+        ),
+        format!(
+            "placeholder_runtime_namespace_candidates={}",
+            metadata.placeholder_runtime_namespace_candidates.join(",")
+        ),
+        format!(
+            "placeholder_runtime_namespace_candidates_before_transform={}",
+            metadata
+                .placeholder_runtime_namespace_candidates_before_transform
                 .join(",")
         ),
     ];
@@ -272,14 +284,16 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let (
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
+            placeholder_runtime_namespace_candidates_before_transform,
         ) = if options.apply_placeholder_transforms {
             let runtime_scan_before = runtime_memo_callee_scan_for_module(&module);
             (
                 select_runtime_callee_name(&runtime_scan_before.runtime_callee_bindings),
                 sorted_runtime_callee_candidates(&runtime_scan_before.runtime_callee_bindings),
+                sorted_runtime_namespace_candidates(&runtime_scan_before.runtime_namespace_bindings),
             )
         } else {
-            (None, Vec::new())
+            (None, Vec::new(), Vec::new())
         };
         let mut placeholder_transformed_functions = if options.apply_placeholder_transforms {
             apply_placeholder_compilation_to_module(&mut module, &react_functions)
@@ -287,15 +301,22 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
-        let (placeholder_runtime_callee_name, placeholder_runtime_callee_candidates) =
+        let (
+            placeholder_runtime_callee_name,
+            placeholder_runtime_callee_candidates,
+            placeholder_runtime_namespace_candidates,
+        ) =
             if options.apply_placeholder_transforms {
                 let runtime_scan_after = runtime_memo_callee_scan_for_module(&module);
                 (
                     select_runtime_callee_name(&runtime_scan_after.runtime_callee_bindings),
                     sorted_runtime_callee_candidates(&runtime_scan_after.runtime_callee_bindings),
+                    sorted_runtime_namespace_candidates(
+                        &runtime_scan_after.runtime_namespace_bindings,
+                    ),
                 )
             } else {
-                (None, Vec::new())
+                (None, Vec::new(), Vec::new())
             };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
@@ -306,8 +327,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transformed_functions,
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
+            placeholder_runtime_namespace_candidates_before_transform,
             placeholder_runtime_callee_name,
             placeholder_runtime_callee_candidates,
+            placeholder_runtime_namespace_candidates,
         };
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
@@ -329,14 +352,16 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let (
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
+            placeholder_runtime_namespace_candidates_before_transform,
         ) = if options.apply_placeholder_transforms {
             let runtime_scan_before = runtime_memo_callee_scan_for_script(&script);
             (
                 select_runtime_callee_name(&runtime_scan_before.runtime_callee_bindings),
                 sorted_runtime_callee_candidates(&runtime_scan_before.runtime_callee_bindings),
+                sorted_runtime_namespace_candidates(&runtime_scan_before.runtime_namespace_bindings),
             )
         } else {
-            (None, Vec::new())
+            (None, Vec::new(), Vec::new())
         };
         let mut placeholder_transformed_functions = if options.apply_placeholder_transforms {
             apply_placeholder_compilation_to_script(&mut script, &react_functions)
@@ -344,15 +369,22 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
-        let (placeholder_runtime_callee_name, placeholder_runtime_callee_candidates) =
+        let (
+            placeholder_runtime_callee_name,
+            placeholder_runtime_callee_candidates,
+            placeholder_runtime_namespace_candidates,
+        ) =
             if options.apply_placeholder_transforms {
                 let runtime_scan_after = runtime_memo_callee_scan_for_script(&script);
                 (
                     select_runtime_callee_name(&runtime_scan_after.runtime_callee_bindings),
                     sorted_runtime_callee_candidates(&runtime_scan_after.runtime_callee_bindings),
+                    sorted_runtime_namespace_candidates(
+                        &runtime_scan_after.runtime_namespace_bindings,
+                    ),
                 )
             } else {
-                (None, Vec::new())
+                (None, Vec::new(), Vec::new())
             };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
@@ -363,8 +395,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transformed_functions,
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
+            placeholder_runtime_namespace_candidates_before_transform,
             placeholder_runtime_callee_name,
             placeholder_runtime_callee_candidates,
+            placeholder_runtime_namespace_candidates,
         };
         (metadata, emit_script(&cm, &comments, &script)?)
     };
@@ -1751,6 +1785,7 @@ fn make_runtime_import_decl() -> ImportDecl {
 }
 
 struct RuntimeMemoCalleeScan {
+    runtime_namespace_bindings: HashSet<String>,
     runtime_callee_bindings: HashSet<String>,
 }
 
@@ -1883,6 +1918,7 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
         }
     }
     RuntimeMemoCalleeScan {
+        runtime_namespace_bindings,
         runtime_callee_bindings,
     }
 }
@@ -2262,6 +2298,7 @@ fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMemoCalleeScan
         }
     }
     RuntimeMemoCalleeScan {
+        runtime_namespace_bindings,
         runtime_callee_bindings,
     }
 }
@@ -2277,6 +2314,14 @@ fn select_runtime_callee_name(runtime_callee_bindings: &HashSet<String>) -> Opti
 
 fn sorted_runtime_callee_candidates(runtime_callee_bindings: &HashSet<String>) -> Vec<String> {
     let mut candidates: Vec<String> = runtime_callee_bindings.iter().cloned().collect();
+    candidates.sort();
+    candidates
+}
+
+fn sorted_runtime_namespace_candidates(
+    runtime_namespace_bindings: &HashSet<String>,
+) -> Vec<String> {
+    let mut candidates: Vec<String> = runtime_namespace_bindings.iter().cloned().collect();
     candidates.sort();
     candidates
 }
@@ -4148,6 +4193,14 @@ mod tests {
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
         assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates
+            .is_empty());
+        assert!(output
             .code
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
@@ -4421,6 +4474,16 @@ mod tests {
         assert!(output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("import { c as _c }"));
         assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform,
+            vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_namespace_candidates,
+            vec!["runtime".to_string()]
+        );
     }
 
     #[test]
@@ -8140,6 +8203,16 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
         assert!(output.code.contains("const $ = cache(0);"));
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidates_before_transform,
+            vec!["runtime".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_namespace_candidates,
+            vec!["runtime".to_string()]
+        );
     }
 
     #[test]
@@ -8425,6 +8498,14 @@ mod tests {
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
+            .is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates
             .is_empty());
         assert!(!output.code.contains("const $ = _c(0);"));
     }
@@ -9066,6 +9147,8 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_callee_name_before_transform=none"));
         assert!(debug.contains("placeholder_runtime_callee_candidates="));
         assert!(debug.contains("placeholder_runtime_callee_candidates_before_transform="));
+        assert!(debug.contains("placeholder_runtime_namespace_candidates="));
+        assert!(debug.contains("placeholder_runtime_namespace_candidates_before_transform="));
         assert!(debug.contains("name=Component kind=Component"));
         assert!(debug.contains("name=useThing kind=Hook"));
     }

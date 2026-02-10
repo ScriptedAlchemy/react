@@ -29,9 +29,11 @@ enum CompileResponse {
         #[serde(skip_serializing_if = "Option::is_none")]
         placeholder_runtime_callee_name_before_transform: Option<String>,
         placeholder_runtime_callee_candidates_before_transform: Vec<String>,
+        placeholder_runtime_namespace_candidates_before_transform: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         placeholder_runtime_callee_name: Option<String>,
         placeholder_runtime_callee_candidates: Vec<String>,
+        placeholder_runtime_namespace_candidates: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         debug_ir: Option<String>,
     },
@@ -124,6 +126,10 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                     .metadata
                     .placeholder_runtime_callee_candidates_before_transform
                     .clone(),
+                placeholder_runtime_namespace_candidates_before_transform: output
+                    .metadata
+                    .placeholder_runtime_namespace_candidates_before_transform
+                    .clone(),
                 placeholder_runtime_callee_name: output
                     .metadata
                     .placeholder_runtime_callee_name
@@ -131,6 +137,10 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                 placeholder_runtime_callee_candidates: output
                     .metadata
                     .placeholder_runtime_callee_candidates
+                    .clone(),
+                placeholder_runtime_namespace_candidates: output
+                    .metadata
+                    .placeholder_runtime_namespace_candidates
                     .clone(),
                 debug_ir,
             }
@@ -243,8 +253,10 @@ mod tests {
                 placeholder_transformed_functions,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
+                placeholder_runtime_namespace_candidates_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
+                placeholder_runtime_namespace_candidates,
                 ..
             } => {
                 assert_eq!(statement_count, 1);
@@ -254,8 +266,10 @@ mod tests {
                 assert!(placeholder_transformed_functions.is_empty());
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
+                assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());
                 assert!(placeholder_runtime_callee_name.is_none());
                 assert!(placeholder_runtime_callee_candidates.is_empty());
+                assert!(placeholder_runtime_namespace_candidates.is_empty());
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -342,8 +356,10 @@ mod tests {
                 placeholder_transformed_functions,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
+                placeholder_runtime_namespace_candidates_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
+                placeholder_runtime_namespace_candidates,
                 ..
             } => {
                 let debug_ir = debug_ir.expect("expected debug_ir payload when requested");
@@ -352,8 +368,10 @@ mod tests {
                 assert!(placeholder_transformed_functions.is_empty());
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
+                assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());
                 assert!(placeholder_runtime_callee_name.is_none());
                 assert!(placeholder_runtime_callee_candidates.is_empty());
+                assert!(placeholder_runtime_namespace_candidates.is_empty());
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -378,8 +396,10 @@ mod tests {
                 placeholder_transformed_functions,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
+                placeholder_runtime_namespace_candidates_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
+                placeholder_runtime_namespace_candidates,
                 ..
             } => {
                 assert_eq!(placeholder_transforms_applied, 1);
@@ -389,8 +409,10 @@ mod tests {
                 );
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
+                assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());
                 assert_eq!(placeholder_runtime_callee_name.as_deref(), Some("_c"));
                 assert_eq!(placeholder_runtime_callee_candidates, vec!["_c"]);
+                assert!(placeholder_runtime_namespace_candidates.is_empty());
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
