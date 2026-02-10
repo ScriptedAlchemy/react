@@ -10,6 +10,11 @@ import {
   RUST_CLI_PROTOCOL_VERSION,
   RUST_CLI_UNSUPPORTED_PROTOCOL_VERSION_ERROR_CODE,
 } from '../RustBridge/RustCliProtocol';
+import {
+  RUST_FRONTEND_INVOCATION_FAILURE_REASON,
+  RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
+  rustFrontendErrorReason,
+} from '../Babel/RustFrontendContract';
 import {runBabelPluginReactCompiler} from '../Babel/RunReactCompilerBabelPlugin';
 import {spawnSync} from 'child_process';
 import fs from 'fs';
@@ -7936,7 +7941,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const fallbackEvent = loggedEvents.find(
       event =>
         event.kind === 'CompileSkip' &&
-        event.reason === 'rust_frontend_invocation_failure',
+        event.reason === RUST_FRONTEND_INVOCATION_FAILURE_REASON,
     );
     expect(fallbackEvent).toBeDefined();
     expect(fallbackEvent?.loc).toBeNull();
@@ -8023,7 +8028,8 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const fallbackEvent = loggedEvents.find(
       event =>
         event.kind === 'CompileSkip' &&
-        event.reason === 'rust_frontend_parse_or_canonicalization_failure',
+        event.reason ===
+          RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
     );
     expect(fallbackEvent).toBeDefined();
     expect(fallbackEvent?.loc).toBeNull();
@@ -8056,7 +8062,10 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         event.kind === 'CompileSkip' &&
         typeof event.reason === 'string' &&
         event.reason.startsWith(
-          'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported',
+          rustFrontendErrorReason(
+            'unsupported_flow_syntax',
+            'flow_syntax_not_supported',
+          ),
         ),
     ) as any;
 

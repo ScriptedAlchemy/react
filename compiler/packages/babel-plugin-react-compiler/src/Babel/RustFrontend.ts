@@ -16,6 +16,11 @@ import {
   type RustCompileRequest,
   type RustCompileResponse,
 } from '../RustBridge/RustCli';
+import {
+  RUST_FRONTEND_INVOCATION_FAILURE_REASON,
+  RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
+  rustFrontendErrorReason,
+} from './RustFrontendContract';
 
 export function isStrictRustEngineEnabled(): boolean {
   return (
@@ -212,7 +217,7 @@ export function maybeRunRustProgramCompiler(
       logStrictRustFrontendFallback(
         logger,
         filename,
-        'rust_frontend_invocation_failure',
+        RUST_FRONTEND_INVOCATION_FAILURE_REASON,
       );
     }
     return;
@@ -227,7 +232,7 @@ export function maybeRunRustProgramCompiler(
         logStrictRustFrontendFallback(
           logger,
           filename,
-          `rust_frontend_error:${rustResult.code}:${rustResult.reason}`,
+          rustFrontendErrorReason(rustResult.code, rustResult.reason),
           toBabelSourceLocation(
             rustResult.location,
             sourceCode,
@@ -493,7 +498,7 @@ function maybeApplyStrictRustProgramReplacement(
     logStrictRustFrontendFallback(
       logger,
       filename,
-      'rust_frontend_parse_or_canonicalization_failure',
+      RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
     );
     return;
   }
