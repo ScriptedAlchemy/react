@@ -545,6 +545,26 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('reuses shadowed runtime callee aliases without treating them as namespaces in modules', () => {
+    const result = runRustCompilerCli({
+      source:
+        "const runtime = require('react/compiler-runtime'); const { c: runtime } = require('react/compiler-runtime'); const cache = runtime.c; export function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = runtime(0);');
+      expect(result.code).not.toContain('const $ = cache(0);');
+      expect(result.code).not.toContain('import { c as _c }');
+    }
+  });
+
   it('reuses module runtime require aliases through assignments for placeholder transforms', () => {
     const result = runRustCompilerCli({
       source:
@@ -654,6 +674,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.detected_react_functions).toBe(1);
       expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.code).toContain('const $ = cache(0);');
+    }
+  });
+
+  it('transforms script components with shadowed runtime callee aliases', () => {
+    const result = runRustCompilerCli({
+      source:
+        "const runtime = require('react/compiler-runtime'); const { c: runtime } = require('react/compiler-runtime'); const cache = runtime.c; function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = runtime(0);');
+      expect(result.code).not.toContain('const $ = cache(0);');
     }
   });
 

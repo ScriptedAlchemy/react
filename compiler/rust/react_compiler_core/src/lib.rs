@@ -1775,7 +1775,8 @@ fn collect_runtime_bindings_from_script_declarator(
             }
             Pat::Object(object_pat) => {
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
-                    runtime_callee_bindings.insert(callee_name);
+                    runtime_callee_bindings.insert(callee_name.clone());
+                    runtime_namespace_bindings.remove(callee_name.as_str());
                 }
             }
             _ => {}
@@ -1787,7 +1788,8 @@ fn collect_runtime_bindings_from_script_declarator(
         if runtime_namespace_bindings.contains(namespace_name.as_str()) {
             if let Pat::Object(object_pat) = &declarator.name {
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
-                    runtime_callee_bindings.insert(callee_name);
+                    runtime_callee_bindings.insert(callee_name.clone());
+                    runtime_namespace_bindings.remove(callee_name.as_str());
                 }
             } else if let Pat::Ident(binding) = &declarator.name {
                 let binding_name = binding.id.sym.to_string();
@@ -1863,7 +1865,8 @@ fn collect_runtime_bindings_from_script_assignment_expr(
         }
         if let Some(object_pat) = target_object_pat {
             if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
-                runtime_callee_bindings.insert(callee_name);
+                runtime_callee_bindings.insert(callee_name.clone());
+                runtime_namespace_bindings.remove(callee_name.as_str());
             }
         }
         return;
@@ -1876,7 +1879,8 @@ fn collect_runtime_bindings_from_script_assignment_expr(
             }
             if let Some(object_pat) = target_object_pat {
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
-                    runtime_callee_bindings.insert(callee_name);
+                    runtime_callee_bindings.insert(callee_name.clone());
+                    runtime_namespace_bindings.remove(callee_name.as_str());
                 }
             }
             return;
@@ -2423,6 +2427,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_shadowed_runtime_callee_without_treating_it_as_namespace_in_module() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); const { c: runtime } = require('react/compiler-runtime'); const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = runtime(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_alias_via_assignment_in_module() {
         let output = compile(
             "const { c: cache0 } = require('react/compiler-runtime'); let cache; cache = cache0; export function Component(){ return <div />; }",
@@ -2510,6 +2531,25 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
         assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_using_shadowed_runtime_callee_alias() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); const { c: runtime } = require('react/compiler-runtime'); const cache = runtime.c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = runtime(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
     }
 
     #[test]
