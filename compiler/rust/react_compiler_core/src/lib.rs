@@ -1819,6 +1819,13 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
                     &mut runtime_callee_bindings,
                 );
             }
+            ModuleItem::ModuleDecl(ModuleDecl::TsImportEquals(import_equals_decl)) => {
+                collect_runtime_bindings_from_ts_import_equals_decl(
+                    import_equals_decl.as_ref(),
+                    &mut runtime_namespace_bindings,
+                    &mut runtime_callee_bindings,
+                );
+            }
             ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl))) => {
                 for declarator in &var_decl.decls {
                     collect_runtime_bindings_from_script_declarator(
@@ -1863,6 +1870,69 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
     }
     RuntimeMemoCalleeScan {
         runtime_callee_bindings,
+    }
+}
+
+fn collect_runtime_bindings_from_ts_import_equals_decl(
+    import_equals_decl: &swc_ecma_ast::TsImportEqualsDecl,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+) {
+    let binding_name = import_equals_decl.id.sym.to_string();
+    clear_runtime_bindings_for_name(
+        binding_name.as_str(),
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+    );
+    if import_equals_decl.is_type_only {
+        return;
+    }
+    match &import_equals_decl.module_ref {
+        swc_ecma_ast::TsModuleRef::TsExternalModuleRef(module_ref) => {
+            if module_ref.expr.value == *"react/compiler-runtime" {
+                runtime_namespace_bindings.insert(binding_name.clone());
+                runtime_callee_bindings.remove(binding_name.as_str());
+            }
+        }
+        swc_ecma_ast::TsModuleRef::TsEntityName(entity_name) => {
+            if let swc_ecma_ast::TsEntityName::Ident(ident) = entity_name {
+                let source_name = ident.sym.as_ref();
+                if runtime_namespace_bindings.contains(source_name) {
+                    runtime_namespace_bindings.insert(binding_name.clone());
+                    runtime_callee_bindings.remove(binding_name.as_str());
+                } else if runtime_callee_bindings.contains(source_name) {
+                    runtime_callee_bindings.insert(binding_name.clone());
+                    runtime_namespace_bindings.remove(binding_name.as_str());
+                }
+                return;
+            }
+            let source_root_name = ts_entity_name_root_name(entity_name);
+            if runtime_namespace_bindings.contains(source_root_name) {
+                let source_leaf_name = ts_entity_name_leaf_name(entity_name);
+                if source_leaf_name == "c" {
+                    runtime_callee_bindings.insert(binding_name.clone());
+                    runtime_namespace_bindings.remove(binding_name.as_str());
+                }
+            }
+        }
+    }
+}
+
+fn ts_entity_name_root_name(entity_name: &swc_ecma_ast::TsEntityName) -> &str {
+    match entity_name {
+        swc_ecma_ast::TsEntityName::Ident(ident) => ident.sym.as_ref(),
+        swc_ecma_ast::TsEntityName::TsQualifiedName(qualified_name) => {
+            ts_entity_name_root_name(&qualified_name.left)
+        }
+    }
+}
+
+fn ts_entity_name_leaf_name(entity_name: &swc_ecma_ast::TsEntityName) -> &str {
+    match entity_name {
+        swc_ecma_ast::TsEntityName::Ident(ident) => ident.sym.as_ref(),
+        swc_ecma_ast::TsEntityName::TsQualifiedName(qualified_name) => {
+            qualified_name.right.sym.as_ref()
+        }
     }
 }
 
@@ -4517,6 +4587,38 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_ts_import_equals_runtime_namespace() {
+        let output = compile(
+            "import Runtime = require('react/compiler-runtime'); const cache = Runtime.c; function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_from_ts_import_equals_qualified_callee_alias() {
+        let output = compile(
+            "import Runtime = require('react/compiler-runtime'); import cache = Runtime.c; function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_conditionally_assigned_in_class_static_block(
     ) {
         let output = compile(
@@ -4528,6 +4630,25 @@ mod tests {
             },
         )
         .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_ts_import_equals_runtime_alias_is_reassigned() {
+        let output = compile(
+            "import Runtime = require('react/compiler-runtime'); let cache = Runtime.c; cache = unknown; function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
 
         assert!(output
             .code

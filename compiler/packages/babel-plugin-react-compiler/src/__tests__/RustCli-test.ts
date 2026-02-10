@@ -1131,6 +1131,44 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('reuses module runtime aliases from TypeScript import-equals runtime namespaces for placeholder transforms', () => {
+    const result = runRustCompilerCli({
+      source:
+        "import Runtime = require('react/compiler-runtime'); const cache = Runtime.c; function Component() { return null; }",
+      dialect: 'typescript',
+      filename: 'fixture.ts',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = cache(0);');
+      expect(result.code).not.toContain('import { c as _c }');
+    }
+  });
+
+  it('reuses module runtime aliases from TypeScript import-equals qualified callee aliases for placeholder transforms', () => {
+    const result = runRustCompilerCli({
+      source:
+        "import Runtime = require('react/compiler-runtime'); import cache = Runtime.c; function Component() { return null; }",
+      dialect: 'typescript',
+      filename: 'fixture.ts',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = cache(0);');
+      expect(result.code).not.toContain('import { c as _c }');
+    }
+  });
+
   it('falls back to generated module runtime import when runtime alias is conditionally assigned in class static blocks', () => {
     const result = runRustCompilerCli({
       source:
@@ -1869,6 +1907,26 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const result = runRustCompilerCli({
       source:
         "let cache = require('react/compiler-runtime').c; export = (cache = unknown); function Component() { return null; }",
+      dialect: 'typescript',
+      filename: 'fixture.ts',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('import { c as _c }');
+      expect(result.code).toContain('const $ = _c(0);');
+      expect(result.code).not.toContain('const $ = cache(0);');
+    }
+  });
+
+  it('falls back to generated module runtime import when runtime alias sourced from TypeScript import-equals is reassigned', () => {
+    const result = runRustCompilerCli({
+      source:
+        "import Runtime = require('react/compiler-runtime'); let cache = Runtime.c; cache = unknown; function Component() { return null; }",
       dialect: 'typescript',
       filename: 'fixture.ts',
       is_module: true,
