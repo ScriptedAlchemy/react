@@ -27,6 +27,8 @@ enum CompileResponse {
         placeholder_transforms_applied: usize,
         placeholder_transformed_functions: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder_runtime_callee_name: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         debug_ir: Option<String>,
     },
     #[serde(rename = "error")]
@@ -109,6 +111,10 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                 placeholder_transformed_functions: output
                     .metadata
                     .placeholder_transformed_functions
+                    .clone(),
+                placeholder_runtime_callee_name: output
+                    .metadata
+                    .placeholder_runtime_callee_name
                     .clone(),
                 debug_ir,
             }
@@ -219,6 +225,7 @@ mod tests {
                 react_functions,
                 placeholder_transforms_applied,
                 placeholder_transformed_functions,
+                placeholder_runtime_callee_name,
                 ..
             } => {
                 assert_eq!(statement_count, 1);
@@ -226,6 +233,7 @@ mod tests {
                 assert!(react_functions.is_empty());
                 assert_eq!(placeholder_transforms_applied, 0);
                 assert!(placeholder_transformed_functions.is_empty());
+                assert!(placeholder_runtime_callee_name.is_none());
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -310,12 +318,14 @@ mod tests {
             CompileResponse::Ok {
                 debug_ir,
                 placeholder_transformed_functions,
+                placeholder_runtime_callee_name,
                 ..
             } => {
                 let debug_ir = debug_ir.expect("expected debug_ir payload when requested");
                 assert!(debug_ir.contains("ReactiveFunctionsDebug v0"));
                 assert!(debug_ir.contains("name=Component kind=Component"));
                 assert!(placeholder_transformed_functions.is_empty());
+                assert!(placeholder_runtime_callee_name.is_none());
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -338,6 +348,7 @@ mod tests {
             CompileResponse::Ok {
                 placeholder_transforms_applied,
                 placeholder_transformed_functions,
+                placeholder_runtime_callee_name,
                 ..
             } => {
                 assert_eq!(placeholder_transforms_applied, 1);
@@ -345,6 +356,7 @@ mod tests {
                     placeholder_transformed_functions,
                     vec!["__default_export_component__"]
                 );
+                assert_eq!(placeholder_runtime_callee_name.as_deref(), Some("_c"));
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")

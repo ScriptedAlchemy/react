@@ -33,6 +33,7 @@ export type RustCompileResponse =
       detected_react_functions: number;
       placeholder_transforms_applied: number;
       placeholder_transformed_functions: Array<string>;
+      placeholder_runtime_callee_name?: string;
       react_functions: Array<{
         name: string;
         kind: 'Component' | 'Hook';
