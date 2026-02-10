@@ -48,6 +48,7 @@ pub struct ParseMetadata {
     pub react_functions: Vec<ReactFunction>,
     pub placeholder_transforms_applied: usize,
     pub placeholder_transformed_functions: Vec<String>,
+    pub placeholder_runtime_callee_name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +95,13 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "placeholder_transformed_functions={}",
             metadata.placeholder_transformed_functions.join(",")
+        ),
+        format!(
+            "placeholder_runtime_callee_name={}",
+            metadata
+                .placeholder_runtime_callee_name
+                .as_deref()
+                .unwrap_or("none")
         ),
     ];
     for (index, function) in metadata.react_functions.iter().enumerate() {
@@ -247,6 +255,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
+        let placeholder_runtime_callee_name = if transformed_count > 0 {
+            runtime_memo_callee_name(&module)
+        } else {
+            None
+        };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
@@ -254,6 +267,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             react_functions,
             placeholder_transforms_applied: transformed_count,
             placeholder_transformed_functions,
+            placeholder_runtime_callee_name,
         };
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
@@ -278,6 +292,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
+        let placeholder_runtime_callee_name = if transformed_count > 0 {
+            runtime_memo_callee_name_in_script(&script)
+        } else {
+            None
+        };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
             statement_count: script.body.len(),
@@ -285,6 +304,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             react_functions,
             placeholder_transforms_applied: transformed_count,
             placeholder_transformed_functions,
+            placeholder_runtime_callee_name,
         };
         (metadata, emit_script(&cm, &comments, &script)?)
     };
@@ -2194,6 +2214,10 @@ mod tests {
             output.metadata.placeholder_transformed_functions,
             vec!["Component".to_string()]
         );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("_c")
+        );
         assert!(output
             .code
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
@@ -2755,6 +2779,10 @@ mod tests {
             output.metadata.placeholder_transformed_functions,
             vec!["Component".to_string()]
         );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_name.as_deref(),
+            Some("cache")
+        );
         assert!(output.code.contains("const $ = cache(0);"));
     }
 
@@ -3052,6 +3080,7 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(output.metadata.placeholder_transformed_functions.is_empty());
+        assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(!output.code.contains("const $ = _c(0);"));
     }
 
@@ -3688,6 +3717,7 @@ mod tests {
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
+        assert!(debug.contains("placeholder_runtime_callee_name=none"));
         assert!(debug.contains("name=Component kind=Component"));
         assert!(debug.contains("name=useThing kind=Hook"));
     }
