@@ -399,6 +399,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('resolves fixture entrypoint parenthesized object literal var initializers', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function component() { return 1; } const FIXTURE_ENTRYPOINT = ({ fn: component, params: [] });',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('component');
+    }
+  });
+
   it('resolves fixture entrypoint member assignments', () => {
     const result = runRustCompilerCli({
       source:
@@ -450,6 +468,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.detected_react_functions).toBe(1);
       expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.react_functions[0]?.name).toBe('component');
+    }
+  });
+
+  it('resolves script fixture entrypoint parenthesized object literal var initializers', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function render() { return 1; } const FIXTURE_ENTRYPOINT = ({ fn: render, params: [] });',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('render');
     }
   });
 
