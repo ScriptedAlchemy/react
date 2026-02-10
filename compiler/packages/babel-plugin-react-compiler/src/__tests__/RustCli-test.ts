@@ -587,6 +587,47 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('logs strict rust preflight reason and location for TS instantiation syntax', () => {
+    const loggedEvents: Array<unknown> = [];
+    const source = [
+      'function id<T>(x: T): T {',
+      '  return x;',
+      '}',
+      'function Component() {',
+      '  const instantiate = id<string>;',
+      "  return instantiate('hello');",
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+          logger: {
+            logEvent(_filename, event) {
+              loggedEvents.push(event);
+            },
+          },
+        }),
+      ),
+    );
+
+    const fallbackEvent = loggedEvents.find(
+      (event: any) =>
+        event.kind === 'CompileSkip' &&
+        event.reason ===
+          'rust_frontend_preflight:typescript_instantiation_expression',
+    ) as any;
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent.loc).not.toBeNull();
+    if (fallbackEvent.loc != null) {
+      expect(fallbackEvent.loc.start.line).toBeGreaterThan(0);
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('= id<string>;'));
+    }
+  });
+
   it('strict rust mode falls back on TS instantiation expressions', () => {
     const source = [
       'function id<T>(x: T): T {',
