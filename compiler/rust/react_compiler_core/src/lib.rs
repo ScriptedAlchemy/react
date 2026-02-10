@@ -3038,12 +3038,22 @@ fn clear_runtime_bindings_for_side_effect_target_expression(
         );
         return;
     }
-    if let Expr::Member(member_expr) = unwrap_expression(target_expr) {
-        clear_runtime_namespace_binding_for_member_expr(
-            member_expr,
-            runtime_namespace_bindings,
-            runtime_callee_bindings,
-        );
+    match unwrap_expression(target_expr) {
+        Expr::Member(member_expr) => {
+            clear_runtime_namespace_binding_for_member_expr(
+                member_expr,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+        }
+        Expr::OptChain(opt_chain_expr) => {
+            clear_runtime_namespace_binding_for_opt_chain_expr(
+                opt_chain_expr,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+        }
+        _ => {}
     }
 }
 
@@ -3133,6 +3143,20 @@ fn clear_runtime_namespace_binding_for_member_expr(
     if runtime_namespace_bindings.contains(object_name.as_str()) {
         clear_runtime_bindings_for_name(
             object_name.as_str(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+        );
+    }
+}
+
+fn clear_runtime_namespace_binding_for_opt_chain_expr(
+    opt_chain_expr: &swc_ecma_ast::OptChainExpr,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+) {
+    if let swc_ecma_ast::OptChainBase::Member(member_expr) = opt_chain_expr.base.as_ref() {
+        clear_runtime_namespace_binding_for_member_expr(
+            member_expr,
             runtime_namespace_bindings,
             runtime_callee_bindings,
         );
@@ -6286,6 +6310,26 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_namespace_c_member_is_deleted_via_optional_chain()
+    {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); delete runtime?.c; const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_namespace_computed_c_member_is_deleted() {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); delete runtime['c']; const cache = runtime.c; export function Component(){ return <div />; }",
@@ -7826,6 +7870,26 @@ mod tests {
     }
 
     #[test]
+    fn does_not_transform_script_component_when_runtime_namespace_c_member_is_deleted_via_optional_chain(
+    ) {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); delete runtime?.c; const cache = runtime.c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn does_not_transform_script_component_when_runtime_namespace_computed_c_member_is_deleted() {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); delete runtime['c']; const cache = runtime.c; function Component(){ return <div />; }",
@@ -8042,6 +8106,42 @@ mod tests {
     fn transforms_script_component_when_runtime_namespace_non_c_member_is_mutated() {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); runtime.x = unknown; const cache = runtime.c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_runtime_namespace_non_c_member_is_deleted_via_optional_chain_in_module(
+    ) {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); delete runtime?.x; const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn transforms_script_component_when_runtime_namespace_non_c_member_is_deleted_via_optional_chain() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); delete runtime?.x; const cache = runtime.c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
