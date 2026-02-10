@@ -2207,6 +2207,40 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_namespace_import_alias_in_module() {
+        let output = compile(
+            "import * as runtime from 'react/compiler-runtime'; const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_default_import_alias_in_module() {
+        let output = compile(
+            "import runtime from 'react/compiler-runtime'; const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_destructure_alias() {
         let output = compile(
             "const { c: cache } = require('react/compiler-runtime'); function Component(){ return <div />; }",
