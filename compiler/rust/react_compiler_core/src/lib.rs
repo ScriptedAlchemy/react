@@ -184,7 +184,8 @@ mod tests {
             output.metadata.react_functions[0].kind,
             super::ReactFunctionKind::Component
         );
-        assert!(!output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
     }
 
     #[test]
@@ -205,7 +206,8 @@ mod tests {
             output.metadata.react_functions[0].kind,
             super::ReactFunctionKind::Component
         );
-        assert!(!output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
     }
 
     #[test]
@@ -346,7 +348,8 @@ mod tests {
             output.metadata.react_functions[0].kind,
             super::ReactFunctionKind::Component
         );
-        assert!(!output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
     }
 
     #[test]
