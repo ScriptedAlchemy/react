@@ -255,6 +255,11 @@ function maybeRunRustProgramCompiler(
       value: rustResult.debug_ir,
     });
   }
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendPlaceholderTransforms',
+    value: rustResult.placeholder_transformed_functions.join(','),
+  });
   if (!strictRustEngine || rustResult.code === sourceCode) {
     return;
   }

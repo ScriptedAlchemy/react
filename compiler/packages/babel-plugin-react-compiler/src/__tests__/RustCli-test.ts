@@ -1276,6 +1276,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const rustDebug = debugValues.find(value => value.name === 'RustFrontendDebug');
     expect(rustDebug).toBeDefined();
     expect(rustDebug?.value).toContain('ReactiveFunctionsDebug v0');
+    const rustPlaceholderDebug = debugValues.find(
+      value => value.name === 'RustFrontendPlaceholderTransforms',
+    );
+    expect(rustPlaceholderDebug).toBeDefined();
+    expect(rustPlaceholderDebug?.value).toBe('');
   });
 
   it('strict rust mode matches babel output for default export components', () => {
