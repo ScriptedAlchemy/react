@@ -370,6 +370,48 @@ mod tests {
     }
 
     #[test]
+    fn detects_script_fixture_entrypoint_function_when_name_is_not_react_like() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { fn: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                is_module: false,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_referenced_via_alias() {
+        let output = compile(
+            "function render(){ return 1; } const alias = render; const FIXTURE_ENTRYPOINT = { fn: alias, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                is_module: false,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_import_alias() {
         let output = compile(
             "import { c as cache } from 'react/compiler-runtime'; export function Component(){ return <div />; }",

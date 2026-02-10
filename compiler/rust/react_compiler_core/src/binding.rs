@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use swc_ecma_ast::{
-    AssignTarget, Decl, Expr, Module, ModuleDecl, ModuleItem, Pat, SimpleAssignTarget, Stmt,
+    AssignTarget, Decl, Expr, Module, ModuleDecl, ModuleItem, Pat, Script, SimpleAssignTarget,
+    Stmt,
 };
 
 use crate::helpers::unwrap_expression;
@@ -24,6 +25,22 @@ pub(crate) fn collect_top_level_bindings(module: &Module) -> HashMap<String, Top
             },
             ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
                 record_top_level_bindings_from_decl(&export_decl.decl, &mut bindings)
+            }
+            _ => {}
+        }
+    }
+    bindings
+}
+
+pub(crate) fn collect_top_level_bindings_in_script(
+    script: &Script,
+) -> HashMap<String, TopLevelBinding> {
+    let mut bindings = HashMap::new();
+    for stmt in &script.body {
+        match stmt {
+            Stmt::Decl(decl) => record_top_level_bindings_from_decl(decl, &mut bindings),
+            Stmt::Expr(expr_stmt) => {
+                record_top_level_bindings_from_expr(expr_stmt.expr.as_ref(), &mut bindings)
             }
             _ => {}
         }

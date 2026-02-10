@@ -6,9 +6,13 @@ use swc_ecma_ast::{
 };
 
 use crate::{
-    binding::{assign_target_ident, collect_top_level_bindings, resolve_function_binding_names},
+    binding::{
+        assign_target_ident, collect_top_level_bindings, collect_top_level_bindings_in_script,
+        resolve_function_binding_names,
+    },
     entrypoint::{
         collect_default_export_function_names, collect_fixture_entrypoint_function_names,
+        collect_fixture_entrypoint_function_names_in_script,
     },
     helpers::{span_to_location, unwrap_expression},
     react_fn::{react_function_kind, sort_react_functions},
@@ -76,11 +80,20 @@ pub(crate) fn collect_react_functions_in_script(
     cm: &Lrc<SourceMap>,
     script: &Script,
 ) -> Vec<ReactFunction> {
+    let bindings = collect_top_level_bindings_in_script(script);
     let mut functions: Vec<ReactFunction> = script
         .body
         .iter()
         .flat_map(|stmt| collect_react_functions_in_stmt(cm, stmt))
         .collect();
+    let fixture_entrypoint_names = collect_fixture_entrypoint_function_names_in_script(script);
+    if !fixture_entrypoint_names.is_empty() {
+        let resolved_fixture_entrypoint_names =
+            resolve_function_binding_names(&bindings, &fixture_entrypoint_names);
+        let fixture_entrypoint_functions =
+            collect_named_functions_in_script(cm, script, &resolved_fixture_entrypoint_names);
+        functions = merge_react_functions(functions, fixture_entrypoint_functions);
+    }
     sort_react_functions(&mut functions);
     functions
 }
@@ -267,6 +280,18 @@ fn collect_named_functions_in_module(
                 _ => Vec::new(),
             },
         })
+        .collect()
+}
+
+fn collect_named_functions_in_script(
+    cm: &Lrc<SourceMap>,
+    script: &Script,
+    target_names: &HashSet<String>,
+) -> Vec<ReactFunction> {
+    script
+        .body
+        .iter()
+        .flat_map(|stmt| collect_named_functions_in_stmt(cm, stmt, target_names))
         .collect()
 }
 
