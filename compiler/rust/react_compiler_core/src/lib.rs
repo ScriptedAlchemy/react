@@ -1774,6 +1774,11 @@ fn collect_runtime_bindings_from_script_declarator(
                 runtime_callee_bindings.remove(binding_name.as_str());
             }
             Pat::Object(object_pat) => {
+                clear_runtime_bindings_for_object_pat_bindings(
+                    object_pat,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                );
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
                     runtime_callee_bindings.insert(callee_name.clone());
                     runtime_namespace_bindings.remove(callee_name.as_str());
@@ -1787,6 +1792,11 @@ fn collect_runtime_bindings_from_script_declarator(
     if let Some(namespace_name) = expression_ident(init) {
         if runtime_namespace_bindings.contains(namespace_name.as_str()) {
             if let Pat::Object(object_pat) = &declarator.name {
+                clear_runtime_bindings_for_object_pat_bindings(
+                    object_pat,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                );
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
                     runtime_callee_bindings.insert(callee_name.clone());
                     runtime_namespace_bindings.remove(callee_name.as_str());
@@ -1829,18 +1839,20 @@ fn clear_runtime_bindings_for_pat(
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
 ) {
-    match pattern {
-        Pat::Ident(binding) => {
-            runtime_namespace_bindings.remove(binding.id.sym.as_ref());
-            runtime_callee_bindings.remove(binding.id.sym.as_ref());
-        }
-        Pat::Object(object_pat) => {
-            if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
-                runtime_namespace_bindings.remove(callee_name.as_str());
-                runtime_callee_bindings.remove(callee_name.as_str());
-            }
-        }
-        _ => {}
+    for binding_name in collect_binding_names_from_pat(pattern) {
+        runtime_namespace_bindings.remove(binding_name.as_str());
+        runtime_callee_bindings.remove(binding_name.as_str());
+    }
+}
+
+fn clear_runtime_bindings_for_object_pat_bindings(
+    object_pat: &swc_ecma_ast::ObjectPat,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+) {
+    for binding_name in collect_binding_names_from_object_pat(object_pat) {
+        runtime_namespace_bindings.remove(binding_name.as_str());
+        runtime_callee_bindings.remove(binding_name.as_str());
     }
 }
 
@@ -1864,6 +1876,11 @@ fn collect_runtime_bindings_from_script_assignment_expr(
             runtime_callee_bindings.remove(target_name.as_str());
         }
         if let Some(object_pat) = target_object_pat {
+            clear_runtime_bindings_for_object_pat_bindings(
+                object_pat,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
             if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
                 runtime_callee_bindings.insert(callee_name.clone());
                 runtime_namespace_bindings.remove(callee_name.as_str());
@@ -1878,6 +1895,11 @@ fn collect_runtime_bindings_from_script_assignment_expr(
                 runtime_callee_bindings.remove(target_name.as_str());
             }
             if let Some(object_pat) = target_object_pat {
+                clear_runtime_bindings_for_object_pat_bindings(
+                    object_pat,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                );
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
                     runtime_callee_bindings.insert(callee_name.clone());
                     runtime_namespace_bindings.remove(callee_name.as_str());
@@ -1906,10 +1928,59 @@ fn collect_runtime_bindings_from_script_assignment_expr(
         runtime_callee_bindings.remove(target_name.as_str());
     }
     if let Some(object_pat) = target_object_pat {
-        if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
-            runtime_namespace_bindings.remove(callee_name.as_str());
-            runtime_callee_bindings.remove(callee_name.as_str());
+        clear_runtime_bindings_for_object_pat_bindings(
+            object_pat,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+        );
+    }
+}
+
+fn collect_binding_names_from_pat(pattern: &Pat) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_binding_names_from_pat_into(pattern, &mut names);
+    names
+}
+
+fn collect_binding_names_from_object_pat(object_pat: &swc_ecma_ast::ObjectPat) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_binding_names_from_object_pat_into(object_pat, &mut names);
+    names
+}
+
+fn collect_binding_names_from_object_pat_into(
+    object_pat: &swc_ecma_ast::ObjectPat,
+    names: &mut Vec<String>,
+) {
+    for prop in &object_pat.props {
+        match prop {
+            swc_ecma_ast::ObjectPatProp::Assign(assign) => {
+                names.push(assign.key.id.sym.to_string());
+            }
+            swc_ecma_ast::ObjectPatProp::KeyValue(key_value) => {
+                collect_binding_names_from_pat_into(key_value.value.as_ref(), names);
+            }
+            swc_ecma_ast::ObjectPatProp::Rest(rest) => {
+                collect_binding_names_from_pat_into(rest.arg.as_ref(), names);
+            }
         }
+    }
+}
+
+fn collect_binding_names_from_pat_into(pattern: &Pat, names: &mut Vec<String>) {
+    match pattern {
+        Pat::Ident(binding) => names.push(binding.id.sym.to_string()),
+        Pat::Array(array_pat) => {
+            for elem in array_pat.elems.iter().flatten() {
+                collect_binding_names_from_pat_into(elem, names);
+            }
+        }
+        Pat::Object(object_pat) => collect_binding_names_from_object_pat_into(object_pat, names),
+        Pat::Assign(assign_pat) => {
+            collect_binding_names_from_pat_into(assign_pat.left.as_ref(), names)
+        }
+        Pat::Rest(rest_pat) => collect_binding_names_from_pat_into(rest_pat.arg.as_ref(), names),
+        _ => {}
     }
 }
 
@@ -2480,6 +2551,26 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_overwritten_by_object_pattern_assignment()
+    {
+        let output = compile(
+            "let cache; ({ c: cache } = require('react/compiler-runtime')); ({ x: cache } = source); export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_destructure_alias() {
         let output = compile(
             "const { c: cache } = require('react/compiler-runtime'); function Component(){ return <div />; }",
@@ -2574,6 +2665,26 @@ mod tests {
     fn does_not_transform_script_component_when_runtime_alias_is_reassigned() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; cache = unknown; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_overwritten_by_object_pattern_assignment(
+    ) {
+        let output = compile(
+            "let cache; ({ c: cache } = require('react/compiler-runtime')); ({ x: cache } = source); function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
