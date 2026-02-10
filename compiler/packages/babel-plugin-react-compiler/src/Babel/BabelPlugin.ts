@@ -188,6 +188,43 @@ function findObviousFlowTypeSyntaxMarker(
   return firstMatch;
 }
 
+function findObviousTypeScriptUnsupportedMarker(
+  sourceCode: string,
+): null | {index: number; length: number; kind: string} {
+  const markers = [
+    {
+      pattern:
+        /=\s*[A-Za-z_$][\w$]*\s*<[^>\n]+>\s*(?=[;),.])/,
+      kind: 'instantiation_expression',
+    },
+    {
+      pattern:
+        /=\s*[A-Za-z_$][\w$]*\s*<[^>\n]+>\s*\(/,
+      kind: 'instantiation_expression_call',
+    },
+    {
+      pattern: /\bsatisfies\b/,
+      kind: 'satisfies_expression',
+    },
+  ];
+  let firstMatch: null | {index: number; length: number; kind: string} = null;
+  for (const marker of markers) {
+    const match = marker.pattern.exec(sourceCode);
+    if (match == null || match.index == null) {
+      continue;
+    }
+    const candidate = {
+      index: match.index,
+      length: match[0].length,
+      kind: marker.kind,
+    };
+    if (firstMatch == null || candidate.index < firstMatch.index) {
+      firstMatch = candidate;
+    }
+  }
+  return firstMatch;
+}
+
 function sourceOffsetToLocation(
   sourceCode: string,
   offset: number,
@@ -289,6 +326,24 @@ function maybeRunRustProgramCompiler(
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
+  const tsUnsupportedMarker =
+    strictRustEngine && dialect === 'typescript'
+      ? findObviousTypeScriptUnsupportedMarker(sourceCode)
+      : null;
+  if (tsUnsupportedMarker != null) {
+    logStrictRustFrontendFallback(
+      logger,
+      filename,
+      `rust_frontend_preflight:typescript_${tsUnsupportedMarker.kind}`,
+      sourceOffsetToLocation(
+        sourceCode,
+        tsUnsupportedMarker.index,
+        tsUnsupportedMarker.length,
+        pass.filename ?? null,
+      ),
+    );
+    return;
+  }
   const flowTypeMarker =
     dialect === 'flow' ? findObviousFlowTypeSyntaxMarker(sourceCode) : null;
   if (dialect === 'flow' && flowTypeMarker != null) {

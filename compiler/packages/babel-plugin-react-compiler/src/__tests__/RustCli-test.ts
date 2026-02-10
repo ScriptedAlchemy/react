@@ -482,6 +482,73 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('strict rust mode preflight-skips TS instantiation expression syntax', () => {
+    const source = [
+      'function id<T>(x: T): T {',
+      '  return x;',
+      '}',
+      'function Component() {',
+      '  const instantiate = id<string>;',
+      "  return instantiate('hello');",
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        }),
+      ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.ts',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
+  it('strict rust mode preflight-skips TS satisfies syntax', () => {
+    const source = [
+      'function Component() {',
+      '  const value = [1, 2, 3] satisfies Array<number>;',
+      '  return value.length;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        }),
+      ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.ts',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
   it('strict rust mode falls back on TS instantiation expressions', () => {
     const source = [
       'function id<T>(x: T): T {',
