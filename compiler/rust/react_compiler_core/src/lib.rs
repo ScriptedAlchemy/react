@@ -2698,6 +2698,20 @@ fn collect_runtime_bindings_from_class(
     runtime_callee_bindings: &mut HashSet<String>,
     may_be_conditional: bool,
 ) {
+    collect_runtime_bindings_from_decorators(
+        &class.decorators,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        may_be_conditional,
+    );
+    if let Some(super_class) = &class.super_class {
+        collect_runtime_bindings_from_expression(
+            super_class.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        );
+    }
     for class_member in &class.body {
         match class_member {
             swc_ecma_ast::ClassMember::Method(class_method) => {
@@ -2715,6 +2729,12 @@ fn collect_runtime_bindings_from_class(
                     runtime_callee_bindings,
                     may_be_conditional,
                 );
+                collect_runtime_bindings_from_decorators(
+                    &class_prop.decorators,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
                 if class_prop.is_static {
                     if let Some(value) = &class_prop.value {
                         collect_runtime_bindings_from_expression(
@@ -2727,6 +2747,12 @@ fn collect_runtime_bindings_from_class(
                 }
             }
             swc_ecma_ast::ClassMember::PrivateProp(private_prop) => {
+                collect_runtime_bindings_from_decorators(
+                    &private_prop.decorators,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
                 if private_prop.is_static {
                     if let Some(value) = &private_prop.value {
                         collect_runtime_bindings_from_expression(
@@ -2755,6 +2781,12 @@ fn collect_runtime_bindings_from_class(
                         may_be_conditional,
                     );
                 }
+                collect_runtime_bindings_from_decorators(
+                    &auto_accessor.decorators,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
                 if auto_accessor.is_static {
                     if let Some(value) = &auto_accessor.value {
                         collect_runtime_bindings_from_expression(
@@ -2768,6 +2800,22 @@ fn collect_runtime_bindings_from_class(
             }
             _ => {}
         }
+    }
+}
+
+fn collect_runtime_bindings_from_decorators(
+    decorators: &[swc_ecma_ast::Decorator],
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    for decorator in decorators {
+        collect_runtime_bindings_from_expression(
+            decorator.expr.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        );
     }
 }
 
@@ -4301,6 +4349,40 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_class_super_class_assignment_in_module() {
+        let output = compile(
+            "let cache; class Base {} class RuntimeCarrier extends (cache = require('react/compiler-runtime').c, Base) {} export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_from_class_decorator_assignment_in_module() {
+        let output = compile(
+            "let cache; @((cache = require('react/compiler-runtime').c)) class RuntimeCarrier {} export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_class_static_for_init_assignment_in_module() {
         let output = compile(
             "let cache; class RuntimeCarrier { static { for (cache = require('react/compiler-runtime').c; false;) {} } } export function Component(){ return <div />; }",
@@ -5055,6 +5137,46 @@ mod tests {
     {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; class Base {} class RuntimeCarrier extends Base { static { super[cache = unknown]; } } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_class_super_class_expression()
+    {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; class Base {} class RuntimeCarrier extends (cache = unknown, Base) {} export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_class_decorator_expression()
+    {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; @((cache = unknown)) class RuntimeCarrier {} export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
