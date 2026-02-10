@@ -2167,8 +2167,14 @@ fn collect_runtime_bindings_from_expression(
     if let Expr::Object(object_literal) = expression {
         for prop_or_spread in &object_literal.props {
             match prop_or_spread {
-                PropOrSpread::Prop(prop) => {
-                    if let Prop::KeyValue(key_value) = prop.as_ref() {
+                PropOrSpread::Prop(prop) => match prop.as_ref() {
+                    Prop::KeyValue(key_value) => {
+                        collect_runtime_bindings_from_prop_name(
+                            &key_value.key,
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
                         collect_runtime_bindings_from_expression(
                             key_value.value.as_ref(),
                             runtime_namespace_bindings,
@@ -2176,7 +2182,40 @@ fn collect_runtime_bindings_from_expression(
                             may_be_conditional,
                         );
                     }
-                }
+                    Prop::Assign(assign_prop) => {
+                        collect_runtime_bindings_from_expression(
+                            assign_prop.value.as_ref(),
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
+                    }
+                    Prop::Getter(getter_prop) => {
+                        collect_runtime_bindings_from_prop_name(
+                            &getter_prop.key,
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
+                    }
+                    Prop::Setter(setter_prop) => {
+                        collect_runtime_bindings_from_prop_name(
+                            &setter_prop.key,
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
+                    }
+                    Prop::Method(method_prop) => {
+                        collect_runtime_bindings_from_prop_name(
+                            &method_prop.key,
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
+                    }
+                    Prop::Shorthand(_) => {}
+                },
                 PropOrSpread::Spread(spread) => {
                     collect_runtime_bindings_from_expression(
                         spread.expr.as_ref(),
@@ -2733,6 +2772,20 @@ fn collect_runtime_bindings_from_class(
 }
 
 fn collect_runtime_bindings_from_class_key(
+    key: &PropName,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    collect_runtime_bindings_from_prop_name(
+        key,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        may_be_conditional,
+    );
+}
+
+fn collect_runtime_bindings_from_prop_name(
     key: &PropName,
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
@@ -4459,6 +4512,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_object_literal_computed_key_assignment_in_module() {
+        let output = compile(
+            "let cache; const payload = {[cache = require('react/compiler-runtime').c]: 1}; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_non_short_circuit_binary_assignment_in_module() {
         let output = compile(
             "let cache; const value = 1 + (cache = require('react/compiler-runtime').c); export function Component(){ return <div />; }",
@@ -5175,6 +5245,26 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_object_literal_computed_key()
+    {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; const payload = {[cache = unknown]: 1}; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_non_short_circuit_binary() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; const value = 1 + (cache = unknown); export function Component(){ return <div />; }",
@@ -5787,6 +5877,25 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_alias_from_object_literal_computed_key_assignment()
+    {
+        let output = compile(
+            "let cache; const payload = {[cache = require('react/compiler-runtime').c]: 1}; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_alias_from_non_short_circuit_binary_assignment() {
         let output = compile(
             "let cache; const value = 1 + (cache = require('react/compiler-runtime').c); function Component(){ return <div />; }",
@@ -6296,6 +6405,26 @@ mod tests {
     fn does_not_transform_script_component_when_runtime_alias_is_reassigned_in_object_literal() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; const payload = {value: (cache = unknown)}; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_reassigned_in_object_literal_computed_key(
+    ) {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; const payload = {[cache = unknown]: 1}; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
