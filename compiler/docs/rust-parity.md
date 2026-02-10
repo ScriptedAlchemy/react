@@ -53,6 +53,34 @@ The Babel plugin Rust bridge resolves the compiler CLI command in this order:
 For repeated local parity runs, setting `REACT_COMPILER_RUST_CLI_BIN` to a prebuilt
 binary avoids repeated Cargo invocation overhead while avoiding stale binary ambiguity.
 
+## Rust CLI protocol contract
+
+The JS bridge and Rust CLI communicate via a versioned JSON protocol.
+
+- Request field: `protocol_version` (current value: `1`).
+- Response field: `protocol_version` (returned on both `ok` and `error` responses).
+- Unsupported request versions are rejected by CLI with:
+  - `code: "unsupported_protocol_version"`
+  - `category: "request"`
+  - `reason: "invalid_option"`.
+
+Bridge compatibility behavior:
+
+- The JS bridge sends `protocol_version: 1` by default.
+- The bridge validates response protocol version when present.
+- For backward compatibility with older local binaries, a missing
+  `protocol_version` response field is tolerated.
+
+Bridge response-shape guardrails:
+
+- Response must be a JSON object with `status: "ok" | "error"`.
+- `ok` responses must include a string `code`.
+- `error` responses must include string fields:
+  `code`, `category`, `reason`, `severity`, `message`.
+
+For strict-rust debugging, `BabelPlugin` emits
+`RustFrontendProtocolVersion` via `logger.debugLogIRs`.
+
 ## Report shape
 
 Parity JSON includes:
