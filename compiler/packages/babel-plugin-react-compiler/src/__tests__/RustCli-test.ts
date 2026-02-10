@@ -12,6 +12,9 @@ import {
 } from '../RustBridge/RustCliProtocol';
 import {runBabelPluginReactCompiler} from '../Babel/RunReactCompilerBabelPlugin';
 import {spawnSync} from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import * as BabelParser from '@babel/parser';
 import generate from '@babel/generator';
 
@@ -46,6 +49,23 @@ function withEnvVar<T>(name: string, value: string, fn: () => T): T {
     } else {
       process.env[name] = previous;
     }
+  }
+}
+
+function withTempRustCliScript<T>(
+  scriptBody: string,
+  fn: (scriptPath: string) => T,
+): T {
+  const tempDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'react-compiler-rust-cli-'),
+  );
+  const scriptPath = path.join(tempDirectory, 'mock-rust-cli');
+  fs.writeFileSync(scriptPath, `#!/usr/bin/env node\n${scriptBody}\n`);
+  fs.chmodSync(scriptPath, 0o755);
+  try {
+    return fn(scriptPath);
+  } finally {
+    fs.rmSync(tempDirectory, {recursive: true, force: true});
   }
 }
 
@@ -7278,6 +7298,48 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         }),
       ).toThrow(new RegExp(escapeRegExp(`Rust compiler CLI (${process.execPath})`)));
     });
+  });
+
+  it('throws when rust cli returns unsupported response status', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    withTempRustCliScript(
+      `process.stdout.write(JSON.stringify({status: "unexpected_status"}));`,
+      scriptPath => {
+        withEnvVar('REACT_COMPILER_RUST_CLI_BIN', scriptPath, () => {
+          expect(() =>
+            runRustCompilerCli({
+              source: 'const value = 1;',
+              dialect: 'javascript',
+              filename: 'fixture.js',
+              is_module: false,
+            }),
+          ).toThrow('invalid status');
+        });
+      },
+    );
+  });
+
+  it('throws when rust cli returns malformed error payload', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    withTempRustCliScript(
+      `process.stdout.write(JSON.stringify({status: "error", code: "parse_failure"}));`,
+      scriptPath => {
+        withEnvVar('REACT_COMPILER_RUST_CLI_BIN', scriptPath, () => {
+          expect(() =>
+            runRustCompilerCli({
+              source: 'const value = 1;',
+              dialect: 'javascript',
+              filename: 'fixture.js',
+              is_module: false,
+            }),
+          ).toThrow('invalid error payload');
+        });
+      },
+    );
   });
 
   it('can be selected as compiler engine in Babel plugin options', () => {

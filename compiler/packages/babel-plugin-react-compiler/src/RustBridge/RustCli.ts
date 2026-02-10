@@ -189,9 +189,59 @@ export function runRustCompilerCli(
     throw new Error('Rust compiler CLI returned an empty response');
   }
 
-  const response = JSON.parse(result.stdout) as RustCompileResponse;
+  const response = JSON.parse(result.stdout) as unknown;
+  assertRustCompileResponseShape(response);
   assertCompatibleRustCliProtocolVersion(response);
   return response;
+}
+
+function assertRustCompileResponseShape(
+  response: unknown,
+): asserts response is RustCompileResponse {
+  if (response == null || typeof response !== 'object') {
+    throw new Error(
+      'Rust compiler CLI returned an invalid response payload (expected JSON object)',
+    );
+  }
+  const status = (response as {status?: unknown}).status;
+  if (status !== 'ok' && status !== 'error') {
+    throw new Error(
+      `Rust compiler CLI returned invalid status: ${String(status)}`,
+    );
+  }
+  if (status === 'ok') {
+    const code = (response as {code?: unknown}).code;
+    if (typeof code !== 'string') {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (missing string code field)',
+      );
+    }
+    return;
+  }
+  const {
+    code,
+    category,
+    reason,
+    severity,
+    message,
+  } = response as {
+    code?: unknown;
+    category?: unknown;
+    reason?: unknown;
+    severity?: unknown;
+    message?: unknown;
+  };
+  if (
+    typeof code !== 'string' ||
+    typeof category !== 'string' ||
+    typeof reason !== 'string' ||
+    typeof severity !== 'string' ||
+    typeof message !== 'string'
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid error payload (missing required string fields)',
+    );
+  }
 }
 
 function assertCompatibleRustCliProtocolVersion(
