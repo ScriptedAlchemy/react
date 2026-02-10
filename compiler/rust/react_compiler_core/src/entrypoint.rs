@@ -164,7 +164,7 @@ fn collect_fixture_entrypoint_names_from_var_decl(var_decl: &VarDecl) -> Vec<Str
             let Some(init) = declarator.init.as_ref() else {
                 return None;
             };
-            let Expr::Object(object_literal) = init.as_ref() else {
+            let Expr::Object(object_literal) = unwrap_expression(init.as_ref()) else {
                 return None;
             };
             fixture_entrypoint_fn_name_from_object_literal(object_literal)
