@@ -8,8 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import {spawnSync} from 'child_process';
-
-const RUST_CLI_PROTOCOL_VERSION = 1;
+import {RUST_CLI_PROTOCOL_VERSION} from './RustCliProtocol';
 
 export type RustCompileRequest = {
   source: string;

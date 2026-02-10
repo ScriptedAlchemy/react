@@ -6,6 +6,10 @@
  */
 
 import {runRustCompilerCli} from '../RustBridge/RustCli';
+import {
+  RUST_CLI_PROTOCOL_VERSION,
+  RUST_CLI_UNSUPPORTED_PROTOCOL_VERSION_ERROR_CODE,
+} from '../RustBridge/RustCliProtocol';
 import {runBabelPluginReactCompiler} from '../Babel/RunReactCompilerBabelPlugin';
 import {spawnSync} from 'child_process';
 import * as BabelParser from '@babel/parser';
@@ -80,7 +84,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
-      expect(result.protocol_version).toBe(1);
+      expect(result.protocol_version).toBe(RUST_CLI_PROTOCOL_VERSION);
       expect(result.statement_count).toBe(1);
       expect(result.statement_count_after_transform).toBe(1);
       expect(
@@ -169,7 +173,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
 
     expect(result.status).toBe('error');
     if (result.status === 'error') {
-      expect(result.protocol_version).toBe(1);
+      expect(result.protocol_version).toBe(RUST_CLI_PROTOCOL_VERSION);
       expect(result.code).toBe('unsupported_flow_syntax');
       expect(result.category).toBe('syntax');
       expect(result.reason).toBe('flow_syntax_not_supported');
@@ -188,8 +192,10 @@ describeWithCargo('Rust compiler CLI bridge', () => {
 
     expect(result.status).toBe('error');
     if (result.status === 'error') {
-      expect(result.protocol_version).toBe(1);
-      expect(result.code).toBe('unsupported_protocol_version');
+      expect(result.protocol_version).toBe(RUST_CLI_PROTOCOL_VERSION);
+      expect(result.code).toBe(
+        RUST_CLI_UNSUPPORTED_PROTOCOL_VERSION_ERROR_CODE,
+      );
       expect(result.category).toBe('request');
       expect(result.reason).toBe('invalid_option');
       expect(result.severity).toBe('error');
@@ -7335,7 +7341,9 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       value => value.name === 'RustFrontendProtocolVersion',
     );
     expect(rustProtocolVersionDebug).toBeDefined();
-    expect(rustProtocolVersionDebug?.value).toBe('1');
+    expect(rustProtocolVersionDebug?.value).toBe(
+      String(RUST_CLI_PROTOCOL_VERSION),
+    );
     const rustStatementCountDebug = debugValues.find(
       value => value.name === 'RustFrontendStatementCount',
     );
@@ -7548,7 +7556,9 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       value => value.name === 'RustFrontendProtocolVersion',
     );
     expect(protocolVersionDebug).toBeDefined();
-    expect(protocolVersionDebug?.value).toBe('1');
+    expect(protocolVersionDebug?.value).toBe(
+      String(RUST_CLI_PROTOCOL_VERSION),
+    );
     const statementCountDebug = debugValues.find(
       value => value.name === 'RustFrontendStatementCount',
     );
