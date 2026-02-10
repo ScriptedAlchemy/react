@@ -7942,6 +7942,93 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(fallbackEvent?.loc).toBeNull();
   });
 
+  it('strict rust mode falls back when rust output cannot be parsed', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    const source = 'export function Component() { return <div />; }';
+    const loggedEvents: Array<any> = [];
+    withTempRustCliScript(
+      `process.stdout.write(JSON.stringify({
+        status: "ok",
+        protocol_version: ${RUST_CLI_PROTOCOL_VERSION},
+        code: "export ???",
+        statement_count: 1,
+        statement_count_after_transform: 1,
+        placeholder_runtime_helper_import_count_before_transform: 0,
+        placeholder_runtime_helper_import_count_after_transform: 0,
+        placeholder_runtime_helper_import_added: false,
+        placeholder_runtime_callee_reused: false,
+        placeholder_runtime_callee_generated: false,
+        placeholder_transform_status: "disabled",
+        placeholder_transform_candidates: [],
+        placeholder_transform_skipped_functions: [],
+        placeholder_transform_candidate_count: 0,
+        placeholder_transform_skipped_count: 0,
+        placeholder_transform_candidate_component_count: 0,
+        placeholder_transform_candidate_hook_count: 0,
+        placeholder_transform_transformed_component_count: 0,
+        placeholder_transform_transformed_hook_count: 0,
+        placeholder_transform_skipped_component_count: 0,
+        placeholder_transform_skipped_hook_count: 0,
+        detected_component_function_count: 0,
+        detected_hook_function_count: 0,
+        detected_component_functions: [],
+        detected_hook_functions: [],
+        detected_react_functions: 0,
+        react_functions: [],
+        placeholder_transforms_applied: 0,
+        placeholder_transformed_functions: [],
+        placeholder_runtime_callee_candidates_before_transform: [],
+        placeholder_runtime_callee_candidate_count_before_transform: 0,
+        placeholder_runtime_namespace_candidates_before_transform: [],
+        placeholder_runtime_namespace_candidate_count_before_transform: 0,
+        placeholder_runtime_callee_candidates: [],
+        placeholder_runtime_callee_candidate_count: 0,
+        placeholder_runtime_namespace_candidates: [],
+        placeholder_runtime_namespace_candidate_count: 0
+      }));`,
+      scriptPath => {
+        const rustResult = withEnvVar(
+          'REACT_COMPILER_RUST_CLI_BIN',
+          scriptPath,
+          () =>
+            withStrictRustEngine(() =>
+              runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
+                compilationMode: 'all',
+                compilerEngine: 'rust',
+                logger: {
+                  logEvent(_filename, event) {
+                    loggedEvents.push(event);
+                  },
+                },
+              }),
+            ),
+        );
+        const babelResult = runBabelPluginReactCompiler(
+          source,
+          '/fixture.tsx',
+          'typescript',
+          {
+            compilationMode: 'all',
+            compilerEngine: 'babel',
+          },
+        );
+        expect(canonicalizeCode(rustResult.code)).toBe(
+          canonicalizeCode(babelResult.code),
+        );
+      },
+    );
+
+    const fallbackEvent = loggedEvents.find(
+      event =>
+        event.kind === 'CompileSkip' &&
+        event.reason === 'rust_frontend_parse_or_canonicalization_failure',
+    );
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent?.loc).toBeNull();
+  });
+
   it('logs strict rust fallback location for recoverable flow frontend errors', () => {
     const loggedEvents: Array<unknown> = [];
     const source = [
