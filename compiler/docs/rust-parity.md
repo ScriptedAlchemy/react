@@ -90,8 +90,11 @@ To explicitly stage frontend-lowering experiments in strict mode, set:
 
 When enabled (and only when `REACT_COMPILER_RUST_STRICT=1`), the Babel bridge
 sends `apply_placeholder_transforms: true` to the Rust CLI request payload.
-This allows isolated testing of Rust frontend transform behavior without
-changing default strict-rust parity behavior.
+If transforms are actually applied, strict mode records a
+`CompileSkip` event with reason
+`rust_frontend_placeholder_transform_staging_only` and keeps the Babel
+AST as the compilation input. This keeps strict parity stable while still
+allowing isolated Rust frontend transform telemetry/coverage experiments.
 
 ## Report shape
 

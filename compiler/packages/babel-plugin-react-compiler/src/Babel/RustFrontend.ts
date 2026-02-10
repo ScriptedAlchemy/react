@@ -19,6 +19,7 @@ import {
 import {
   RUST_FRONTEND_INVOCATION_FAILURE_REASON,
   RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
+  RUST_FRONTEND_PLACEHOLDER_TRANSFORM_STAGING_ONLY_REASON,
   RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
   rustFrontendErrorReason,
 } from './RustFrontendContract';
@@ -271,6 +272,7 @@ export function maybeRunRustProgramCompiler(
     logger,
     filename,
     strictRustEngine,
+    enableRustFrontendPlaceholderTransforms,
     sourceCode,
     sourceType,
     dialect,
@@ -478,12 +480,24 @@ function maybeApplyStrictRustProgramReplacement(
   logger: Logger | null,
   filename: string | null,
   strictRustEngine: boolean,
+  enableRustFrontendPlaceholderTransforms: boolean,
   sourceCode: string,
   sourceType: 'script' | 'module',
   dialect: 'javascript' | 'typescript' | 'flow',
   rustResult: Extract<RustCompileResponse, {status: 'ok'}>,
 ): void {
   if (!strictRustEngine || rustResult.code === sourceCode) {
+    return;
+  }
+  if (
+    enableRustFrontendPlaceholderTransforms &&
+    rustResult.placeholder_transforms_applied > 0
+  ) {
+    logStrictRustFrontendFallback(
+      logger,
+      filename,
+      RUST_FRONTEND_PLACEHOLDER_TRANSFORM_STAGING_ONLY_REASON,
+    );
     return;
   }
   let parsed: BabelParser.ParseResult<t.File>;

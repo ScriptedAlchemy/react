@@ -13,6 +13,7 @@ import {
 import {
   RUST_FRONTEND_INVOCATION_FAILURE_REASON,
   RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
+  RUST_FRONTEND_PLACEHOLDER_TRANSFORM_STAGING_ONLY_REASON,
   RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
   rustFrontendErrorReason,
 } from '../Babel/RustFrontendContract';
@@ -8033,6 +8034,51 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       entry => entry.name === 'RustFrontendDebug',
     );
     expect(debugEntry?.value).toBe('apply_placeholder=true');
+  });
+
+  it('strict rust mode keeps babel parity when staged placeholder transforms are applied', () => {
+    const source = [
+      'export default function Component() {',
+      '  return <div />;',
+      '}',
+    ].join('\n');
+    const loggedEvents: Array<any> = [];
+    const rustResult = withEnvVar(
+      RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
+      '1',
+      () =>
+        withStrictRustEngine(() =>
+          runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
+            compilationMode: 'all',
+            compilerEngine: 'rust',
+            logger: {
+              logEvent(_filename, event) {
+                loggedEvents.push(event);
+              },
+            },
+          }),
+        ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+    const stagingEvent = loggedEvents.find(
+      event =>
+        event.kind === 'CompileSkip' &&
+        event.reason === RUST_FRONTEND_PLACEHOLDER_TRANSFORM_STAGING_ONLY_REASON,
+    );
+    expect(stagingEvent).toBeDefined();
+    expect(stagingEvent?.loc).toBeNull();
   });
 
   it('strict rust mode falls back when rust output cannot be parsed', () => {
