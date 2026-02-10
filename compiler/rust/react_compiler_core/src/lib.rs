@@ -679,6 +679,29 @@ fn collect_default_export_function_names(module: &Module) -> HashSet<String> {
                         _ => None,
                     }
                 }
+                ModuleDecl::ExportNamed(named_export)
+                    if named_export.src.is_none() && !named_export.type_only =>
+                {
+                    named_export
+                        .specifiers
+                        .iter()
+                        .find_map(|specifier| match specifier {
+                            swc_ecma_ast::ExportSpecifier::Named(named_specifier)
+                                if !named_specifier.is_type_only
+                                    && named_specifier
+                                        .exported
+                                        .as_ref()
+                                        .map(|name| name.atom() == &"default")
+                                        .unwrap_or(false) =>
+                            {
+                                match &named_specifier.orig {
+                                    ModuleExportName::Ident(ident) => Some(ident.sym.to_string()),
+                                    ModuleExportName::Str(_) => None,
+                                }
+                            }
+                            _ => None,
+                        })
+                }
                 _ => None,
             }
         })
@@ -1430,6 +1453,24 @@ mod tests {
     fn transforms_function_referenced_by_default_export_identifier() {
         let output = compile(
             "function component(){ return <div />; } export default component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_function_referenced_by_named_default_export_specifier() {
+        let output = compile(
+            "function component(){ return <div />; } export {component as default};",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.jsx".to_string(),
