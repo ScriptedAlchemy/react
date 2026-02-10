@@ -54,9 +54,10 @@ use react_fn::{
     sort_react_functions,
 };
 use runtime_scan::{
-    collect_runtime_bindings_from_import_decl, select_runtime_callee_name,
+    collect_runtime_bindings_from_import_decl, runtime_memo_callee_name,
+    runtime_memo_callee_name_in_script, runtime_memo_callee_scan_for_module,
+    runtime_memo_callee_scan_for_script, select_runtime_callee_name,
     sorted_runtime_callee_candidates, sorted_runtime_namespace_candidates,
-    RuntimeMemoCalleeScan,
 };
 use runtime_stmt::{
     collect_runtime_bindings_from_static_block_stmt, collect_runtime_bindings_from_var_decl_in_static_block,
@@ -1053,141 +1054,7 @@ fn apply_placeholder_compilation_to_decl(
     }
 }
 
-fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan {
-    let mut runtime_namespace_bindings: HashSet<String> = HashSet::new();
-    let mut runtime_callee_bindings: HashSet<String> = HashSet::new();
-    for item in &module.body {
-        match item {
-            ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl)) => {
-                if import_decl.src.value != *"react/compiler-runtime" {
-                    continue;
-                }
-                collect_runtime_bindings_from_import_decl(
-                    import_decl,
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                );
-            }
-            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
-                if let Decl::Var(var_decl) = &export_decl.decl {
-                    for declarator in &var_decl.decls {
-                        collect_runtime_bindings_from_script_declarator(
-                            declarator,
-                            &mut runtime_namespace_bindings,
-                            &mut runtime_callee_bindings,
-                        );
-                    }
-                } else if let Decl::Class(class_decl) = &export_decl.decl {
-                    collect_runtime_bindings_from_class(
-                        &class_decl.class,
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                        false,
-                    );
-                } else if let Decl::Using(using_decl) = &export_decl.decl {
-                    for declarator in &using_decl.decls {
-                        collect_runtime_bindings_from_script_declarator(
-                            declarator,
-                            &mut runtime_namespace_bindings,
-                            &mut runtime_callee_bindings,
-                        );
-                    }
-                } else if let Decl::TsEnum(ts_enum_decl) = &export_decl.decl {
-                    collect_runtime_bindings_from_ts_enum_decl(
-                        ts_enum_decl.as_ref(),
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                        false,
-                    );
-                } else if let Decl::TsModule(ts_module_decl) = &export_decl.decl {
-                    collect_runtime_bindings_from_ts_module_decl(
-                        ts_module_decl.as_ref(),
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                        false,
-                    );
-                }
-            }
-            ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(default_decl)) => {
-                if let DefaultDecl::Class(class_expr) = &default_decl.decl {
-                    collect_runtime_bindings_from_class(
-                        &class_expr.class,
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                        false,
-                    );
-                }
-            }
-            ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(default_expr)) => {
-                collect_runtime_bindings_from_script_assignment_expr(
-                    default_expr.expr.as_ref(),
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                );
-            }
-            ModuleItem::ModuleDecl(ModuleDecl::TsExportAssignment(export_assignment)) => {
-                collect_runtime_bindings_from_script_assignment_expr(
-                    export_assignment.expr.as_ref(),
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                );
-            }
-            ModuleItem::ModuleDecl(ModuleDecl::TsImportEquals(import_equals_decl)) => {
-                collect_runtime_bindings_from_ts_import_equals_decl(
-                    import_equals_decl.as_ref(),
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                );
-            }
-            ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl))) => {
-                for declarator in &var_decl.decls {
-                    collect_runtime_bindings_from_script_declarator(
-                        declarator,
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                    );
-                }
-            }
-            ModuleItem::Stmt(Stmt::Decl(Decl::Class(class_decl))) => {
-                collect_runtime_bindings_from_class(
-                    &class_decl.class,
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                    false,
-                );
-            }
-            ModuleItem::Stmt(Stmt::Decl(Decl::Using(using_decl))) => {
-                for declarator in &using_decl.decls {
-                    collect_runtime_bindings_from_script_declarator(
-                        declarator,
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                    );
-                }
-            }
-            ModuleItem::Stmt(Stmt::Expr(expr_stmt)) => {
-                collect_runtime_bindings_from_script_assignment_expr(
-                    expr_stmt.expr.as_ref(),
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                );
-            }
-            ModuleItem::Stmt(stmt) => collect_runtime_bindings_from_static_block_stmt(
-                stmt,
-                &mut runtime_namespace_bindings,
-                &mut runtime_callee_bindings,
-                false,
-            ),
-            _ => {}
-        }
-    }
-    RuntimeMemoCalleeScan {
-        runtime_namespace_bindings,
-        runtime_callee_bindings,
-    }
-}
-
-fn collect_runtime_bindings_from_ts_import_equals_decl(
+pub(crate) fn collect_runtime_bindings_from_ts_import_equals_decl(
     import_equals_decl: &swc_ecma_ast::TsImportEqualsDecl,
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
@@ -1458,67 +1325,7 @@ fn collect_runtime_bindings_from_decl(
     }
 }
 
-fn runtime_memo_callee_name(module: &Module) -> Option<String> {
-    let runtime_scan = runtime_memo_callee_scan_for_module(module);
-    select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
-}
-
-fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMemoCalleeScan {
-    let mut runtime_namespace_bindings: HashSet<String> = HashSet::new();
-    let mut runtime_callee_bindings: HashSet<String> = HashSet::new();
-    for stmt in &script.body {
-        match stmt {
-            Stmt::Decl(Decl::Var(var_decl)) => {
-                for declarator in &var_decl.decls {
-                    collect_runtime_bindings_from_script_declarator(
-                        declarator,
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                    );
-                }
-            }
-            Stmt::Decl(Decl::Class(class_decl)) => {
-                collect_runtime_bindings_from_class(
-                    &class_decl.class,
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                    false,
-                );
-            }
-            Stmt::Decl(Decl::Using(using_decl)) => {
-                for declarator in &using_decl.decls {
-                    collect_runtime_bindings_from_script_declarator(
-                        declarator,
-                        &mut runtime_namespace_bindings,
-                        &mut runtime_callee_bindings,
-                    );
-                }
-            }
-            Stmt::Expr(expr_stmt) => collect_runtime_bindings_from_script_assignment_expr(
-                expr_stmt.expr.as_ref(),
-                &mut runtime_namespace_bindings,
-                &mut runtime_callee_bindings,
-            ),
-            stmt => collect_runtime_bindings_from_static_block_stmt(
-                stmt,
-                &mut runtime_namespace_bindings,
-                &mut runtime_callee_bindings,
-                false,
-            ),
-        }
-    }
-    RuntimeMemoCalleeScan {
-        runtime_namespace_bindings,
-        runtime_callee_bindings,
-    }
-}
-
-fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
-    let runtime_scan = runtime_memo_callee_scan_for_script(script);
-    select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
-}
-
-fn collect_runtime_bindings_from_script_declarator(
+pub(crate) fn collect_runtime_bindings_from_script_declarator(
     declarator: &VarDeclarator,
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
@@ -1600,7 +1407,7 @@ fn collect_runtime_bindings_from_script_declarator(
     );
 }
 
-fn collect_runtime_bindings_from_script_assignment_expr(
+pub(crate) fn collect_runtime_bindings_from_script_assignment_expr(
     expr: &Expr,
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
