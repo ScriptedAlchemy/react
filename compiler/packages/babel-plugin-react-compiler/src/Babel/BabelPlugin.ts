@@ -75,6 +75,18 @@ function detectRustDialect(
   return 'javascript';
 }
 
+function hasObviousFlowTypeSyntax(sourceCode: string): boolean {
+  const flowTypeMarkers = [
+    /\bimport\s+type\b/,
+    /\bexport\s+type\b/,
+    /\bopaque\s+type\b/,
+    /\binterface\s+[A-Za-z_$]/,
+    /\bdeclare\s+(class|function|module|var|type|interface)\b/,
+    /\btype\s+[A-Za-z_$][\w$]*\s*=/,
+  ];
+  return flowTypeMarkers.some(pattern => pattern.test(sourceCode));
+}
+
 function parseProgramFromRustOutput(
   transformedCode: string,
   filename: string | null,
@@ -140,6 +152,16 @@ function maybeRunRustProgramCompiler(
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
+  if (dialect === 'flow' && hasObviousFlowTypeSyntax(sourceCode)) {
+    if (strictRustEngine) {
+      logStrictRustFrontendFallback(
+        logger,
+        filename,
+        'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported',
+      );
+    }
+    return;
+  }
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
