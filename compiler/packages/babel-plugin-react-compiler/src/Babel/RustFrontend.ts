@@ -19,6 +19,7 @@ import {
 import {
   RUST_FRONTEND_INVOCATION_FAILURE_REASON,
   RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
+  RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
   rustFrontendErrorReason,
 } from './RustFrontendContract';
 
@@ -35,6 +36,18 @@ function isRecoverableRustFrontendErrorCode(code: string): boolean {
     code === 'parse_failure' ||
     code === 'codegen_failure' ||
     code === 'unsupported_dialect'
+  );
+}
+
+function isRustFrontendPlaceholderTransformsEnabled(
+  strictRustEngine: boolean,
+): boolean {
+  if (!strictRustEngine) {
+    return false;
+  }
+  return (
+    process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === '1' ||
+    process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === 'true'
   );
 }
 
@@ -199,11 +212,13 @@ export function maybeRunRustProgramCompiler(
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
+  const enableRustFrontendPlaceholderTransforms =
+    isRustFrontendPlaceholderTransformsEnabled(strictRustEngine);
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
     is_module: prog.node.sourceType === 'module',
-    apply_placeholder_transforms: false,
+    apply_placeholder_transforms: enableRustFrontendPlaceholderTransforms,
     emit_debug_ir: logger?.debugLogIRs != null,
   };
   if (pass.filename != null) {

@@ -81,6 +81,18 @@ Bridge response-shape guardrails:
 For strict-rust debugging, `BabelPlugin` emits
 `RustFrontendProtocolVersion` via `logger.debugLogIRs`.
 
+## Strict-rust frontend transform staging toggle
+
+Strict rust mode keeps frontend placeholder transforms disabled by default.
+To explicitly stage frontend-lowering experiments in strict mode, set:
+
+- `REACT_COMPILER_RUST_PLACEHOLDER_TRANSFORMS=1`
+
+When enabled (and only when `REACT_COMPILER_RUST_STRICT=1`), the Babel bridge
+sends `apply_placeholder_transforms: true` to the Rust CLI request payload.
+This allows isolated testing of Rust frontend transform behavior without
+changing default strict-rust parity behavior.
+
 ## Report shape
 
 Parity JSON includes:

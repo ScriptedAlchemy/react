@@ -13,6 +13,7 @@ import {
 import {
   RUST_FRONTEND_INVOCATION_FAILURE_REASON,
   RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
+  RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
   rustFrontendErrorReason,
 } from '../Babel/RustFrontendContract';
 import {runBabelPluginReactCompiler} from '../Babel/RunReactCompilerBabelPlugin';
@@ -7945,6 +7946,93 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(fallbackEvent).toBeDefined();
     expect(fallbackEvent?.loc).toBeNull();
+  });
+
+  it('strict rust mode can opt into rust frontend placeholder transforms', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    const source = 'export function Component() { return <div />; }';
+    const debugEntries: Array<any> = [];
+    withTempRustCliScript(
+      `const fs = require("fs");
+      const request = JSON.parse(fs.readFileSync(0, "utf8"));
+      process.stdout.write(JSON.stringify({
+        status: "ok",
+        protocol_version: ${RUST_CLI_PROTOCOL_VERSION},
+        code: request.source,
+        debug_ir: "apply_placeholder=" + String(request.apply_placeholder_transforms === true),
+        statement_count: 1,
+        statement_count_after_transform: 1,
+        placeholder_runtime_helper_import_count_before_transform: 0,
+        placeholder_runtime_helper_import_count_after_transform: 0,
+        placeholder_runtime_helper_import_added: false,
+        placeholder_runtime_callee_reused: false,
+        placeholder_runtime_callee_generated: false,
+        placeholder_transform_status: "disabled",
+        placeholder_transform_candidates: [],
+        placeholder_transform_skipped_functions: [],
+        placeholder_transform_candidate_count: 0,
+        placeholder_transform_skipped_count: 0,
+        placeholder_transform_candidate_component_count: 0,
+        placeholder_transform_candidate_hook_count: 0,
+        placeholder_transform_transformed_component_count: 0,
+        placeholder_transform_transformed_hook_count: 0,
+        placeholder_transform_skipped_component_count: 0,
+        placeholder_transform_skipped_hook_count: 0,
+        detected_component_function_count: 0,
+        detected_hook_function_count: 0,
+        detected_component_functions: [],
+        detected_hook_functions: [],
+        detected_react_functions: 0,
+        react_functions: [],
+        placeholder_transforms_applied: 0,
+        placeholder_transformed_functions: [],
+        placeholder_runtime_callee_candidates_before_transform: [],
+        placeholder_runtime_callee_candidate_count_before_transform: 0,
+        placeholder_runtime_namespace_candidates_before_transform: [],
+        placeholder_runtime_namespace_candidate_count_before_transform: 0,
+        placeholder_runtime_callee_candidates: [],
+        placeholder_runtime_callee_candidate_count: 0,
+        placeholder_runtime_namespace_candidates: [],
+        placeholder_runtime_namespace_candidate_count: 0
+      }));`,
+      scriptPath => {
+        const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', scriptPath, () =>
+          withEnvVar(RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR, '1', () =>
+            withStrictRustEngine(() =>
+              runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
+                compilationMode: 'all',
+                compilerEngine: 'rust',
+                logger: {
+                  logEvent() {},
+                  debugLogIRs(entry) {
+                    debugEntries.push(entry);
+                  },
+                },
+              }),
+            ),
+          ),
+        );
+        const babelResult = runBabelPluginReactCompiler(
+          source,
+          '/fixture.tsx',
+          'typescript',
+          {
+            compilationMode: 'all',
+            compilerEngine: 'babel',
+          },
+        );
+        expect(canonicalizeCode(rustResult.code)).toBe(
+          canonicalizeCode(babelResult.code),
+        );
+      },
+    );
+
+    const debugEntry = debugEntries.find(
+      entry => entry.name === 'RustFrontendDebug',
+    );
+    expect(debugEntry?.value).toBe('apply_placeholder=true');
   });
 
   it('strict rust mode falls back when rust output cannot be parsed', () => {
