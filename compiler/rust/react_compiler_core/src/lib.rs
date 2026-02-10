@@ -1757,23 +1757,48 @@ fn collect_runtime_bindings_from_script_assignment_expr(
     if assign_expr.op != swc_ecma_ast::AssignOp::Assign {
         return;
     }
-    let Some(target_name) = assign_target_ident(&assign_expr.left) else {
-        return;
-    };
+    let target_ident = assign_target_ident(&assign_expr.left);
+    let target_object_pat = assign_target_object_pat(&assign_expr.left);
     let right = unwrap_expression(assign_expr.right.as_ref());
     if is_require_runtime_call(right) {
-        runtime_namespace_bindings.insert(target_name);
+        if let Some(target_name) = target_ident.clone() {
+            runtime_namespace_bindings.insert(target_name);
+        }
+        if let Some(object_pat) = target_object_pat {
+            if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
+                runtime_callee_bindings.insert(callee_name);
+            }
+        }
         return;
     }
     if let Some(namespace_name) = expression_ident(right) {
         if runtime_namespace_bindings.contains(namespace_name.as_str()) {
-            runtime_namespace_bindings.insert(target_name);
+            if let Some(target_name) = target_ident.clone() {
+                runtime_namespace_bindings.insert(target_name);
+            }
+            if let Some(object_pat) = target_object_pat {
+                if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
+                    runtime_callee_bindings.insert(callee_name);
+                }
+            }
             return;
         }
     }
     if member_expr_is_runtime_namespace_c(right, runtime_namespace_bindings) {
-        runtime_callee_bindings.insert(target_name);
+        if let Some(target_name) = target_ident {
+            runtime_callee_bindings.insert(target_name);
+        }
     }
+}
+
+fn assign_target_object_pat(target: &AssignTarget) -> Option<&swc_ecma_ast::ObjectPat> {
+    let AssignTarget::Pat(pattern) = target else {
+        return None;
+    };
+    let swc_ecma_ast::AssignTargetPat::Object(object_pat) = pattern else {
+        return None;
+    };
+    Some(object_pat)
 }
 
 fn extract_runtime_callee_from_object_pat(object_pat: &swc_ecma_ast::ObjectPat) -> Option<String> {
@@ -2167,6 +2192,42 @@ mod tests {
     fn transforms_script_component_with_assigned_runtime_namespace_member_alias() {
         let output = compile(
             "let runtime; runtime = require('react/compiler-runtime'); let cache; cache = runtime.c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_namespace_destructure_alias() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); const { c: cache } = runtime; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_assigned_runtime_destructure_alias() {
+        let output = compile(
+            "let runtime; runtime = require('react/compiler-runtime'); let cache; ({ c: cache } = runtime); function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
