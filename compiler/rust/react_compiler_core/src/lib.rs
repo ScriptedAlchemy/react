@@ -991,8 +991,43 @@ fn collect_named_functions_in_stmt(
 ) -> Vec<ReactFunction> {
     match stmt {
         Stmt::Decl(decl) => collect_named_functions_in_decl(cm, decl, target_names),
+        Stmt::Expr(expr_stmt) => {
+            collect_named_functions_in_expr(cm, expr_stmt.expr.as_ref(), target_names)
+        }
         _ => Vec::new(),
     }
+}
+
+fn collect_named_functions_in_expr(
+    cm: &Lrc<SourceMap>,
+    expr: &Expr,
+    target_names: &HashSet<String>,
+) -> Vec<ReactFunction> {
+    let Expr::Assign(assign_expr) = unwrap_expression(expr) else {
+        return Vec::new();
+    };
+    if assign_expr.op != swc_ecma_ast::AssignOp::Assign {
+        return Vec::new();
+    }
+    let Some(target_name) = assign_target_ident(&assign_expr.left) else {
+        return Vec::new();
+    };
+    if !target_names.contains(target_name.as_str()) {
+        return Vec::new();
+    }
+    let function_span = match unwrap_expression(assign_expr.right.as_ref()) {
+        Expr::Fn(fn_expr) => Some(fn_expr.function.span),
+        Expr::Arrow(arrow_expr) => Some(arrow_expr.span),
+        _ => None,
+    };
+    let Some(function_span) = function_span else {
+        return Vec::new();
+    };
+    vec![ReactFunction {
+        name: target_name,
+        kind: ReactFunctionKind::Component,
+        loc: span_to_location(cm, function_span),
+    }]
 }
 
 fn collect_named_functions_in_decl(
@@ -1165,6 +1200,50 @@ fn apply_placeholder_compilation_to_stmt(
     match stmt {
         Stmt::Decl(decl) => {
             apply_placeholder_compilation_to_decl(decl, react_function_names, runtime_callee_name)
+        }
+        Stmt::Expr(expr_stmt) => apply_placeholder_compilation_to_expr(
+            expr_stmt.expr.as_mut(),
+            react_function_names,
+            runtime_callee_name,
+        ),
+        _ => 0,
+    }
+}
+
+fn apply_placeholder_compilation_to_expr(
+    expr: &mut Expr,
+    react_function_names: &HashSet<String>,
+    runtime_callee_name: &str,
+) -> usize {
+    let Expr::Assign(assign_expr) = unwrap_expression_mut(expr) else {
+        return 0;
+    };
+    if assign_expr.op != swc_ecma_ast::AssignOp::Assign {
+        return 0;
+    }
+    let Some(target_name) = assign_target_ident(&assign_expr.left) else {
+        return 0;
+    };
+    if !react_function_names.contains(target_name.as_str()) {
+        return 0;
+    }
+    match unwrap_expression_mut(assign_expr.right.as_mut()) {
+        Expr::Fn(fn_expr) => {
+            if inject_placeholder_memo_init_into_function(
+                &mut fn_expr.function,
+                runtime_callee_name,
+            ) {
+                1
+            } else {
+                0
+            }
+        }
+        Expr::Arrow(arrow_expr) => {
+            if inject_placeholder_memo_init_into_arrow_function(arrow_expr, runtime_callee_name) {
+                1
+            } else {
+                0
+            }
         }
         _ => 0,
     }
@@ -1538,6 +1617,27 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_assigned_function_expression() {
+        let output = compile(
+            "let alias; alias = () => 1; export const FIXTURE_ENTRYPOINT = { fn: alias, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "alias");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+        assert!(!output.code.contains("react/compiler-runtime"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_import_alias() {
         let output = compile(
             "import { c as cache } from 'react/compiler-runtime'; export function Component(){ return <div />; }",
@@ -1727,6 +1827,24 @@ mod tests {
 
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_function_referenced_by_assigned_function_expression_default_export_identifier() {
+        let output = compile(
+            "let alias; alias = () => <div />; export default alias;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "alias");
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
