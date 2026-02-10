@@ -698,6 +698,40 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('strict rust mode preflight-skips direct TS instantiation call syntax', () => {
+    const source = [
+      'function id<T>(x: T): T {',
+      '  return x;',
+      '}',
+      'function Component() {',
+      "  return id<string>('hello');",
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        }),
+      ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.ts',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
   it('strict rust mode preflight-skips TS satisfies syntax', () => {
     const source = [
       'function Component() {',

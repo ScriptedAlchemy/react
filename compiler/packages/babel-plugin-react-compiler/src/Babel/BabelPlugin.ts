@@ -329,6 +329,21 @@ function findObviousTypeScriptUnsupportedMarker(
       TSInstantiationExpression(path) {
         recordMarker('instantiation_expression', path.node);
       },
+      CallExpression(path) {
+        if (path.node.typeParameters != null) {
+          recordMarker('instantiation_expression', path.node);
+        }
+      },
+      NewExpression(path) {
+        if (path.node.typeParameters != null) {
+          recordMarker('instantiation_expression', path.node);
+        }
+      },
+      OptionalCallExpression(path) {
+        if (path.node.typeParameters != null) {
+          recordMarker('instantiation_expression', path.node);
+        }
+      },
       TSSatisfiesExpression(path) {
         recordMarker('satisfies_expression', path.node);
       },
