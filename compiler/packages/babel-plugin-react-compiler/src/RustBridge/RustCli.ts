@@ -35,6 +35,7 @@ export type RustCompileResponse =
       placeholder_runtime_helper_import_count_after_transform: number;
       placeholder_runtime_helper_import_added: boolean;
       placeholder_transform_candidates: Array<string>;
+      placeholder_transform_skipped_functions: Array<string>;
       detected_react_functions: number;
       placeholder_transforms_applied: number;
       placeholder_transformed_functions: Array<string>;

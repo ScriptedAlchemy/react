@@ -292,6 +292,11 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformSkipped',
+    value: rustResult.placeholder_transform_skipped_functions.join(','),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCallee',
     value: rustResult.placeholder_runtime_callee_name ?? '',
   });

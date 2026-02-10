@@ -49,6 +49,7 @@ pub struct ParseMetadata {
     pub placeholder_runtime_helper_import_count_after_transform: usize,
     pub placeholder_runtime_helper_import_added: bool,
     pub placeholder_transform_candidates: Vec<String>,
+    pub placeholder_transform_skipped_functions: Vec<String>,
     pub detected_react_functions: usize,
     pub react_functions: Vec<ReactFunction>,
     pub placeholder_transforms_applied: usize,
@@ -113,6 +114,10 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "placeholder_transform_candidates={}",
             metadata.placeholder_transform_candidates.join(",")
+        ),
+        format!(
+            "placeholder_transform_skipped_functions={}",
+            metadata.placeholder_transform_skipped_functions.join(",")
         ),
         format!(
             "detected_react_functions={}",
@@ -362,6 +367,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
                 (None, Vec::new(), Vec::new())
             };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
+        let placeholder_transform_skipped_functions = compute_placeholder_transform_skipped_functions(
+            &placeholder_transform_candidates,
+            &placeholder_transformed_functions,
+        );
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
@@ -371,6 +380,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
                 runtime_helper_import_count_after_transform,
             placeholder_runtime_helper_import_added: runtime_helper_import_added,
             placeholder_transform_candidates,
+            placeholder_transform_skipped_functions,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -444,6 +454,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
                 (None, Vec::new(), Vec::new())
             };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
+        let placeholder_transform_skipped_functions = compute_placeholder_transform_skipped_functions(
+            &placeholder_transform_candidates,
+            &placeholder_transformed_functions,
+        );
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
@@ -451,6 +465,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_helper_import_count_after_transform: 0,
             placeholder_runtime_helper_import_added: false,
             placeholder_transform_candidates,
+            placeholder_transform_skipped_functions,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -849,6 +864,18 @@ fn sort_react_functions(functions: &mut [ReactFunction]) {
 fn sort_and_dedup_names(names: &mut Vec<String>) {
     names.sort();
     names.dedup();
+}
+
+fn compute_placeholder_transform_skipped_functions(
+    candidates: &[String],
+    transformed: &[String],
+) -> Vec<String> {
+    let transformed_names: HashSet<&str> = transformed.iter().map(String::as_str).collect();
+    candidates
+        .iter()
+        .filter(|candidate| !transformed_names.contains(candidate.as_str()))
+        .cloned()
+        .collect()
 }
 
 fn react_function_sort_key(function: &ReactFunction) -> (usize, usize, usize, usize, &str, &str) {
@@ -4324,6 +4351,10 @@ mod tests {
             output.metadata.placeholder_transform_candidates,
             vec!["Component".to_string()]
         );
+        assert!(output
+            .metadata
+            .placeholder_transform_skipped_functions
+            .is_empty());
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions.len(), 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
@@ -11773,6 +11804,14 @@ mod tests {
 
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_candidates,
+            vec!["Component".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_transform_skipped_functions,
+            vec!["Component".to_string()]
+        );
         assert!(output.metadata.placeholder_transformed_functions.is_empty());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
@@ -11835,6 +11874,10 @@ mod tests {
             output.metadata.placeholder_transform_candidates,
             vec![super::DEFAULT_EXPORT_COMPONENT_NAME.to_string()]
         );
+        assert!(output
+            .metadata
+            .placeholder_transform_skipped_functions
+            .is_empty());
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
@@ -12461,6 +12504,7 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_added=false"));
         assert!(debug.contains("placeholder_transform_candidates=Component,useThing"));
+        assert!(debug.contains("placeholder_transform_skipped_functions=Component,useThing"));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
@@ -12495,6 +12539,7 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=1"));
         assert!(debug.contains("placeholder_runtime_helper_import_added=true"));
         assert!(debug.contains("placeholder_transform_candidates=Component"));
+        assert!(debug.contains("placeholder_transform_skipped_functions="));
         assert!(debug.contains("placeholder_transforms_applied=1"));
         assert!(debug.contains("placeholder_transformed_functions=Component"));
         assert!(debug.contains("placeholder_runtime_callee_name=_c"));
