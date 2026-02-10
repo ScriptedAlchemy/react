@@ -12547,7 +12547,97 @@ mod tests {
             output.metadata.react_functions[0].kind,
             super::ReactFunctionKind::Hook
         );
+        assert_eq!(
+            output.metadata.placeholder_transform_candidates,
+            vec!["useValue".to_string()]
+        );
+        assert_eq!(
+            output.metadata.placeholder_transform_skipped_functions,
+            vec!["useValue".to_string()]
+        );
+        assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
+        assert_eq!(output.metadata.placeholder_transform_skipped_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_transform_candidate_component_count,
+            0
+        );
+        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_component_count,
+            0
+        );
+        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_transform_status,
+            "blocked_missing_runtime_callee"
+        );
         assert!(!output.code.contains("react/compiler-runtime"));
+    }
+
+    #[test]
+    fn transforms_hook_in_module_mode_and_reports_hook_counts() {
+        let output = compile(
+            "export function useValue() { return 1; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: true,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid source to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert_eq!(
+            output.metadata.placeholder_transform_candidates,
+            vec!["useValue".to_string()]
+        );
+        assert!(output
+            .metadata
+            .placeholder_transform_skipped_functions
+            .is_empty());
+        assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
+        assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_candidate_component_count,
+            0
+        );
+        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_component_count,
+            0
+        );
+        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 1);
+        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_status, "transformed");
+        assert!(!output.metadata.placeholder_runtime_callee_reused);
+        assert!(output.metadata.placeholder_runtime_callee_generated);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_helper_import_count_before_transform,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_helper_import_count_after_transform,
+            1
+        );
+        assert!(output.metadata.placeholder_runtime_helper_import_added);
+        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_candidate_count_before_transform,
+            0
+        );
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
     }
 
     #[test]

@@ -723,4 +723,71 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn compile_request_reports_hook_transform_counts() {
+        let response = handle_request(CompileRequest {
+            source: "export function useValue() { return 1; }".to_string(),
+            filename: Some("fixture.js".to_string()),
+            dialect: Some("javascript".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: Some(true),
+            emit_debug_ir: Some(false),
+        });
+
+        match response {
+            CompileResponse::Ok {
+                placeholder_transforms_applied,
+                placeholder_transformed_functions,
+                placeholder_transform_status,
+                placeholder_transform_candidates,
+                placeholder_transform_skipped_functions,
+                placeholder_transform_candidate_count,
+                placeholder_transform_skipped_count,
+                placeholder_transform_candidate_component_count,
+                placeholder_transform_candidate_hook_count,
+                placeholder_transform_transformed_component_count,
+                placeholder_transform_transformed_hook_count,
+                placeholder_transform_skipped_component_count,
+                placeholder_transform_skipped_hook_count,
+                placeholder_runtime_helper_import_count_before_transform,
+                placeholder_runtime_helper_import_count_after_transform,
+                placeholder_runtime_helper_import_added,
+                placeholder_runtime_callee_reused,
+                placeholder_runtime_callee_generated,
+                placeholder_runtime_callee_name,
+                placeholder_runtime_callee_candidate_count,
+                placeholder_runtime_callee_candidate_count_before_transform,
+                ..
+            } => {
+                assert_eq!(placeholder_transforms_applied, 1);
+                assert_eq!(placeholder_transformed_functions, vec!["useValue"]);
+                assert_eq!(placeholder_transform_status, "transformed");
+                assert_eq!(placeholder_transform_candidates, vec!["useValue"]);
+                assert!(placeholder_transform_skipped_functions.is_empty());
+                assert_eq!(placeholder_transform_candidate_count, 1);
+                assert_eq!(placeholder_transform_skipped_count, 0);
+                assert_eq!(placeholder_transform_candidate_component_count, 0);
+                assert_eq!(placeholder_transform_candidate_hook_count, 1);
+                assert_eq!(placeholder_transform_transformed_component_count, 0);
+                assert_eq!(placeholder_transform_transformed_hook_count, 1);
+                assert_eq!(placeholder_transform_skipped_component_count, 0);
+                assert_eq!(placeholder_transform_skipped_hook_count, 0);
+                assert_eq!(placeholder_runtime_helper_import_count_before_transform, 0);
+                assert_eq!(placeholder_runtime_helper_import_count_after_transform, 1);
+                assert!(placeholder_runtime_helper_import_added);
+                assert!(!placeholder_runtime_callee_reused);
+                assert!(placeholder_runtime_callee_generated);
+                assert_eq!(placeholder_runtime_callee_name.as_deref(), Some("_c"));
+                assert_eq!(placeholder_runtime_callee_candidate_count, 1);
+                assert_eq!(
+                    placeholder_runtime_callee_candidate_count_before_transform,
+                    0
+                );
+            }
+            CompileResponse::Error { message, .. } => {
+                panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
 }

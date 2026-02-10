@@ -453,6 +453,49 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('transforms hooks in module mode and reports hook transform counters', () => {
+    const result = runRustCompilerCli({
+      source: 'export function useValue() { return 1; }',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.placeholder_transform_status).toBe('transformed');
+      expect(result.placeholder_transform_candidates).toEqual(['useValue']);
+      expect(result.placeholder_transform_skipped_functions).toEqual([]);
+      expect(result.placeholder_transform_candidate_count).toBe(1);
+      expect(result.placeholder_transform_skipped_count).toBe(0);
+      expect(result.placeholder_transform_candidate_component_count).toBe(0);
+      expect(result.placeholder_transform_candidate_hook_count).toBe(1);
+      expect(result.placeholder_transform_transformed_component_count).toBe(0);
+      expect(result.placeholder_transform_transformed_hook_count).toBe(1);
+      expect(result.placeholder_transform_skipped_component_count).toBe(0);
+      expect(result.placeholder_transform_skipped_hook_count).toBe(0);
+      expect(result.placeholder_runtime_helper_import_count_before_transform).toBe(
+        0,
+      );
+      expect(result.placeholder_runtime_helper_import_count_after_transform).toBe(
+        1,
+      );
+      expect(result.placeholder_runtime_helper_import_added).toBe(true);
+      expect(result.placeholder_runtime_callee_reused).toBe(false);
+      expect(result.placeholder_runtime_callee_generated).toBe(true);
+      expect(result.placeholder_runtime_callee_name).toBe('_c');
+      expect(result.placeholder_runtime_callee_candidate_count).toBe(1);
+      expect(result.placeholder_runtime_callee_candidate_count_before_transform).toBe(
+        0,
+      );
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
   it('reuses module runtime require member aliases for placeholder transforms', () => {
     const result = runRustCompilerCli({
       source:
