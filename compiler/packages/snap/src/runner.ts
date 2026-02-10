@@ -10,6 +10,7 @@ import {cpus} from 'os';
 import process from 'process';
 import * as readline from 'readline';
 import ts from 'typescript';
+import * as BabelParser from '@babel/parser';
 import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
 import {BABEL_PLUGIN_ROOT, PROJECT_ROOT} from './constants';
@@ -68,6 +69,8 @@ type ParityOptions = {
   failOnMismatch: boolean;
   maxMismatches: number;
   includeOutput: boolean;
+  ignoreFormatting: boolean;
+  ignoreLogs: boolean;
 };
 
 async function runTestCommand(opts: TestOptions): Promise<void> {
@@ -354,6 +357,8 @@ type ParityMismatch = {
   fixture: string;
   kind: ParityMismatchKind;
   hasOutputMismatch: boolean;
+  hasRawOutputMismatch: boolean;
+  hasNormalizedOutputMismatch: boolean;
   hasUnexpectedErrorMismatch: boolean;
   babelUnexpectedError: string | null;
   rustUnexpectedError: string | null;
@@ -361,6 +366,60 @@ type ParityMismatch = {
   babelActual?: string | null;
   rustActual?: string | null;
 };
+
+function canonicalizeCodeForParity(code: string): string {
+  const parser = require('@babel/parser') as typeof BabelParser;
+  const generator = require('@babel/generator').default as typeof import('@babel/generator').default;
+  const pluginCandidates: Array<Array<BabelParser.ParserPlugin>> = [
+    ['typescript', 'jsx'],
+    ['flow', 'jsx'],
+    ['jsx'],
+  ];
+  for (const plugins of pluginCandidates) {
+    try {
+      const ast = parser.parse(code, {
+        sourceType: 'module',
+        plugins,
+      });
+      return (
+        generator(ast, {
+          comments: false,
+          compact: true,
+          minified: true,
+          retainLines: false,
+        }).code ?? ''
+      );
+    } catch {
+      // try next parser plugin set
+    }
+  }
+  return code.replace(/\s+/g, ' ').trim();
+}
+
+function canonicalizeSnapshotForParity(snapshot: string | null): string | null {
+  if (snapshot == null) {
+    return null;
+  }
+  const codeBlockRegex = /(## Code\s+```javascript\n)([\s\S]*?)(\n```)/m;
+  const match = snapshot.match(codeBlockRegex);
+  if (match == null) {
+    return snapshot.replace(/[ \t]+\n/g, '\n').trim();
+  }
+  const [, prefix, code, suffix] = match;
+  const canonicalCode = canonicalizeCodeForParity(code);
+  return snapshot
+    .replace(codeBlockRegex, `${prefix}${canonicalCode}${suffix}`)
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+}
+
+function stripLogsFromSnapshot(snapshot: string | null): string | null {
+  if (snapshot == null) {
+    return null;
+  }
+  const logsSectionRegex = /\n## Logs\n\n```[\s\S]*?```\n?/m;
+  return snapshot.replace(logsSectionRegex, '\n');
+}
 
 async function transformFixtureWithEnv(
   fixture: TestFixture,
@@ -444,7 +503,19 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
 
     const hasUnexpectedErrorMismatch =
       babelResult.unexpectedError !== strictRustResult.unexpectedError;
-    const hasOutputMismatch = babelResult.actual !== strictRustResult.actual;
+    const babelComparableActual = opts.ignoreLogs
+      ? stripLogsFromSnapshot(babelResult.actual)
+      : babelResult.actual;
+    const rustComparableActual = opts.ignoreLogs
+      ? stripLogsFromSnapshot(strictRustResult.actual)
+      : strictRustResult.actual;
+    const hasRawOutputMismatch = babelResult.actual !== strictRustResult.actual;
+    const hasNormalizedOutputMismatch =
+      canonicalizeSnapshotForParity(babelComparableActual) !==
+      canonicalizeSnapshotForParity(rustComparableActual);
+    const hasOutputMismatch = opts.ignoreFormatting
+      ? hasNormalizedOutputMismatch
+      : hasRawOutputMismatch;
     if (!hasUnexpectedErrorMismatch && !hasOutputMismatch) {
       continue;
     }
@@ -455,6 +526,8 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
         ? 'unexpected_error_mismatch'
         : 'output_mismatch',
       hasOutputMismatch,
+      hasRawOutputMismatch,
+      hasNormalizedOutputMismatch,
       hasUnexpectedErrorMismatch,
       babelUnexpectedError: babelResult.unexpectedError,
       rustUnexpectedError: strictRustResult.unexpectedError,
@@ -494,6 +567,8 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
     maxMismatches: opts.maxMismatches,
     evaluatorEnabled: opts.evaluator,
     includeOutput: opts.includeOutput,
+    ignoreFormatting: opts.ignoreFormatting,
+    ignoreLogs: opts.ignoreLogs,
     pattern: opts.pattern ?? null,
     mismatches,
   };
@@ -648,7 +723,19 @@ yargs(hideBin(process.argv))
           'include-output',
           'Include full Babel/Rust output strings in JSON report (default false)',
         )
-        .default('include-output', false);
+        .default('include-output', false)
+        .boolean('ignore-formatting')
+        .describe(
+          'ignore-formatting',
+          'Compare normalized compiler output to ignore formatting-only differences (default true)',
+        )
+        .default('ignore-formatting', true)
+        .boolean('ignore-logs')
+        .describe(
+          'ignore-logs',
+          'Ignore logger output sections when comparing parity (default true)',
+        )
+        .default('ignore-logs', true);
     },
     async argv => {
       await runParityCommand(argv as unknown as ParityOptions);

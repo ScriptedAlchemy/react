@@ -14,6 +14,7 @@ export type RustCompileRequest = {
   filename?: string;
   dialect?: 'javascript' | 'typescript' | 'flow';
   is_module?: boolean;
+  apply_placeholder_transforms?: boolean;
 };
 
 export type RustCompileResponse =

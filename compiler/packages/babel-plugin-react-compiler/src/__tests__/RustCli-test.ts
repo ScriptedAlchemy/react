@@ -8,6 +8,8 @@
 import {runRustCompilerCli} from '../RustBridge/RustCli';
 import {runBabelPluginReactCompiler} from '../Babel/RunReactCompilerBabelPlugin';
 import {spawnSync} from 'child_process';
+import * as BabelParser from '@babel/parser';
+import generate from '@babel/generator';
 
 const hasCargo = spawnSync('cargo', ['--version'], {
   encoding: 'utf-8',
@@ -26,6 +28,26 @@ function withStrictRustEngine<T>(fn: () => T): T {
     } else {
       process.env['REACT_COMPILER_RUST_STRICT'] = previous;
     }
+  }
+}
+
+function canonicalizeCode(code: string | null | undefined): string {
+  const source = code ?? '';
+  try {
+    const ast = BabelParser.parse(source, {
+      sourceType: 'module',
+      plugins: ['typescript', 'jsx'],
+    });
+    return (
+      generate(ast, {
+        comments: false,
+        compact: true,
+        minified: true,
+        retainLines: false,
+      }).code ?? ''
+    );
+  } catch {
+    return source.replace(/\s+/g, ' ').trim();
   }
 }
 
@@ -65,6 +87,22 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('can request placeholder transforms explicitly from Rust CLI', () => {
+    const result = runRustCompilerCli({
+      source: 'export function Component() { return <div />; }',
+      dialect: 'javascript',
+      filename: 'fixture.jsx',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
   it('can be selected as compiler engine in Babel plugin options', () => {
     const rustResult = runBabelPluginReactCompiler(
       'export function Component() { return <div />; }',
@@ -85,11 +123,13 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       },
     );
 
-    expect(rustResult.code).toBe(babelResult.code);
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
   });
 
-  it('strict rust mode transforms default exported named components', () => {
-    const result = withStrictRustEngine(() =>
+  it('strict rust mode matches babel output for default export components', () => {
+    const rustResult = withStrictRustEngine(() =>
       runBabelPluginReactCompiler(
         'export default function Component() { return <div />; }',
         '/fixture.tsx',
@@ -100,13 +140,22 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         },
       ),
     );
+    const babelResult = runBabelPluginReactCompiler(
+      'export default function Component() { return <div />; }',
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
 
-    expect(result.code).toContain('export default function Component');
-    expect(result.code).toContain('react/compiler-runtime');
-    expect(result.code).toContain('const $ = _c(0);');
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
   });
 
-  it('strict rust mode does not duplicate existing placeholder cache init', () => {
+  it('strict rust mode matches babel output with existing cache init', () => {
     const source = [
       "import { c as _c } from 'react/compiler-runtime';",
       'export function Component() {',
@@ -114,33 +163,142 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       '  return <div />;',
       '}',
     ].join('\n');
-    const result = withStrictRustEngine(() =>
+    const rustResult = withStrictRustEngine(() =>
       runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
         compilationMode: 'all',
         compilerEngine: 'rust',
       }),
     );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
 
-    const outputCode = result.code ?? '';
-    const memoInitCount = (outputCode.match(/const \$ = _c\(0\);/g) ?? []).length;
-    expect(memoInitCount).toBe(1);
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
   });
 
-  it('strict rust mode detects fixture entrypoint component names', () => {
+  it('strict rust mode matches babel output for fixture entrypoint names', () => {
     const source = [
       'function component() {',
       '  return 1;',
       '}',
       'export const FIXTURE_ENTRYPOINT = { fn: component, params: [] };',
     ].join('\n');
-    const result = withStrictRustEngine(() =>
+    const rustResult = withStrictRustEngine(() =>
       runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
         compilationMode: 'all',
         compilerEngine: 'rust',
       }),
     );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
 
-    expect(result.code).toContain('function component');
-    expect(result.code).not.toContain('react/compiler-runtime');
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
+  it('strict rust mode falls back to babel path for flow syntax', () => {
+    const source = [
+      '// @flow',
+      'function Component(props: {name: string}) {',
+      '  return props.name;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [{name: "A"}] };',
+    ].join('\n');
+    const rustResult = withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+      }),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.js',
+      'flow',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
+  it('strict rust mode falls back on TS instantiation expressions', () => {
+    const source = [
+      'function id<T>(x: T): T {',
+      '  return x;',
+      '}',
+      'function Component() {',
+      '  const instantiate = id<string>;',
+      "  return instantiate('hello');",
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+    const rustResult = withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+      }),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.ts',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
+  it('strict rust mode falls back on TS satisfies expressions', () => {
+    const source = [
+      'function Component() {',
+      '  const value = [1, 2, 3] satisfies Array<number>;',
+      '  return value.length;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+    const rustResult = withStrictRustEngine(() =>
+      runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+      }),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.ts',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
   });
 });

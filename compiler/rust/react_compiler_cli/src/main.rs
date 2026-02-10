@@ -10,6 +10,7 @@ struct CompileRequest {
     filename: Option<String>,
     dialect: Option<String>,
     is_module: Option<bool>,
+    apply_placeholder_transforms: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,6 +63,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
         filename: request
             .filename
             .unwrap_or_else(|| "react-compiler-input.js".to_string()),
+        apply_placeholder_transforms: request.apply_placeholder_transforms.unwrap_or(false),
     };
 
     match compile(&request.source, &options) {
@@ -161,6 +163,7 @@ mod tests {
             filename: None,
             dialect: Some("javascript".to_string()),
             is_module: Some(true),
+            apply_placeholder_transforms: None,
         });
 
         match response {

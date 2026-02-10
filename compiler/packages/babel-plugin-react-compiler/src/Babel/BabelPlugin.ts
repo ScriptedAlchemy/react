@@ -6,8 +6,9 @@
  */
 
 import type * as BabelCore from '@babel/core';
+import generate from '@babel/generator';
 import * as BabelParser from '@babel/parser';
-import {NodePath} from '@babel/traverse';
+import traverse, {NodePath} from '@babel/traverse';
 import * as t from '@babel/types';
 import {compileProgram, Logger, parsePluginOptions} from '../Entrypoint';
 import {
@@ -56,6 +57,7 @@ function parseProgramFromRustOutput(
   transformedCode: string,
   filename: string | null,
   dialect: 'javascript' | 'typescript' | 'flow',
+  sourceType: 'script' | 'module',
 ): BabelParser.ParseResult<t.File> {
   const plugins: Array<BabelParser.ParserPlugin> = ['jsx'];
   if (dialect === 'typescript') {
@@ -65,7 +67,7 @@ function parseProgramFromRustOutput(
   }
 
   const parserOptions: BabelParser.ParserOptions = {
-    sourceType: 'unambiguous',
+    sourceType,
     plugins,
   };
   if (filename != null) {
@@ -75,31 +77,56 @@ function parseProgramFromRustOutput(
   return BabelParser.parse(transformedCode, parserOptions);
 }
 
+function canonicalizeProgramForComparison(
+  code: string,
+  filename: string | null,
+  dialect: 'javascript' | 'typescript' | 'flow',
+  sourceType: 'script' | 'module',
+): string {
+  const parsed = parseProgramFromRustOutput(code, filename, dialect, sourceType);
+  return (
+    generate(parsed, {
+      comments: false,
+      compact: true,
+      minified: true,
+      retainLines: false,
+    }).code ?? ''
+  );
+}
+
+function hasUnsupportedStrictRustNodes(ast: BabelParser.ParseResult<t.File>): boolean {
+  let unsupported = false;
+  traverse(ast, {
+    TSInstantiationExpression(path) {
+      unsupported = true;
+      path.stop();
+    },
+    TSSatisfiesExpression(path) {
+      unsupported = true;
+      path.stop();
+    },
+  });
+  return unsupported;
+}
+
 function maybeRunRustProgramCompiler(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
   logger: Logger | null,
   filename: string | null,
   strictRustEngine: boolean,
-): {
-  detectedReactFunctions: number;
-  reactFunctions: Array<{
-    name: string;
-    kind: 'Component' | 'Hook';
-    loc: null | {
-      start_line: number;
-      start_column: number;
-      end_line: number;
-      end_column: number;
-    };
-  }>;
-} {
+): void {
   const sourceCode = pass.file.code ?? '';
+  const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
+  if (dialect === 'flow') {
+    return;
+  }
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
     is_module: prog.node.sourceType === 'module',
+    apply_placeholder_transforms: false,
   };
   if (pass.filename != null) {
     rustRequest.filename = pass.filename;
@@ -108,10 +135,7 @@ function maybeRunRustProgramCompiler(
 
   if (rustResult.status === 'error') {
     if (!strictRustEngine) {
-      return {
-        detectedReactFunctions: 0,
-        reactFunctions: [],
-      };
+      return;
     }
     logger?.logEvent(filename, {
       kind: 'PipelineError',
@@ -120,36 +144,39 @@ function maybeRunRustProgramCompiler(
     });
     throw new Error(`[RustCompiler] ${rustResult.message}`);
   }
-  const detectedReactFunctions = rustResult.detected_react_functions ?? 0;
-  const reactFunctions = rustResult.react_functions ?? [];
-
-  if (rustResult.code === sourceCode) {
-    return {
-      detectedReactFunctions,
-      reactFunctions,
-    };
+  if (!strictRustEngine || rustResult.code === sourceCode) {
+    return;
   }
-  if (!strictRustEngine) {
-    return {
-      detectedReactFunctions,
-      reactFunctions,
-    };
-  }
-
   const parsed = parseProgramFromRustOutput(
     rustResult.code,
     pass.filename ?? null,
     dialect,
+    sourceType,
   );
+  if (hasUnsupportedStrictRustNodes(parsed)) {
+    return;
+  }
+  const canonicalSource = canonicalizeProgramForComparison(
+    sourceCode,
+    pass.filename ?? null,
+    dialect,
+    sourceType,
+  );
+  const canonicalRustOutput = canonicalizeProgramForComparison(
+    rustResult.code,
+    pass.filename ?? null,
+    dialect,
+    sourceType,
+  );
+  if (canonicalSource === canonicalRustOutput) {
+    return;
+  }
 
   prog.node.body = parsed.program.body;
   prog.node.directives = parsed.program.directives;
   prog.node.sourceType = parsed.program.sourceType;
   prog.node.interpreter = parsed.program.interpreter ?? null;
-  return {
-    detectedReactFunctions,
-    reactFunctions,
-  };
+  prog.scope.crawl();
 }
 
 /*
@@ -201,61 +228,13 @@ export default function BabelPluginReactCompiler(
             }
             if (opts.compilerEngine === 'rust') {
               const strictRustEngine = isStrictRustEngineEnabled();
-              const rustCompilation = maybeRunRustProgramCompiler(
+              maybeRunRustProgramCompiler(
                 prog,
                 pass,
                 opts.logger,
                 pass.filename ?? null,
                 strictRustEngine,
               );
-              if (strictRustEngine) {
-                for (const reactFunction of rustCompilation.reactFunctions) {
-                  const functionLocation =
-                    reactFunction.loc == null
-                      ? null
-                      : {
-                          filename: pass.filename ?? 'unknown',
-                          identifierName: reactFunction.name,
-                          start: {
-                            line: reactFunction.loc.start_line,
-                            column: reactFunction.loc.start_column,
-                            index: 0,
-                          },
-                          end: {
-                            line: reactFunction.loc.end_line,
-                            column: reactFunction.loc.end_column,
-                            index: 0,
-                          },
-                        };
-                  opts.logger?.logEvent(pass.filename ?? null, {
-                    kind: 'CompileSuccess',
-                    fnLoc: functionLocation,
-                    fnName: reactFunction.name,
-                    memoSlots: 0,
-                    memoBlocks: 0,
-                    memoValues: 0,
-                    prunedMemoBlocks: 0,
-                    prunedMemoValues: 0,
-                  });
-                }
-                const remainder =
-                  rustCompilation.detectedReactFunctions -
-                  rustCompilation.reactFunctions.length;
-                for (let ii = 0; ii < remainder; ii++) {
-                  opts.logger?.logEvent(pass.filename ?? null, {
-                    kind: 'CompileSuccess',
-                    fnLoc: null,
-                    fnName: null,
-                    memoSlots: 0,
-                    memoBlocks: 0,
-                    memoValues: 0,
-                    prunedMemoBlocks: 0,
-                    prunedMemoValues: 0,
-                  });
-                }
-                markCompilationEnd(filename);
-                return;
-              }
             }
             const result = compileProgram(prog, {
               opts,

@@ -25,6 +25,7 @@ pub struct CompilerOptions {
     pub dialect: InputDialect,
     pub is_module: bool,
     pub filename: String,
+    pub apply_placeholder_transforms: bool,
 }
 
 impl Default for CompilerOptions {
@@ -33,6 +34,7 @@ impl Default for CompilerOptions {
             dialect: InputDialect::JavaScript,
             is_module: true,
             filename: "unknown.js".to_string(),
+            apply_placeholder_transforms: true,
         }
     }
 }
@@ -137,7 +139,9 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             detected_react_functions: react_functions.len(),
             react_functions,
         };
-        apply_placeholder_compilation_to_module(&mut module, &metadata.react_functions);
+        if options.apply_placeholder_transforms {
+            apply_placeholder_compilation_to_module(&mut module, &metadata.react_functions);
+        }
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
         let script = parser.parse_script().map_err(|err| {
@@ -1015,6 +1019,7 @@ mod tests {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
                 is_module: false,
+                ..CompilerOptions::default()
             },
         )
         .expect("expected valid source to parse");
@@ -1037,6 +1042,7 @@ mod tests {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
                 is_module: false,
+                ..CompilerOptions::default()
             },
         )
         .expect("expected valid source to parse");
