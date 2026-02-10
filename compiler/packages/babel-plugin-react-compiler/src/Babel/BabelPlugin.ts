@@ -532,6 +532,7 @@ function maybeRunRustProgramCompiler(
     dialect,
     is_module: prog.node.sourceType === 'module',
     apply_placeholder_transforms: false,
+    emit_debug_ir: logger?.debugLogIRs != null,
   };
   if (pass.filename != null) {
     rustRequest.filename = pass.filename;
@@ -563,6 +564,13 @@ function maybeRunRustProgramCompiler(
       data: `[RustCompiler:${rustResult.code}] ${rustResult.message}`,
     });
     throw new Error(`[RustCompiler:${rustResult.code}] ${rustResult.message}`);
+  }
+  if (rustResult.debug_ir != null) {
+    logger?.debugLogIRs?.({
+      kind: 'debug',
+      name: 'RustFrontendDebug',
+      value: rustResult.debug_ir,
+    });
   }
   if (!strictRustEngine || rustResult.code === sourceCode) {
     return;

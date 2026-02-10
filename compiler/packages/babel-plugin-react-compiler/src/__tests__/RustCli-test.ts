@@ -225,6 +225,35 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('emits Rust frontend debug snapshots via logger debugLogIRs', () => {
+    const debugValues: Array<{kind: string; name: string; value: string}> = [];
+    runBabelPluginReactCompiler(
+      'export function Component() { return <div />; }',
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'rust',
+        logger: {
+          logEvent() {},
+          debugLogIRs(value) {
+            if (value.kind === 'debug') {
+              debugValues.push({
+                kind: value.kind,
+                name: value.name,
+                value: value.value,
+              });
+            }
+          },
+        },
+      },
+    );
+
+    const rustDebug = debugValues.find(value => value.name === 'RustFrontendDebug');
+    expect(rustDebug).toBeDefined();
+    expect(rustDebug?.value).toContain('ReactiveFunctionsDebug v0');
+  });
+
   it('strict rust mode matches babel output for default export components', () => {
     const rustResult = withStrictRustEngine(() =>
       runBabelPluginReactCompiler(
