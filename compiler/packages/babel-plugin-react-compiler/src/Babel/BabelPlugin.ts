@@ -199,8 +199,45 @@ function findObviousFlowTypeSyntaxMarker(
 
 function findObviousTypeScriptUnsupportedMarker(
   sourceCode: string,
+  sourceType: 'script' | 'module',
 ): null | {index: number; length: number; kind: string} {
-  const markers = [
+  try {
+    const ast = BabelParser.parse(sourceCode, {
+      sourceType,
+      plugins: ['typescript', 'jsx'],
+    });
+    let firstMatch: null | {index: number; length: number; kind: string} = null;
+    const recordMarker = (
+      kind: 'instantiation_expression' | 'satisfies_expression',
+      node: {start?: number | null; end?: number | null},
+    ): void => {
+      if (node.start == null || node.end == null) {
+        return;
+      }
+      const candidate = {
+        index: node.start,
+        length: Math.max(node.end - node.start, 1),
+        kind,
+      };
+      if (firstMatch == null || candidate.index < firstMatch.index) {
+        firstMatch = candidate;
+      }
+    };
+    traverse(ast, {
+      TSInstantiationExpression(path) {
+        recordMarker('instantiation_expression', path.node);
+      },
+      TSSatisfiesExpression(path) {
+        recordMarker('satisfies_expression', path.node);
+      },
+    });
+    if (firstMatch != null) {
+      return firstMatch;
+    }
+  } catch {
+    // Fall back to regex-based marker detection when parser preflight fails.
+  }
+  const fallbackMarkers = [
     {
       pattern:
         /=\s*[A-Za-z_$][\w$]*\s*<[^>\n]+>\s*(?=[;),.])/,
@@ -209,15 +246,15 @@ function findObviousTypeScriptUnsupportedMarker(
     {
       pattern:
         /=\s*[A-Za-z_$][\w$]*\s*<[^>\n]+>\s*\(/,
-      kind: 'instantiation_expression_call',
+      kind: 'instantiation_expression',
     },
     {
       pattern: /\bsatisfies\b/,
       kind: 'satisfies_expression',
     },
   ];
-  let firstMatch: null | {index: number; length: number; kind: string} = null;
-  for (const marker of markers) {
+  let firstFallbackMatch: null | {index: number; length: number; kind: string} = null;
+  for (const marker of fallbackMarkers) {
     const match = marker.pattern.exec(sourceCode);
     if (match == null || match.index == null) {
       continue;
@@ -227,11 +264,11 @@ function findObviousTypeScriptUnsupportedMarker(
       length: match[0].length,
       kind: marker.kind,
     };
-    if (firstMatch == null || candidate.index < firstMatch.index) {
-      firstMatch = candidate;
+    if (firstFallbackMatch == null || candidate.index < firstFallbackMatch.index) {
+      firstFallbackMatch = candidate;
     }
   }
-  return firstMatch;
+  return firstFallbackMatch;
 }
 
 function sourceOffsetToLocation(
@@ -337,7 +374,7 @@ function maybeRunRustProgramCompiler(
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
   const tsUnsupportedMarker =
     strictRustEngine && dialect === 'typescript'
-      ? findObviousTypeScriptUnsupportedMarker(sourceCode)
+      ? findObviousTypeScriptUnsupportedMarker(sourceCode, sourceType)
       : null;
   if (tsUnsupportedMarker != null) {
     logStrictRustFrontendFallback(

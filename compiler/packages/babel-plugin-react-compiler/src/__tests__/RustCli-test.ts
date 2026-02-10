@@ -626,6 +626,40 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('strict rust mode preflight-skips TS instantiation references in return expressions', () => {
+    const source = [
+      'function id<T>(x: T): T {',
+      '  return x;',
+      '}',
+      'function Component() {',
+      '  return id<string>;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        }),
+      ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.ts',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
   it('strict rust mode preflight-skips TS satisfies syntax', () => {
     const source = [
       'function Component() {',
@@ -692,7 +726,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(fallbackEvent.loc).not.toBeNull();
     if (fallbackEvent.loc != null) {
       expect(fallbackEvent.loc.start.line).toBeGreaterThan(0);
-      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('satisfies'));
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('[1, 2, 3]'));
     }
   });
 
@@ -733,7 +767,46 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(fallbackEvent.loc).not.toBeNull();
     if (fallbackEvent.loc != null) {
       expect(fallbackEvent.loc.start.line).toBeGreaterThan(0);
-      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('= id<string>;'));
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('id<string>'));
+    }
+  });
+
+  it('logs strict rust preflight reason and location for TS instantiation returns', () => {
+    const loggedEvents: Array<unknown> = [];
+    const source = [
+      'function id<T>(x: T): T {',
+      '  return x;',
+      '}',
+      'function Component() {',
+      '  return id<string>;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [] };',
+    ].join('\n');
+
+    withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.ts', 'typescript', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+          logger: {
+            logEvent(_filename, event) {
+              loggedEvents.push(event);
+            },
+          },
+        }),
+      ),
+    );
+
+    const fallbackEvent = loggedEvents.find(
+      (event: any) =>
+        event.kind === 'CompileSkip' &&
+        event.reason ===
+          'rust_frontend_preflight:typescript_instantiation_expression',
+    ) as any;
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent.loc).not.toBeNull();
+    if (fallbackEvent.loc != null) {
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf('id<string>'));
     }
   });
 
