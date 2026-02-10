@@ -53,6 +53,12 @@ Parity JSON includes:
   - eval output mismatch,
   - logs mismatch,
   - error mismatch,
+- per-mismatch section diff payloads (when mismatched):
+  - `codeSectionDiff`
+  - `evalSectionDiff`
+  - `logsSectionDiff`
+  - `errorSectionDiff`
+  Each section payload includes raw Babel/Rust text plus normalized strings used for parity comparison.
 - aggregate `mismatchSummary` counts by category.
 
 This allows faster triage by separating semantic differences from

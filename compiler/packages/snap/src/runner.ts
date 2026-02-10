@@ -354,6 +354,13 @@ async function runCompileCommand(opts: CompileOptions): Promise<void> {
 
 type ParityMismatchKind = 'output_mismatch' | 'unexpected_error_mismatch';
 
+type ParitySectionDiff = {
+  babel: string | null;
+  rust: string | null;
+  normalizedBabel: string;
+  normalizedRust: string;
+};
+
 type ParityMismatch = {
   fixture: string;
   kind: ParityMismatchKind;
@@ -370,6 +377,10 @@ type ParityMismatch = {
   outputPath: string;
   babelActual?: string | null;
   rustActual?: string | null;
+  codeSectionDiff?: ParitySectionDiff | null;
+  evalSectionDiff?: ParitySectionDiff | null;
+  logsSectionDiff?: ParitySectionDiff | null;
+  errorSectionDiff?: ParitySectionDiff | null;
 };
 
 type SnapshotSections = {
@@ -378,6 +389,23 @@ type SnapshotSections = {
   logs: string | null;
   error: string | null;
 };
+
+function normalizeCodeSection(value: string | null): string {
+  return canonicalizeCodeForParity(value ?? '');
+}
+
+function createSectionDiff(
+  babelValue: string | null,
+  rustValue: string | null,
+  normalize: (value: string | null) => string,
+): ParitySectionDiff {
+  return {
+    babel: babelValue,
+    rust: rustValue,
+    normalizedBabel: normalize(babelValue),
+    normalizedRust: normalize(rustValue),
+  };
+}
 
 function canonicalizeCodeForParity(code: string): string {
   const parser = require('@babel/parser') as typeof BabelParser;
@@ -563,18 +591,34 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       canonicalizeSnapshotForParity(rustComparableActual);
     const rawBabelSections = extractSnapshotSections(babelResult.actual);
     const rawRustSections = extractSnapshotSections(strictRustResult.actual);
+    const codeSectionDiff = createSectionDiff(
+      rawBabelSections.code,
+      rawRustSections.code,
+      normalizeCodeSection,
+    );
+    const evalSectionDiff = createSectionDiff(
+      rawBabelSections.evalOutput,
+      rawRustSections.evalOutput,
+      normalizeSectionText,
+    );
+    const logsSectionDiff = createSectionDiff(
+      rawBabelSections.logs,
+      rawRustSections.logs,
+      normalizeSectionText,
+    );
+    const errorSectionDiff = createSectionDiff(
+      rawBabelSections.error,
+      rawRustSections.error,
+      normalizeSectionText,
+    );
     const hasCodeSectionMismatch =
-      canonicalizeCodeForParity(rawBabelSections.code ?? '') !==
-      canonicalizeCodeForParity(rawRustSections.code ?? '');
+      codeSectionDiff.normalizedBabel !== codeSectionDiff.normalizedRust;
     const hasEvalSectionMismatch =
-      normalizeSectionText(rawBabelSections.evalOutput) !==
-      normalizeSectionText(rawRustSections.evalOutput);
+      evalSectionDiff.normalizedBabel !== evalSectionDiff.normalizedRust;
     const hasLogsSectionMismatch =
-      normalizeSectionText(rawBabelSections.logs) !==
-      normalizeSectionText(rawRustSections.logs);
+      logsSectionDiff.normalizedBabel !== logsSectionDiff.normalizedRust;
     const hasErrorSectionMismatch =
-      normalizeSectionText(rawBabelSections.error) !==
-      normalizeSectionText(rawRustSections.error);
+      errorSectionDiff.normalizedBabel !== errorSectionDiff.normalizedRust;
     const hasOutputMismatch = opts.ignoreFormatting
       ? hasNormalizedOutputMismatch
       : hasRawOutputMismatch;
@@ -603,6 +647,10 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       mismatch.babelActual = babelResult.actual;
       mismatch.rustActual = strictRustResult.actual;
     }
+    mismatch.codeSectionDiff = hasCodeSectionMismatch ? codeSectionDiff : null;
+    mismatch.evalSectionDiff = hasEvalSectionMismatch ? evalSectionDiff : null;
+    mismatch.logsSectionDiff = hasLogsSectionMismatch ? logsSectionDiff : null;
+    mismatch.errorSectionDiff = hasErrorSectionMismatch ? errorSectionDiff : null;
     mismatches.push(mismatch);
 
     if (opts.verbose) {
