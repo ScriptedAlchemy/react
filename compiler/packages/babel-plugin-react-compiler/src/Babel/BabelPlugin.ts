@@ -77,6 +77,19 @@ function parseProgramFromRustOutput(
   return BabelParser.parse(transformedCode, parserOptions);
 }
 
+function stripTypeOnlyUnsupportedExpressions(
+  ast: BabelParser.ParseResult<t.File>,
+): void {
+  traverse(ast, {
+    TSInstantiationExpression(path) {
+      path.replaceWith(path.node.expression);
+    },
+    TSSatisfiesExpression(path) {
+      path.replaceWith(path.node.expression);
+    },
+  });
+}
+
 function canonicalizeProgramForComparison(
   code: string,
   filename: string | null,
@@ -84,6 +97,7 @@ function canonicalizeProgramForComparison(
   sourceType: 'script' | 'module',
 ): string {
   const parsed = parseProgramFromRustOutput(code, filename, dialect, sourceType);
+  stripTypeOnlyUnsupportedExpressions(parsed);
   return (
     generate(parsed, {
       comments: false,
@@ -92,21 +106,6 @@ function canonicalizeProgramForComparison(
       retainLines: false,
     }).code ?? ''
   );
-}
-
-function hasUnsupportedStrictRustNodes(ast: BabelParser.ParseResult<t.File>): boolean {
-  let unsupported = false;
-  traverse(ast, {
-    TSInstantiationExpression(path) {
-      unsupported = true;
-      path.stop();
-    },
-    TSSatisfiesExpression(path) {
-      unsupported = true;
-      path.stop();
-    },
-  });
-  return unsupported;
 }
 
 function maybeRunRustProgramCompiler(
@@ -153,9 +152,7 @@ function maybeRunRustProgramCompiler(
     dialect,
     sourceType,
   );
-  if (hasUnsupportedStrictRustNodes(parsed)) {
-    return;
-  }
+  stripTypeOnlyUnsupportedExpressions(parsed);
   const canonicalSource = canonicalizeProgramForComparison(
     sourceCode,
     pass.filename ?? null,
