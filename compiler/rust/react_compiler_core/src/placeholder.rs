@@ -178,7 +178,7 @@ fn stmt_is_placeholder_memo_init(stmt: &Stmt, runtime_callee_name: &str) -> bool
     let Expr::Lit(Lit::Num(number_literal)) = first_arg.expr.as_ref() else {
         return false;
     };
-    number_literal.value == 0.0
+    number_literal.value.is_finite() && number_literal.value >= 0.0
 }
 
 pub(crate) fn make_runtime_import_decl() -> ImportDecl {
