@@ -39,14 +39,14 @@ pub(crate) fn collect_runtime_bindings_from_static_block_stmt(
             runtime_callee_bindings,
             may_be_conditional,
         ),
-        Stmt::Decl(Decl::TsEnum(ts_enum_decl)) => crate::collect_runtime_bindings_from_ts_enum_decl(
+        Stmt::Decl(Decl::TsEnum(ts_enum_decl)) => crate::runtime_traversal::collect_runtime_bindings_from_ts_enum_decl(
             ts_enum_decl.as_ref(),
             runtime_namespace_bindings,
             runtime_callee_bindings,
             may_be_conditional,
         ),
         Stmt::Decl(Decl::TsModule(ts_module_decl)) => {
-            crate::collect_runtime_bindings_from_ts_module_decl(
+            crate::runtime_traversal::collect_runtime_bindings_from_ts_module_decl(
                 ts_module_decl.as_ref(),
                 runtime_namespace_bindings,
                 runtime_callee_bindings,

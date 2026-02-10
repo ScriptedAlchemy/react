@@ -86,7 +86,7 @@ pub(crate) fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMem
             ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
                 if let Decl::Var(var_decl) = &export_decl.decl {
                     for declarator in &var_decl.decls {
-                        crate::collect_runtime_bindings_from_script_declarator(
+                        crate::runtime_traversal::collect_runtime_bindings_from_script_declarator(
                             declarator,
                             &mut runtime_namespace_bindings,
                             &mut runtime_callee_bindings,
@@ -101,21 +101,21 @@ pub(crate) fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMem
                     );
                 } else if let Decl::Using(using_decl) = &export_decl.decl {
                     for declarator in &using_decl.decls {
-                        crate::collect_runtime_bindings_from_script_declarator(
+                        crate::runtime_traversal::collect_runtime_bindings_from_script_declarator(
                             declarator,
                             &mut runtime_namespace_bindings,
                             &mut runtime_callee_bindings,
                         );
                     }
                 } else if let Decl::TsEnum(ts_enum_decl) = &export_decl.decl {
-                    crate::collect_runtime_bindings_from_ts_enum_decl(
+                    crate::runtime_traversal::collect_runtime_bindings_from_ts_enum_decl(
                         ts_enum_decl.as_ref(),
                         &mut runtime_namespace_bindings,
                         &mut runtime_callee_bindings,
                         false,
                     );
                 } else if let Decl::TsModule(ts_module_decl) = &export_decl.decl {
-                    crate::collect_runtime_bindings_from_ts_module_decl(
+                    crate::runtime_traversal::collect_runtime_bindings_from_ts_module_decl(
                         ts_module_decl.as_ref(),
                         &mut runtime_namespace_bindings,
                         &mut runtime_callee_bindings,
@@ -134,21 +134,21 @@ pub(crate) fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMem
                 }
             }
             ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(default_expr)) => {
-                crate::collect_runtime_bindings_from_script_assignment_expr(
+                crate::runtime_traversal::collect_runtime_bindings_from_script_assignment_expr(
                     default_expr.expr.as_ref(),
                     &mut runtime_namespace_bindings,
                     &mut runtime_callee_bindings,
                 );
             }
             ModuleItem::ModuleDecl(ModuleDecl::TsExportAssignment(export_assignment)) => {
-                crate::collect_runtime_bindings_from_script_assignment_expr(
+                crate::runtime_traversal::collect_runtime_bindings_from_script_assignment_expr(
                     export_assignment.expr.as_ref(),
                     &mut runtime_namespace_bindings,
                     &mut runtime_callee_bindings,
                 );
             }
             ModuleItem::ModuleDecl(ModuleDecl::TsImportEquals(import_equals_decl)) => {
-                crate::collect_runtime_bindings_from_ts_import_equals_decl(
+                crate::runtime_traversal::collect_runtime_bindings_from_ts_import_equals_decl(
                     import_equals_decl.as_ref(),
                     &mut runtime_namespace_bindings,
                     &mut runtime_callee_bindings,
@@ -156,7 +156,7 @@ pub(crate) fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMem
             }
             ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl))) => {
                 for declarator in &var_decl.decls {
-                    crate::collect_runtime_bindings_from_script_declarator(
+                    crate::runtime_traversal::collect_runtime_bindings_from_script_declarator(
                         declarator,
                         &mut runtime_namespace_bindings,
                         &mut runtime_callee_bindings,
@@ -173,7 +173,7 @@ pub(crate) fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMem
             }
             ModuleItem::Stmt(Stmt::Decl(Decl::Using(using_decl))) => {
                 for declarator in &using_decl.decls {
-                    crate::collect_runtime_bindings_from_script_declarator(
+                    crate::runtime_traversal::collect_runtime_bindings_from_script_declarator(
                         declarator,
                         &mut runtime_namespace_bindings,
                         &mut runtime_callee_bindings,
@@ -181,7 +181,7 @@ pub(crate) fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMem
                 }
             }
             ModuleItem::Stmt(Stmt::Expr(expr_stmt)) => {
-                crate::collect_runtime_bindings_from_script_assignment_expr(
+                crate::runtime_traversal::collect_runtime_bindings_from_script_assignment_expr(
                     expr_stmt.expr.as_ref(),
                     &mut runtime_namespace_bindings,
                     &mut runtime_callee_bindings,
@@ -214,7 +214,7 @@ pub(crate) fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMem
         match stmt {
             Stmt::Decl(Decl::Var(var_decl)) => {
                 for declarator in &var_decl.decls {
-                    crate::collect_runtime_bindings_from_script_declarator(
+                    crate::runtime_traversal::collect_runtime_bindings_from_script_declarator(
                         declarator,
                         &mut runtime_namespace_bindings,
                         &mut runtime_callee_bindings,
@@ -231,14 +231,14 @@ pub(crate) fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMem
             }
             Stmt::Decl(Decl::Using(using_decl)) => {
                 for declarator in &using_decl.decls {
-                    crate::collect_runtime_bindings_from_script_declarator(
+                    crate::runtime_traversal::collect_runtime_bindings_from_script_declarator(
                         declarator,
                         &mut runtime_namespace_bindings,
                         &mut runtime_callee_bindings,
                     );
                 }
             }
-            Stmt::Expr(expr_stmt) => crate::collect_runtime_bindings_from_script_assignment_expr(
+            Stmt::Expr(expr_stmt) => crate::runtime_traversal::collect_runtime_bindings_from_script_assignment_expr(
                 expr_stmt.expr.as_ref(),
                 &mut runtime_namespace_bindings,
                 &mut runtime_callee_bindings,
