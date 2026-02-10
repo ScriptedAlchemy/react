@@ -26,14 +26,8 @@ use crate::{
     CompileOutput, CompilerError, CompilerOptions, InputDialect, ParseMetadata,
 };
 
-pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
-    let cm: Lrc<SourceMap> = Default::default();
-    let fm = cm.new_source_file(
-        FileName::Custom(options.filename.clone()).into(),
-        source.to_string(),
-    );
-
-    let syntax = match options.dialect {
+fn parser_syntax(dialect: InputDialect) -> Syntax {
+    match dialect {
         InputDialect::JavaScript => Syntax::Es(EsSyntax {
             jsx: true,
             fn_bind: true,
@@ -65,11 +59,38 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             auto_accessors: true,
             explicit_resource_management: true,
         }),
-    };
+    }
+}
+
+fn map_parse_error(
+    err: swc_ecma_parser::error::Error,
+    options: &CompilerOptions,
+    cm: &Lrc<SourceMap>,
+) -> CompilerError {
+    let message = err.kind().msg().to_string();
+    let reason = parse_syntax_error_reason(err.kind());
+    let location = span_to_location(cm, err.span());
+    if options.dialect == InputDialect::Flow {
+        CompilerError::UnsupportedFlowSyntax { location }
+    } else {
+        CompilerError::ParseFailure {
+            message,
+            reason,
+            location,
+        }
+    }
+}
+
+pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
+    let cm: Lrc<SourceMap> = Default::default();
+    let fm = cm.new_source_file(
+        FileName::Custom(options.filename.clone()).into(),
+        source.to_string(),
+    );
 
     let comments = SingleThreadedComments::default();
     let lexer = Lexer::new(
-        syntax,
+        parser_syntax(options.dialect),
         EsVersion::EsNext,
         StringInput::from(&*fm),
         Some(&comments),
@@ -77,20 +98,9 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
 
     let mut parser = Parser::new_from(lexer);
     let (metadata, code) = if options.is_module {
-        let mut module = parser.parse_module().map_err(|err| {
-            let message = err.kind().msg().to_string();
-            let reason = parse_syntax_error_reason(err.kind());
-            let location = span_to_location(&cm, err.span());
-            if options.dialect == InputDialect::Flow {
-                CompilerError::UnsupportedFlowSyntax { location }
-            } else {
-                CompilerError::ParseFailure {
-                    message,
-                    reason,
-                    location,
-                }
-            }
-        })?;
+        let mut module = parser
+            .parse_module()
+            .map_err(|err| map_parse_error(err, options, &cm))?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
         let original_statement_count = module.body.len();
         let mut placeholder_transform_candidates =
@@ -235,20 +245,9 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         };
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
-        let mut script = parser.parse_script().map_err(|err| {
-            let message = err.kind().msg().to_string();
-            let reason = parse_syntax_error_reason(err.kind());
-            let location = span_to_location(&cm, err.span());
-            if options.dialect == InputDialect::Flow {
-                CompilerError::UnsupportedFlowSyntax { location }
-            } else {
-                CompilerError::ParseFailure {
-                    message,
-                    reason,
-                    location,
-                }
-            }
-        })?;
+        let mut script = parser
+            .parse_script()
+            .map_err(|err| map_parse_error(err, options, &cm))?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
         let original_statement_count = script.body.len();
         let mut placeholder_transform_candidates =
