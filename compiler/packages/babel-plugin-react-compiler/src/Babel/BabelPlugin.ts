@@ -106,7 +106,9 @@ function detectRustDialect(
   return 'javascript';
 }
 
-function hasObviousFlowTypeSyntax(sourceCode: string): boolean {
+function findObviousFlowTypeSyntaxMarker(
+  sourceCode: string,
+): null | {index: number; length: number} {
   const flowTypeMarkers = [
     /\bimport\s+type\b/,
     /\bexport\s+type\b/,
@@ -115,7 +117,56 @@ function hasObviousFlowTypeSyntax(sourceCode: string): boolean {
     /\bdeclare\s+(class|function|module|var|type|interface)\b/,
     /\btype\s+[A-Za-z_$][\w$]*\s*=/,
   ];
-  return flowTypeMarkers.some(pattern => pattern.test(sourceCode));
+  let firstMatch: null | {index: number; length: number} = null;
+  for (const pattern of flowTypeMarkers) {
+    const match = pattern.exec(sourceCode);
+    if (match == null || match.index == null) {
+      continue;
+    }
+    const candidate = {
+      index: match.index,
+      length: match[0].length,
+    };
+    if (firstMatch == null || candidate.index < firstMatch.index) {
+      firstMatch = candidate;
+    }
+  }
+  return firstMatch;
+}
+
+function sourceOffsetToLocation(
+  sourceCode: string,
+  offset: number,
+  length: number,
+): t.SourceLocation | null {
+  if (offset < 0 || length <= 0 || offset > sourceCode.length) {
+    return null;
+  }
+  const boundedLength = Math.min(length, sourceCode.length - offset);
+  const prefix = sourceCode.slice(0, offset);
+  const startLine = prefix.split('\n').length;
+  const startColumn = offset - (prefix.lastIndexOf('\n') + 1);
+  const marker = sourceCode.slice(offset, offset + boundedLength);
+  const markerLines = marker.split('\n');
+  const endLine = startLine + markerLines.length - 1;
+  const endColumn =
+    markerLines.length === 1
+      ? startColumn + marker.length
+      : markerLines[markerLines.length - 1]?.length ?? startColumn;
+  return {
+    filename: '',
+    identifierName: '',
+    start: {
+      line: startLine,
+      column: startColumn,
+      index: offset,
+    },
+    end: {
+      line: endLine,
+      column: endColumn,
+      index: offset + boundedLength,
+    },
+  };
 }
 
 function parseProgramFromRustOutput(
@@ -183,12 +234,19 @@ function maybeRunRustProgramCompiler(
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
-  if (dialect === 'flow' && hasObviousFlowTypeSyntax(sourceCode)) {
+  const flowTypeMarker =
+    dialect === 'flow' ? findObviousFlowTypeSyntaxMarker(sourceCode) : null;
+  if (dialect === 'flow' && flowTypeMarker != null) {
     if (strictRustEngine) {
       logStrictRustFrontendFallback(
         logger,
         filename,
         'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported',
+        sourceOffsetToLocation(
+          sourceCode,
+          flowTypeMarker.index,
+          flowTypeMarker.length,
+        ),
       );
     }
     return;

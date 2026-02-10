@@ -361,6 +361,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
   });
 
   it('strict rust mode skips rust invocation for obvious flow-only syntax', () => {
+    const loggedEvents: Array<unknown> = [];
     const source = [
       '// @flow',
       'type Props = {name: string};',
@@ -375,6 +376,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
           compilationMode: 'all',
           compilerEngine: 'rust',
+          logger: {
+            logEvent(_filename, event) {
+              loggedEvents.push(event);
+            },
+          },
         }),
       ),
     );
@@ -391,6 +397,19 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(canonicalizeCode(rustResult.code)).toBe(
       canonicalizeCode(babelResult.code),
     );
+
+    const fallbackEvent = loggedEvents.find(
+      (event: any) =>
+        event.kind === 'CompileSkip' &&
+        event.reason ===
+          'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported',
+    ) as any;
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent.loc).not.toBeNull();
+    if (fallbackEvent.loc != null) {
+      expect(fallbackEvent.loc.start.line).toBeGreaterThan(0);
+      expect(fallbackEvent.loc.start.column).toBeGreaterThanOrEqual(0);
+    }
   });
 
   it('strict rust mode falls back on TS instantiation expressions', () => {
