@@ -20,6 +20,7 @@ mod parse;
 mod placeholder;
 mod react_fn;
 mod runtime_binding_utils;
+mod runtime_helpers;
 mod runtime_scan;
 
 pub use error::CompilerError;
@@ -57,6 +58,9 @@ use runtime_binding_utils::{
     collect_binding_names_from_object_pat, collect_binding_names_from_pat,
     collect_binding_names_from_pat_into, extract_runtime_callee_from_object_pat,
     is_require_runtime_call, member_expr_is_runtime_namespace_c,
+};
+use runtime_helpers::{
+    runtime_initializer_expr, ts_entity_name_leaf_name, ts_entity_name_root_name,
 };
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
@@ -1433,24 +1437,6 @@ fn collect_runtime_bindings_from_decl(
     }
 }
 
-fn ts_entity_name_root_name(entity_name: &swc_ecma_ast::TsEntityName) -> &str {
-    match entity_name {
-        swc_ecma_ast::TsEntityName::Ident(ident) => ident.sym.as_ref(),
-        swc_ecma_ast::TsEntityName::TsQualifiedName(qualified_name) => {
-            ts_entity_name_root_name(&qualified_name.left)
-        }
-    }
-}
-
-fn ts_entity_name_leaf_name(entity_name: &swc_ecma_ast::TsEntityName) -> &str {
-    match entity_name {
-        swc_ecma_ast::TsEntityName::Ident(ident) => ident.sym.as_ref(),
-        swc_ecma_ast::TsEntityName::TsQualifiedName(qualified_name) => {
-            qualified_name.right.sym.as_ref()
-        }
-    }
-}
-
 fn runtime_memo_callee_name(module: &Module) -> Option<String> {
     let runtime_scan = runtime_memo_callee_scan_for_module(module);
     select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
@@ -1545,16 +1531,6 @@ fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMemoCalleeScan
 fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
     let runtime_scan = runtime_memo_callee_scan_for_script(script);
     select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
-}
-
-fn runtime_initializer_expr(expr: &Expr) -> &Expr {
-    let expression = unwrap_expression(expr);
-    if let Expr::Seq(sequence_expr) = expression {
-        if let Some(last_expression) = sequence_expr.exprs.last() {
-            return runtime_initializer_expr(last_expression.as_ref());
-        }
-    }
-    expression
 }
 
 fn collect_runtime_bindings_from_script_declarator(
