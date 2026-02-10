@@ -78,13 +78,37 @@ function resolveRustManifestPath(): string {
   );
 }
 
-export function runRustCompilerCli(
-  request: RustCompileRequest,
-): RustCompileResponse {
-  const manifestPath = resolveRustManifestPath();
-  const result = spawnSync(
-    'cargo',
-    [
+function resolveRustCliInvocation(manifestPath: string): {
+  command: string;
+  args: Array<string>;
+} {
+  const explicitBinary = process.env['REACT_COMPILER_RUST_CLI_BIN'];
+  if (explicitBinary != null && explicitBinary.length > 0) {
+    return {
+      command: explicitBinary,
+      args: [],
+    };
+  }
+
+  const rustWorkspaceRoot = path.dirname(manifestPath);
+  const binaryName =
+    process.platform === 'win32' ? 'react_compiler_cli.exe' : 'react_compiler_cli';
+  const debugBinaryPath = path.resolve(
+    rustWorkspaceRoot,
+    'target',
+    'debug',
+    binaryName,
+  );
+  if (fs.existsSync(debugBinaryPath)) {
+    return {
+      command: debugBinaryPath,
+      args: [],
+    };
+  }
+
+  return {
+    command: 'cargo',
+    args: [
       '+stable',
       'run',
       '--quiet',
@@ -93,15 +117,22 @@ export function runRustCompilerCli(
       '-p',
       'react_compiler_cli',
     ],
-    {
-      input: JSON.stringify(request),
-      encoding: 'utf-8',
-    },
-  );
+  };
+}
+
+export function runRustCompilerCli(
+  request: RustCompileRequest,
+): RustCompileResponse {
+  const manifestPath = resolveRustManifestPath();
+  const invocation = resolveRustCliInvocation(manifestPath);
+  const result = spawnSync(invocation.command, invocation.args, {
+    input: JSON.stringify(request),
+    encoding: 'utf-8',
+  });
 
   if (result.status !== 0) {
     throw new Error(
-      `Rust compiler CLI exited with status ${result.status}\n${result.stderr}`,
+      `Rust compiler CLI (${invocation.command}) exited with status ${result.status}\n${result.stderr}`,
     );
   }
 
