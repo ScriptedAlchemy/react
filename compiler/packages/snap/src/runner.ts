@@ -71,6 +71,7 @@ type ParityOptions = {
   includeOutput: boolean;
   ignoreFormatting: boolean;
   ignoreLogs: boolean;
+  skipBuild: boolean;
 };
 
 async function runTestCommand(opts: TestOptions): Promise<void> {
@@ -466,7 +467,9 @@ async function transformFixtureWithEnv(
 }
 
 async function runParityCommand(opts: ParityOptions): Promise<void> {
-  execSync('yarn build', {cwd: BABEL_PLUGIN_ROOT, stdio: 'inherit'});
+  if (!opts.skipBuild) {
+    execSync('yarn build', {cwd: BABEL_PLUGIN_ROOT, stdio: 'inherit'});
+  }
 
   let testFilter: TestFilter | null = null;
   if (opts.pattern) {
@@ -590,11 +593,13 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
   process.exit(mismatches.length === 0 || !opts.failOnMismatch ? 0 : 1);
 }
 
-yargs(hideBin(process.argv))
+const cli = yargs(hideBin(process.argv)) as any;
+
+cli
   .command(
     ['test', '$0'],
     'Run compiler tests',
-    yargs => {
+    (yargs: any) => {
       return yargs
         .boolean('sync')
         .describe(
@@ -634,14 +639,14 @@ yargs(hideBin(process.argv))
         .describe('verbose', 'Print individual test results')
         .default('verbose', false);
     },
-    async argv => {
+    async (argv: any) => {
       await runTestCommand(argv as TestOptions);
     },
   )
   .command(
     'minimize <path>',
     'Minimize a test case to reproduce a compiler error',
-    yargs => {
+    (yargs: any) => {
       return yargs
         .positional('path', {
           describe: 'Path to the file to minimize',
@@ -656,14 +661,14 @@ yargs(hideBin(process.argv))
         )
         .default('update', false);
     },
-    async argv => {
+    async (argv: any) => {
       await runMinimizeCommand(argv as unknown as MinimizeOptions);
     },
   )
   .command(
     'compile <path>',
     'Compile a file with the React Compiler',
-    yargs => {
+    (yargs: any) => {
       return yargs
         .positional('path', {
           describe: 'Path to the file to compile',
@@ -675,14 +680,14 @@ yargs(hideBin(process.argv))
         .describe('debug', 'Enable debug logging to print HIR for each pass')
         .default('debug', false);
     },
-    async argv => {
+    async (argv: any) => {
       await runCompileCommand(argv as unknown as CompileOptions);
     },
   )
   .command(
     'parity',
     'Compare Babel vs strict Rust fixture outputs',
-    yargs => {
+    (yargs: any) => {
       return yargs
         .string('pattern')
         .alias('p', 'pattern')
@@ -735,9 +740,15 @@ yargs(hideBin(process.argv))
           'ignore-logs',
           'Ignore logger output sections when comparing parity (default true)',
         )
-        .default('ignore-logs', true);
+        .default('ignore-logs', true)
+        .boolean('skip-build')
+        .describe(
+          'skip-build',
+          'Skip rebuilding babel-plugin-react-compiler before parity run (default false)',
+        )
+        .default('skip-build', false);
     },
-    async argv => {
+    async (argv: any) => {
       await runParityCommand(argv as unknown as ParityOptions);
     },
   )

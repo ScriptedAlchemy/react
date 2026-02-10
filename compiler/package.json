@@ -19,6 +19,8 @@
     "test": "yarn workspaces run test",
     "snap": "yarn workspace babel-plugin-react-compiler run snap",
     "snap:build": "yarn workspace snap run build",
+    "snap:parity": "yarn workspace snap run snap parity",
+    "snap:parity:canary": "yarn workspace snap run build && yarn workspace babel-plugin-react-compiler build && yarn workspace snap run snap parity -p 'while-*' --skip-build && yarn workspace snap run snap parity -p 'nested-optional-*' --skip-build && yarn workspace snap run snap parity -p 'ts-instantiation-*' --skip-build && yarn workspace snap run snap parity -p 'type-annotations/type-annotation-satisfies-*' --skip-build",
     "rust:check": "cargo +stable check --manifest-path rust/Cargo.toml",
     "rust:test": "cargo +stable test --manifest-path rust/Cargo.toml",
     "rust:fmt": "cargo +stable fmt --manifest-path rust/Cargo.toml --all",
