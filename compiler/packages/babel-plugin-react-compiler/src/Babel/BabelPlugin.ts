@@ -267,8 +267,20 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendRuntimeCalleeBeforeTransform',
+    value: rustResult.placeholder_runtime_callee_name_before_transform ?? '',
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCalleeCandidates',
     value: rustResult.placeholder_runtime_callee_candidates.join(','),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendRuntimeCalleeCandidatesBeforeTransform',
+    value: rustResult.placeholder_runtime_callee_candidates_before_transform.join(
+      ',',
+    ),
   });
   if (!strictRustEngine || rustResult.code === sourceCode) {
     return;

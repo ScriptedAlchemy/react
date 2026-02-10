@@ -27,6 +27,9 @@ enum CompileResponse {
         placeholder_transforms_applied: usize,
         placeholder_transformed_functions: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder_runtime_callee_name_before_transform: Option<String>,
+        placeholder_runtime_callee_candidates_before_transform: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         placeholder_runtime_callee_name: Option<String>,
         placeholder_runtime_callee_candidates: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -112,6 +115,14 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                 placeholder_transformed_functions: output
                     .metadata
                     .placeholder_transformed_functions
+                    .clone(),
+                placeholder_runtime_callee_name_before_transform: output
+                    .metadata
+                    .placeholder_runtime_callee_name_before_transform
+                    .clone(),
+                placeholder_runtime_callee_candidates_before_transform: output
+                    .metadata
+                    .placeholder_runtime_callee_candidates_before_transform
                     .clone(),
                 placeholder_runtime_callee_name: output
                     .metadata
@@ -230,6 +241,8 @@ mod tests {
                 react_functions,
                 placeholder_transforms_applied,
                 placeholder_transformed_functions,
+                placeholder_runtime_callee_name_before_transform,
+                placeholder_runtime_callee_candidates_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
                 ..
@@ -239,6 +252,8 @@ mod tests {
                 assert!(react_functions.is_empty());
                 assert_eq!(placeholder_transforms_applied, 0);
                 assert!(placeholder_transformed_functions.is_empty());
+                assert!(placeholder_runtime_callee_name_before_transform.is_none());
+                assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
                 assert!(placeholder_runtime_callee_name.is_none());
                 assert!(placeholder_runtime_callee_candidates.is_empty());
             }
@@ -325,6 +340,8 @@ mod tests {
             CompileResponse::Ok {
                 debug_ir,
                 placeholder_transformed_functions,
+                placeholder_runtime_callee_name_before_transform,
+                placeholder_runtime_callee_candidates_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
                 ..
@@ -333,6 +350,8 @@ mod tests {
                 assert!(debug_ir.contains("ReactiveFunctionsDebug v0"));
                 assert!(debug_ir.contains("name=Component kind=Component"));
                 assert!(placeholder_transformed_functions.is_empty());
+                assert!(placeholder_runtime_callee_name_before_transform.is_none());
+                assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
                 assert!(placeholder_runtime_callee_name.is_none());
                 assert!(placeholder_runtime_callee_candidates.is_empty());
             }
@@ -357,6 +376,8 @@ mod tests {
             CompileResponse::Ok {
                 placeholder_transforms_applied,
                 placeholder_transformed_functions,
+                placeholder_runtime_callee_name_before_transform,
+                placeholder_runtime_callee_candidates_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
                 ..
@@ -366,6 +387,8 @@ mod tests {
                     placeholder_transformed_functions,
                     vec!["__default_export_component__"]
                 );
+                assert!(placeholder_runtime_callee_name_before_transform.is_none());
+                assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
                 assert_eq!(placeholder_runtime_callee_name.as_deref(), Some("_c"));
                 assert_eq!(placeholder_runtime_callee_candidates, vec!["_c"]);
             }
