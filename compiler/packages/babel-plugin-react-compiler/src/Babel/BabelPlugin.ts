@@ -307,6 +307,36 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformCandidateComponentCount',
+    value: String(rustResult.placeholder_transform_candidate_component_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformCandidateHookCount',
+    value: String(rustResult.placeholder_transform_candidate_hook_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformTransformedComponentCount',
+    value: String(rustResult.placeholder_transform_transformed_component_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformTransformedHookCount',
+    value: String(rustResult.placeholder_transform_transformed_hook_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformSkippedComponentCount',
+    value: String(rustResult.placeholder_transform_skipped_component_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendPlaceholderTransformSkippedHookCount',
+    value: String(rustResult.placeholder_transform_skipped_hook_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCalleeReused',
     value: String(rustResult.placeholder_runtime_callee_reused),
   });

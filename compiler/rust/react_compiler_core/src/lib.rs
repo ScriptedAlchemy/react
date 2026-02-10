@@ -55,6 +55,12 @@ pub struct ParseMetadata {
     pub placeholder_transform_skipped_functions: Vec<String>,
     pub placeholder_transform_candidate_count: usize,
     pub placeholder_transform_skipped_count: usize,
+    pub placeholder_transform_candidate_component_count: usize,
+    pub placeholder_transform_candidate_hook_count: usize,
+    pub placeholder_transform_transformed_component_count: usize,
+    pub placeholder_transform_transformed_hook_count: usize,
+    pub placeholder_transform_skipped_component_count: usize,
+    pub placeholder_transform_skipped_hook_count: usize,
     pub detected_react_functions: usize,
     pub react_functions: Vec<ReactFunction>,
     pub placeholder_transforms_applied: usize,
@@ -143,6 +149,30 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "placeholder_transform_skipped_count={}",
             metadata.placeholder_transform_skipped_count
+        ),
+        format!(
+            "placeholder_transform_candidate_component_count={}",
+            metadata.placeholder_transform_candidate_component_count
+        ),
+        format!(
+            "placeholder_transform_candidate_hook_count={}",
+            metadata.placeholder_transform_candidate_hook_count
+        ),
+        format!(
+            "placeholder_transform_transformed_component_count={}",
+            metadata.placeholder_transform_transformed_component_count
+        ),
+        format!(
+            "placeholder_transform_transformed_hook_count={}",
+            metadata.placeholder_transform_transformed_hook_count
+        ),
+        format!(
+            "placeholder_transform_skipped_component_count={}",
+            metadata.placeholder_transform_skipped_component_count
+        ),
+        format!(
+            "placeholder_transform_skipped_hook_count={}",
+            metadata.placeholder_transform_skipped_hook_count
         ),
         format!(
             "detected_react_functions={}",
@@ -405,6 +435,18 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             &placeholder_transform_candidates,
             &placeholder_transformed_functions,
         );
+        let candidate_kind_counts = count_placeholder_transform_names_by_kind(
+            &placeholder_transform_candidates,
+            &react_functions,
+        );
+        let transformed_kind_counts = count_placeholder_transform_names_by_kind(
+            &placeholder_transformed_functions,
+            &react_functions,
+        );
+        let skipped_kind_counts = count_placeholder_transform_names_by_kind(
+            &placeholder_transform_skipped_functions,
+            &react_functions,
+        );
         let placeholder_transform_status = derive_placeholder_transform_status(
             options.apply_placeholder_transforms,
             true,
@@ -426,6 +468,13 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transform_status,
             placeholder_transform_candidate_count: placeholder_transform_candidates.len(),
             placeholder_transform_skipped_count: placeholder_transform_skipped_functions.len(),
+            placeholder_transform_candidate_component_count: candidate_kind_counts.component_count,
+            placeholder_transform_candidate_hook_count: candidate_kind_counts.hook_count,
+            placeholder_transform_transformed_component_count:
+                transformed_kind_counts.component_count,
+            placeholder_transform_transformed_hook_count: transformed_kind_counts.hook_count,
+            placeholder_transform_skipped_component_count: skipped_kind_counts.component_count,
+            placeholder_transform_skipped_hook_count: skipped_kind_counts.hook_count,
             placeholder_transform_candidates,
             placeholder_transform_skipped_functions,
             detected_react_functions: react_functions.len(),
@@ -509,6 +558,18 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             &placeholder_transform_candidates,
             &placeholder_transformed_functions,
         );
+        let candidate_kind_counts = count_placeholder_transform_names_by_kind(
+            &placeholder_transform_candidates,
+            &react_functions,
+        );
+        let transformed_kind_counts = count_placeholder_transform_names_by_kind(
+            &placeholder_transformed_functions,
+            &react_functions,
+        );
+        let skipped_kind_counts = count_placeholder_transform_names_by_kind(
+            &placeholder_transform_skipped_functions,
+            &react_functions,
+        );
         let placeholder_transform_status = derive_placeholder_transform_status(
             options.apply_placeholder_transforms,
             false,
@@ -528,6 +589,13 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transform_status,
             placeholder_transform_candidate_count: placeholder_transform_candidates.len(),
             placeholder_transform_skipped_count: placeholder_transform_skipped_functions.len(),
+            placeholder_transform_candidate_component_count: candidate_kind_counts.component_count,
+            placeholder_transform_candidate_hook_count: candidate_kind_counts.hook_count,
+            placeholder_transform_transformed_component_count:
+                transformed_kind_counts.component_count,
+            placeholder_transform_transformed_hook_count: transformed_kind_counts.hook_count,
+            placeholder_transform_skipped_component_count: skipped_kind_counts.component_count,
+            placeholder_transform_skipped_hook_count: skipped_kind_counts.hook_count,
             placeholder_transform_candidates,
             placeholder_transform_skipped_functions,
             detected_react_functions: react_functions.len(),
@@ -940,6 +1008,38 @@ fn compute_placeholder_transform_skipped_functions(
         .filter(|candidate| !transformed_names.contains(candidate.as_str()))
         .cloned()
         .collect()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct PlaceholderTransformKindCounts {
+    component_count: usize,
+    hook_count: usize,
+}
+
+fn count_placeholder_transform_names_by_kind(
+    names: &[String],
+    react_functions: &[ReactFunction],
+) -> PlaceholderTransformKindCounts {
+    names
+        .iter()
+        .fold(PlaceholderTransformKindCounts::default(), |mut counts, name| {
+            let kind = react_functions
+                .iter()
+                .find(|function| function.name == *name)
+                .map(|function| function.kind.clone())
+                .unwrap_or_else(|| {
+                    if is_hook_name(name) {
+                        ReactFunctionKind::Hook
+                    } else {
+                        ReactFunctionKind::Component
+                    }
+                });
+            match kind {
+                ReactFunctionKind::Component => counts.component_count += 1,
+                ReactFunctionKind::Hook => counts.hook_count += 1,
+            }
+            counts
+        })
 }
 
 fn derive_placeholder_transform_status(
@@ -4445,6 +4545,18 @@ mod tests {
             .is_empty());
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_candidate_component_count,
+            1
+        );
+        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_component_count,
+            1
+        );
+        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
         assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions.len(), 1);
@@ -11908,6 +12020,18 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 1);
         assert_eq!(
+            output.metadata.placeholder_transform_candidate_component_count,
+            1
+        );
+        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_component_count,
+            0
+        );
+        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 1);
+        assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
+        assert_eq!(
             output.metadata.placeholder_transform_status,
             "blocked_missing_runtime_callee"
         );
@@ -11981,6 +12105,18 @@ mod tests {
             .is_empty());
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_candidate_component_count,
+            1
+        );
+        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_component_count,
+            1
+        );
+        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
         assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert!(!output.metadata.placeholder_runtime_callee_reused);
         assert!(output.metadata.placeholder_runtime_callee_generated);
@@ -12615,6 +12751,12 @@ mod tests {
         assert!(debug.contains("placeholder_transform_skipped_functions=Component,useThing"));
         assert!(debug.contains("placeholder_transform_candidate_count=2"));
         assert!(debug.contains("placeholder_transform_skipped_count=2"));
+        assert!(debug.contains("placeholder_transform_candidate_component_count=1"));
+        assert!(debug.contains("placeholder_transform_candidate_hook_count=1"));
+        assert!(debug.contains("placeholder_transform_transformed_component_count=0"));
+        assert!(debug.contains("placeholder_transform_transformed_hook_count=0"));
+        assert!(debug.contains("placeholder_transform_skipped_component_count=1"));
+        assert!(debug.contains("placeholder_transform_skipped_hook_count=1"));
         assert!(debug.contains("placeholder_transform_status=disabled"));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
@@ -12655,6 +12797,12 @@ mod tests {
         assert!(debug.contains("placeholder_transform_skipped_functions="));
         assert!(debug.contains("placeholder_transform_candidate_count=1"));
         assert!(debug.contains("placeholder_transform_skipped_count=0"));
+        assert!(debug.contains("placeholder_transform_candidate_component_count=1"));
+        assert!(debug.contains("placeholder_transform_candidate_hook_count=0"));
+        assert!(debug.contains("placeholder_transform_transformed_component_count=1"));
+        assert!(debug.contains("placeholder_transform_transformed_hook_count=0"));
+        assert!(debug.contains("placeholder_transform_skipped_component_count=0"));
+        assert!(debug.contains("placeholder_transform_skipped_hook_count=0"));
         assert!(debug.contains("placeholder_transform_status=transformed"));
         assert!(debug.contains("placeholder_transforms_applied=1"));
         assert!(debug.contains("placeholder_transformed_functions=Component"));
