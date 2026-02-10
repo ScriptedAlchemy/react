@@ -367,8 +367,18 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendRuntimeCalleeCandidateCount',
+    value: String(rustResult.placeholder_runtime_callee_candidate_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeNamespaceCandidates',
     value: rustResult.placeholder_runtime_namespace_candidates.join(','),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendRuntimeNamespaceCandidateCount',
+    value: String(rustResult.placeholder_runtime_namespace_candidate_count),
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
@@ -379,9 +389,23 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendRuntimeCalleeCandidateCountBeforeTransform',
+    value: String(
+      rustResult.placeholder_runtime_callee_candidate_count_before_transform,
+    ),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeNamespaceCandidatesBeforeTransform',
     value: rustResult.placeholder_runtime_namespace_candidates_before_transform.join(
       ',',
+    ),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendRuntimeNamespaceCandidateCountBeforeTransform',
+    value: String(
+      rustResult.placeholder_runtime_namespace_candidate_count_before_transform,
     ),
   });
   if (!strictRustEngine || rustResult.code === sourceCode) {

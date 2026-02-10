@@ -46,11 +46,15 @@ enum CompileResponse {
         #[serde(skip_serializing_if = "Option::is_none")]
         placeholder_runtime_callee_name_before_transform: Option<String>,
         placeholder_runtime_callee_candidates_before_transform: Vec<String>,
+        placeholder_runtime_callee_candidate_count_before_transform: usize,
         placeholder_runtime_namespace_candidates_before_transform: Vec<String>,
+        placeholder_runtime_namespace_candidate_count_before_transform: usize,
         #[serde(skip_serializing_if = "Option::is_none")]
         placeholder_runtime_callee_name: Option<String>,
         placeholder_runtime_callee_candidates: Vec<String>,
+        placeholder_runtime_callee_candidate_count: usize,
         placeholder_runtime_namespace_candidates: Vec<String>,
+        placeholder_runtime_namespace_candidate_count: usize,
         #[serde(skip_serializing_if = "Option::is_none")]
         debug_ir: Option<String>,
     },
@@ -195,10 +199,16 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                     .metadata
                     .placeholder_runtime_callee_candidates_before_transform
                     .clone(),
+                placeholder_runtime_callee_candidate_count_before_transform: output
+                    .metadata
+                    .placeholder_runtime_callee_candidate_count_before_transform,
                 placeholder_runtime_namespace_candidates_before_transform: output
                     .metadata
                     .placeholder_runtime_namespace_candidates_before_transform
                     .clone(),
+                placeholder_runtime_namespace_candidate_count_before_transform: output
+                    .metadata
+                    .placeholder_runtime_namespace_candidate_count_before_transform,
                 placeholder_runtime_callee_name: output
                     .metadata
                     .placeholder_runtime_callee_name
@@ -207,10 +217,16 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                     .metadata
                     .placeholder_runtime_callee_candidates
                     .clone(),
+                placeholder_runtime_callee_candidate_count: output
+                    .metadata
+                    .placeholder_runtime_callee_candidate_count,
                 placeholder_runtime_namespace_candidates: output
                     .metadata
                     .placeholder_runtime_namespace_candidates
                     .clone(),
+                placeholder_runtime_namespace_candidate_count: output
+                    .metadata
+                    .placeholder_runtime_namespace_candidate_count,
                 debug_ir,
             }
         }
@@ -339,10 +355,14 @@ mod tests {
                 placeholder_transformed_functions,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
+                placeholder_runtime_callee_candidate_count_before_transform,
                 placeholder_runtime_namespace_candidates_before_transform,
+                placeholder_runtime_namespace_candidate_count_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
+                placeholder_runtime_callee_candidate_count,
                 placeholder_runtime_namespace_candidates,
+                placeholder_runtime_namespace_candidate_count,
                 ..
             } => {
                 assert_eq!(statement_count, 1);
@@ -369,10 +389,20 @@ mod tests {
                 assert!(placeholder_transformed_functions.is_empty());
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
+                assert_eq!(
+                    placeholder_runtime_callee_candidate_count_before_transform,
+                    0
+                );
                 assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());
+                assert_eq!(
+                    placeholder_runtime_namespace_candidate_count_before_transform,
+                    0
+                );
                 assert!(placeholder_runtime_callee_name.is_none());
                 assert!(placeholder_runtime_callee_candidates.is_empty());
+                assert_eq!(placeholder_runtime_callee_candidate_count, 0);
                 assert!(placeholder_runtime_namespace_candidates.is_empty());
+                assert_eq!(placeholder_runtime_namespace_candidate_count, 0);
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -491,10 +521,14 @@ mod tests {
                 placeholder_transformed_functions,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
+                placeholder_runtime_callee_candidate_count_before_transform,
                 placeholder_runtime_namespace_candidates_before_transform,
+                placeholder_runtime_namespace_candidate_count_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
+                placeholder_runtime_callee_candidate_count,
                 placeholder_runtime_namespace_candidates,
+                placeholder_runtime_namespace_candidate_count,
                 ..
             } => {
                 let debug_ir = debug_ir.expect("expected debug_ir payload when requested");
@@ -513,13 +547,31 @@ mod tests {
                 assert!(debug_ir.contains("placeholder_transform_status=disabled"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_reused=false"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_generated=false"));
+                assert!(debug_ir.contains("placeholder_runtime_callee_candidate_count=0"));
+                assert!(debug_ir.contains(
+                    "placeholder_runtime_callee_candidate_count_before_transform=0"
+                ));
+                assert!(debug_ir.contains("placeholder_runtime_namespace_candidate_count=0"));
+                assert!(debug_ir.contains(
+                    "placeholder_runtime_namespace_candidate_count_before_transform=0"
+                ));
                 assert!(placeholder_transformed_functions.is_empty());
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
+                assert_eq!(
+                    placeholder_runtime_callee_candidate_count_before_transform,
+                    0
+                );
                 assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());
+                assert_eq!(
+                    placeholder_runtime_namespace_candidate_count_before_transform,
+                    0
+                );
                 assert!(placeholder_runtime_callee_name.is_none());
                 assert!(placeholder_runtime_callee_candidates.is_empty());
+                assert_eq!(placeholder_runtime_callee_candidate_count, 0);
                 assert!(placeholder_runtime_namespace_candidates.is_empty());
+                assert_eq!(placeholder_runtime_namespace_candidate_count, 0);
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -563,6 +615,14 @@ mod tests {
                 assert!(debug_ir.contains("placeholder_transform_status=transformed"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_reused=false"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_generated=true"));
+                assert!(debug_ir.contains("placeholder_runtime_callee_candidate_count=1"));
+                assert!(debug_ir.contains(
+                    "placeholder_runtime_callee_candidate_count_before_transform=0"
+                ));
+                assert!(debug_ir.contains("placeholder_runtime_namespace_candidate_count=0"));
+                assert!(debug_ir.contains(
+                    "placeholder_runtime_namespace_candidate_count_before_transform=0"
+                ));
                 assert!(debug_ir.contains("placeholder_transforms_applied=1"));
                 assert!(debug_ir.contains("placeholder_transformed_functions=Component"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_name=_c"));
@@ -607,10 +667,14 @@ mod tests {
                 placeholder_transform_skipped_hook_count,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
+                placeholder_runtime_callee_candidate_count_before_transform,
                 placeholder_runtime_namespace_candidates_before_transform,
+                placeholder_runtime_namespace_candidate_count_before_transform,
                 placeholder_runtime_callee_name,
                 placeholder_runtime_callee_candidates,
+                placeholder_runtime_callee_candidate_count,
                 placeholder_runtime_namespace_candidates,
+                placeholder_runtime_namespace_candidate_count,
                 ..
             } => {
                 assert_eq!(placeholder_transforms_applied, 1);
@@ -639,10 +703,20 @@ mod tests {
                 assert_eq!(placeholder_transform_status, "transformed");
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
+                assert_eq!(
+                    placeholder_runtime_callee_candidate_count_before_transform,
+                    0
+                );
                 assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());
+                assert_eq!(
+                    placeholder_runtime_namespace_candidate_count_before_transform,
+                    0
+                );
                 assert_eq!(placeholder_runtime_callee_name.as_deref(), Some("_c"));
                 assert_eq!(placeholder_runtime_callee_candidates, vec!["_c"]);
+                assert_eq!(placeholder_runtime_callee_candidate_count, 1);
                 assert!(placeholder_runtime_namespace_candidates.is_empty());
+                assert_eq!(placeholder_runtime_namespace_candidate_count, 0);
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")

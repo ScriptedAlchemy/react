@@ -67,10 +67,14 @@ pub struct ParseMetadata {
     pub placeholder_transformed_functions: Vec<String>,
     pub placeholder_runtime_callee_name_before_transform: Option<String>,
     pub placeholder_runtime_callee_candidates_before_transform: Vec<String>,
+    pub placeholder_runtime_callee_candidate_count_before_transform: usize,
     pub placeholder_runtime_namespace_candidates_before_transform: Vec<String>,
+    pub placeholder_runtime_namespace_candidate_count_before_transform: usize,
     pub placeholder_runtime_callee_name: Option<String>,
     pub placeholder_runtime_callee_candidates: Vec<String>,
+    pub placeholder_runtime_callee_candidate_count: usize,
     pub placeholder_runtime_namespace_candidates: Vec<String>,
+    pub placeholder_runtime_namespace_candidate_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -205,20 +209,36 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
             metadata.placeholder_runtime_callee_candidates.join(",")
         ),
         format!(
+            "placeholder_runtime_callee_candidate_count={}",
+            metadata.placeholder_runtime_callee_candidate_count
+        ),
+        format!(
             "placeholder_runtime_callee_candidates_before_transform={}",
             metadata
                 .placeholder_runtime_callee_candidates_before_transform
                 .join(",")
         ),
         format!(
+            "placeholder_runtime_callee_candidate_count_before_transform={}",
+            metadata.placeholder_runtime_callee_candidate_count_before_transform
+        ),
+        format!(
             "placeholder_runtime_namespace_candidates={}",
             metadata.placeholder_runtime_namespace_candidates.join(",")
+        ),
+        format!(
+            "placeholder_runtime_namespace_candidate_count={}",
+            metadata.placeholder_runtime_namespace_candidate_count
         ),
         format!(
             "placeholder_runtime_namespace_candidates_before_transform={}",
             metadata
                 .placeholder_runtime_namespace_candidates_before_transform
                 .join(",")
+        ),
+        format!(
+            "placeholder_runtime_namespace_candidate_count_before_transform={}",
+            metadata.placeholder_runtime_namespace_candidate_count_before_transform
         ),
     ];
     for (index, function) in metadata.react_functions.iter().enumerate() {
@@ -455,6 +475,13 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_callee_name_before_transform.is_some(),
         )
         .to_string();
+        let placeholder_runtime_callee_candidate_count_before_transform =
+            placeholder_runtime_callee_candidates_before_transform.len();
+        let placeholder_runtime_namespace_candidate_count_before_transform =
+            placeholder_runtime_namespace_candidates_before_transform.len();
+        let placeholder_runtime_callee_candidate_count = placeholder_runtime_callee_candidates.len();
+        let placeholder_runtime_namespace_candidate_count =
+            placeholder_runtime_namespace_candidates.len();
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
@@ -483,10 +510,14 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transformed_functions,
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
+            placeholder_runtime_callee_candidate_count_before_transform,
             placeholder_runtime_namespace_candidates_before_transform,
+            placeholder_runtime_namespace_candidate_count_before_transform,
             placeholder_runtime_callee_name,
             placeholder_runtime_callee_candidates,
+            placeholder_runtime_callee_candidate_count,
             placeholder_runtime_namespace_candidates,
+            placeholder_runtime_namespace_candidate_count,
         };
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
@@ -578,6 +609,13 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_callee_name_before_transform.is_some(),
         )
         .to_string();
+        let placeholder_runtime_callee_candidate_count_before_transform =
+            placeholder_runtime_callee_candidates_before_transform.len();
+        let placeholder_runtime_namespace_candidate_count_before_transform =
+            placeholder_runtime_namespace_candidates_before_transform.len();
+        let placeholder_runtime_callee_candidate_count = placeholder_runtime_callee_candidates.len();
+        let placeholder_runtime_namespace_candidate_count =
+            placeholder_runtime_namespace_candidates.len();
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
@@ -604,10 +642,14 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transformed_functions,
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
+            placeholder_runtime_callee_candidate_count_before_transform,
             placeholder_runtime_namespace_candidates_before_transform,
+            placeholder_runtime_namespace_candidate_count_before_transform,
             placeholder_runtime_callee_name,
             placeholder_runtime_callee_candidates,
+            placeholder_runtime_callee_candidate_count,
             placeholder_runtime_namespace_candidates,
+            placeholder_runtime_namespace_candidate_count,
         };
         (metadata, emit_script(&cm, &comments, &script)?)
     };
@@ -4581,18 +4623,32 @@ mod tests {
             output.metadata.placeholder_runtime_callee_candidates,
             vec!["_c".to_string()]
         );
+        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_candidate_count_before_transform,
+            0
+        );
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates_before_transform
             .is_empty());
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count_before_transform,
+            0
+        );
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
+        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 0);
         assert!(output
             .code
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
@@ -4908,9 +4964,23 @@ mod tests {
             vec!["cache".to_string()]
         );
         assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_candidate_count_before_transform,
+            1
+        );
+        assert_eq!(
             output.metadata.placeholder_runtime_callee_candidates,
             vec!["cache".to_string()]
         );
+        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count_before_transform,
+            1
+        );
+        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 1);
     }
 
     #[test]
@@ -12047,18 +12117,32 @@ mod tests {
             .metadata
             .placeholder_runtime_callee_candidates
             .is_empty());
+        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 0);
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_candidate_count_before_transform,
+            0
+        );
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates_before_transform
             .is_empty());
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count_before_transform,
+            0
+        );
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
+        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 0);
         assert!(!output.code.contains("const $ = _c(0);"));
     }
 
@@ -12120,6 +12204,20 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert!(!output.metadata.placeholder_runtime_callee_reused);
         assert!(output.metadata.placeholder_runtime_callee_generated);
+        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_callee_candidate_count_before_transform,
+            0
+        );
+        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 0);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count_before_transform,
+            0
+        );
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
@@ -12764,9 +12862,17 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_callee_name=none"));
         assert!(debug.contains("placeholder_runtime_callee_name_before_transform=none"));
         assert!(debug.contains("placeholder_runtime_callee_candidates="));
+        assert!(debug.contains("placeholder_runtime_callee_candidate_count=0"));
         assert!(debug.contains("placeholder_runtime_callee_candidates_before_transform="));
+        assert!(debug.contains(
+            "placeholder_runtime_callee_candidate_count_before_transform=0"
+        ));
         assert!(debug.contains("placeholder_runtime_namespace_candidates="));
+        assert!(debug.contains("placeholder_runtime_namespace_candidate_count=0"));
         assert!(debug.contains("placeholder_runtime_namespace_candidates_before_transform="));
+        assert!(debug.contains(
+            "placeholder_runtime_namespace_candidate_count_before_transform=0"
+        ));
         assert!(debug.contains("name=Component kind=Component"));
         assert!(debug.contains("name=useThing kind=Hook"));
     }
@@ -12808,6 +12914,14 @@ mod tests {
         assert!(debug.contains("placeholder_transformed_functions=Component"));
         assert!(debug.contains("placeholder_runtime_callee_name=_c"));
         assert!(debug.contains("placeholder_runtime_callee_name_before_transform=none"));
+        assert!(debug.contains("placeholder_runtime_callee_candidate_count=1"));
+        assert!(debug.contains(
+            "placeholder_runtime_callee_candidate_count_before_transform=0"
+        ));
+        assert!(debug.contains("placeholder_runtime_namespace_candidate_count=0"));
+        assert!(debug.contains(
+            "placeholder_runtime_namespace_candidate_count_before_transform=0"
+        ));
         assert!(debug.contains("name=Component kind=Component"));
     }
 }

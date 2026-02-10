@@ -91,6 +91,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_helper_import_added).toBe(false);
       expect(result.placeholder_runtime_callee_reused).toBe(false);
       expect(result.placeholder_runtime_callee_generated).toBe(false);
+      expect(result.placeholder_runtime_callee_candidate_count).toBe(0);
+      expect(result.placeholder_runtime_callee_candidate_count_before_transform).toBe(
+        0,
+      );
+      expect(result.placeholder_runtime_namespace_candidate_count).toBe(0);
+      expect(
+        result.placeholder_runtime_namespace_candidate_count_before_transform,
+      ).toBe(0);
       expect(result.placeholder_transform_candidates).toEqual([]);
       expect(result.placeholder_transform_skipped_functions).toEqual([]);
       expect(result.placeholder_transform_candidate_count).toBe(0);
@@ -429,9 +437,17 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(
         result.placeholder_runtime_namespace_candidates_before_transform,
       ).toEqual([]);
+      expect(result.placeholder_runtime_callee_candidate_count_before_transform).toBe(
+        0,
+      );
+      expect(
+        result.placeholder_runtime_namespace_candidate_count_before_transform,
+      ).toBe(0);
       expect(result.placeholder_runtime_callee_name).toBe('_c');
       expect(result.placeholder_runtime_callee_candidates).toEqual(['_c']);
+      expect(result.placeholder_runtime_callee_candidate_count).toBe(1);
       expect(result.placeholder_runtime_namespace_candidates).toEqual([]);
+      expect(result.placeholder_runtime_namespace_candidate_count).toBe(0);
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
     }
@@ -458,8 +474,16 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_runtime_callee_candidates_before_transform).toEqual(
         ['cache'],
       );
+      expect(result.placeholder_runtime_callee_candidate_count_before_transform).toBe(
+        1,
+      );
       expect(result.placeholder_runtime_callee_name).toBe('cache');
       expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
+      expect(result.placeholder_runtime_callee_candidate_count).toBe(1);
+      expect(
+        result.placeholder_runtime_namespace_candidate_count_before_transform,
+      ).toBe(0);
+      expect(result.placeholder_runtime_namespace_candidate_count).toBe(0);
       expect(result.placeholder_runtime_callee_reused).toBe(true);
       expect(result.placeholder_runtime_callee_generated).toBe(false);
       expect(result.placeholder_transform_candidate_component_count).toBe(1);
@@ -1269,6 +1293,14 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         result.placeholder_runtime_helper_import_count_after_transform,
       ).toBe(0);
       expect(result.placeholder_runtime_helper_import_added).toBe(false);
+      expect(result.placeholder_runtime_callee_candidate_count_before_transform).toBe(
+        1,
+      );
+      expect(result.placeholder_runtime_callee_candidate_count).toBe(1);
+      expect(
+        result.placeholder_runtime_namespace_candidate_count_before_transform,
+      ).toBe(1);
+      expect(result.placeholder_runtime_namespace_candidate_count).toBe(1);
       expect(result.placeholder_runtime_callee_reused).toBe(true);
       expect(result.placeholder_runtime_callee_generated).toBe(false);
       expect(result.placeholder_transform_candidate_component_count).toBe(1);
@@ -7048,6 +7080,16 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       );
       expect(result.debug_ir).toContain('placeholder_runtime_callee_reused=false');
       expect(result.debug_ir).toContain('placeholder_runtime_callee_generated=false');
+      expect(result.debug_ir).toContain('placeholder_runtime_callee_candidate_count=0');
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_callee_candidate_count_before_transform=0',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_namespace_candidate_count=0',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_namespace_candidate_count_before_transform=0',
+      );
       expect(result.debug_ir).toContain('placeholder_transform_candidates=Component');
       expect(result.debug_ir).toContain(
         'placeholder_transform_skipped_functions=Component',
@@ -7099,6 +7141,16 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       );
       expect(result.debug_ir).toContain('placeholder_runtime_callee_reused=false');
       expect(result.debug_ir).toContain('placeholder_runtime_callee_generated=true');
+      expect(result.debug_ir).toContain('placeholder_runtime_callee_candidate_count=1');
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_callee_candidate_count_before_transform=0',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_namespace_candidate_count=0',
+      );
+      expect(result.debug_ir).toContain(
+        'placeholder_runtime_namespace_candidate_count_before_transform=0',
+      );
       expect(result.debug_ir).toContain('placeholder_transform_candidates=Component');
       expect(result.debug_ir).toContain('placeholder_transform_skipped_functions=');
       expect(result.debug_ir).toContain('placeholder_transform_candidate_count=1');
@@ -7306,23 +7358,50 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustRuntimeCalleeCandidatesDebug).toBeDefined();
     expect(rustRuntimeCalleeCandidatesDebug?.value).toBe('');
+    const rustRuntimeCalleeCandidateCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeCalleeCandidateCount',
+    );
+    expect(rustRuntimeCalleeCandidateCountDebug).toBeDefined();
+    expect(rustRuntimeCalleeCandidateCountDebug?.value).toBe('0');
     const rustRuntimeNamespaceCandidatesDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeNamespaceCandidates',
     );
     expect(rustRuntimeNamespaceCandidatesDebug).toBeDefined();
     expect(rustRuntimeNamespaceCandidatesDebug?.value).toBe('');
+    const rustRuntimeNamespaceCandidateCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeNamespaceCandidateCount',
+    );
+    expect(rustRuntimeNamespaceCandidateCountDebug).toBeDefined();
+    expect(rustRuntimeNamespaceCandidateCountDebug?.value).toBe('0');
     const rustRuntimeCalleeCandidatesBeforeTransformDebug = debugValues.find(
       value =>
         value.name === 'RustFrontendRuntimeCalleeCandidatesBeforeTransform',
     );
     expect(rustRuntimeCalleeCandidatesBeforeTransformDebug).toBeDefined();
     expect(rustRuntimeCalleeCandidatesBeforeTransformDebug?.value).toBe('');
+    const rustRuntimeCalleeCandidateCountBeforeTransformDebug = debugValues.find(
+      value =>
+        value.name ===
+        'RustFrontendRuntimeCalleeCandidateCountBeforeTransform',
+    );
+    expect(rustRuntimeCalleeCandidateCountBeforeTransformDebug).toBeDefined();
+    expect(rustRuntimeCalleeCandidateCountBeforeTransformDebug?.value).toBe('0');
     const rustRuntimeNamespaceCandidatesBeforeTransformDebug = debugValues.find(
       value =>
         value.name === 'RustFrontendRuntimeNamespaceCandidatesBeforeTransform',
     );
     expect(rustRuntimeNamespaceCandidatesBeforeTransformDebug).toBeDefined();
     expect(rustRuntimeNamespaceCandidatesBeforeTransformDebug?.value).toBe('');
+    const rustRuntimeNamespaceCandidateCountBeforeTransformDebug =
+      debugValues.find(
+        value =>
+          value.name ===
+          'RustFrontendRuntimeNamespaceCandidateCountBeforeTransform',
+      );
+    expect(rustRuntimeNamespaceCandidateCountBeforeTransformDebug).toBeDefined();
+    expect(rustRuntimeNamespaceCandidateCountBeforeTransformDebug?.value).toBe(
+      '0',
+    );
   });
 
   it('emits runtime callee debug telemetry in strict rust mode', () => {
@@ -7463,23 +7542,47 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(runtimeCalleeCandidatesDebug).toBeDefined();
     expect(runtimeCalleeCandidatesDebug?.value).toBe('');
+    const runtimeCalleeCandidateCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeCalleeCandidateCount',
+    );
+    expect(runtimeCalleeCandidateCountDebug).toBeDefined();
+    expect(runtimeCalleeCandidateCountDebug?.value).toBe('0');
     const runtimeNamespaceCandidatesDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeNamespaceCandidates',
     );
     expect(runtimeNamespaceCandidatesDebug).toBeDefined();
     expect(runtimeNamespaceCandidatesDebug?.value).toBe('');
+    const runtimeNamespaceCandidateCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeNamespaceCandidateCount',
+    );
+    expect(runtimeNamespaceCandidateCountDebug).toBeDefined();
+    expect(runtimeNamespaceCandidateCountDebug?.value).toBe('0');
     const runtimeCalleeCandidatesBeforeTransformDebug = debugValues.find(
       value =>
         value.name === 'RustFrontendRuntimeCalleeCandidatesBeforeTransform',
     );
     expect(runtimeCalleeCandidatesBeforeTransformDebug).toBeDefined();
     expect(runtimeCalleeCandidatesBeforeTransformDebug?.value).toBe('');
+    const runtimeCalleeCandidateCountBeforeTransformDebug = debugValues.find(
+      value =>
+        value.name ===
+        'RustFrontendRuntimeCalleeCandidateCountBeforeTransform',
+    );
+    expect(runtimeCalleeCandidateCountBeforeTransformDebug).toBeDefined();
+    expect(runtimeCalleeCandidateCountBeforeTransformDebug?.value).toBe('0');
     const runtimeNamespaceCandidatesBeforeTransformDebug = debugValues.find(
       value =>
         value.name === 'RustFrontendRuntimeNamespaceCandidatesBeforeTransform',
     );
     expect(runtimeNamespaceCandidatesBeforeTransformDebug).toBeDefined();
     expect(runtimeNamespaceCandidatesBeforeTransformDebug?.value).toBe('');
+    const runtimeNamespaceCandidateCountBeforeTransformDebug = debugValues.find(
+      value =>
+        value.name ===
+        'RustFrontendRuntimeNamespaceCandidateCountBeforeTransform',
+    );
+    expect(runtimeNamespaceCandidateCountBeforeTransformDebug).toBeDefined();
+    expect(runtimeNamespaceCandidateCountBeforeTransformDebug?.value).toBe('0');
   });
 
   it('strict rust mode matches babel output for default export components', () => {
