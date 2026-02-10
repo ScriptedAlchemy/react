@@ -1785,6 +1785,14 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
                         &mut runtime_callee_bindings,
                         false,
                     );
+                } else if let Decl::Using(using_decl) = &export_decl.decl {
+                    for declarator in &using_decl.decls {
+                        collect_runtime_bindings_from_script_declarator(
+                            declarator,
+                            &mut runtime_namespace_bindings,
+                            &mut runtime_callee_bindings,
+                        );
+                    }
                 }
             }
             ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(default_decl)) => {
@@ -1820,6 +1828,15 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
                     &mut runtime_callee_bindings,
                     false,
                 );
+            }
+            ModuleItem::Stmt(Stmt::Decl(Decl::Using(using_decl))) => {
+                for declarator in &using_decl.decls {
+                    collect_runtime_bindings_from_script_declarator(
+                        declarator,
+                        &mut runtime_namespace_bindings,
+                        &mut runtime_callee_bindings,
+                    );
+                }
             }
             ModuleItem::Stmt(Stmt::Expr(expr_stmt)) => {
                 collect_runtime_bindings_from_script_assignment_expr(
@@ -1904,6 +1921,15 @@ fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMemoCalleeScan
                     &mut runtime_callee_bindings,
                     false,
                 );
+            }
+            Stmt::Decl(Decl::Using(using_decl)) => {
+                for declarator in &using_decl.decls {
+                    collect_runtime_bindings_from_script_declarator(
+                        declarator,
+                        &mut runtime_namespace_bindings,
+                        &mut runtime_callee_bindings,
+                    );
+                }
             }
             Stmt::Expr(expr_stmt) => collect_runtime_bindings_from_script_assignment_expr(
                 expr_stmt.expr.as_ref(),
@@ -3646,6 +3672,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_top_level_using_declaration_in_module() {
+        let output = compile(
+            "using cache = require('react/compiler-runtime').c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_class_computed_key_assignment_in_module() {
         let output = compile(
             "let cache; class RuntimeCarrier { [cache = require('react/compiler-runtime').c](){} } export function Component(){ return <div />; }",
@@ -4194,6 +4237,26 @@ mod tests {
     fn falls_back_to_import_when_module_runtime_alias_is_mutated_via_top_level_for_in_pattern() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; const source = {}; for (cache in source) { break; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_after_top_level_using_declaration(
+    ) {
+        let output = compile(
+            "using cache = require('react/compiler-runtime').c; cache = unknown; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -4796,6 +4859,24 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_alias_from_top_level_using_declaration() {
+        let output = compile(
+            "using cache = require('react/compiler-runtime').c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_alias_from_class_static_do_while_assignment() {
         let output = compile(
             "let cache; class RuntimeCarrier { static { do { cache = require('react/compiler-runtime').c; } while (false); } } function Component(){ return <div />; }",
@@ -5258,6 +5339,26 @@ mod tests {
     ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; const source = {}; for (cache in source) { break; } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_reassigned_after_top_level_using_declaration(
+    ) {
+        let output = compile(
+            "using cache = require('react/compiler-runtime').c; cache = unknown; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
