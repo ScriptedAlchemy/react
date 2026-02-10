@@ -413,6 +413,18 @@ fn span_to_location(cm: &Lrc<SourceMap>, span: Span) -> Option<SourceLocation> {
 fn unwrap_expression(expr: &Expr) -> &Expr {
     match expr {
         Expr::Paren(paren_expr) => unwrap_expression(paren_expr.expr.as_ref()),
+        Expr::TsAs(ts_as_expr) => unwrap_expression(ts_as_expr.expr.as_ref()),
+        Expr::TsTypeAssertion(ts_type_assertion) => {
+            unwrap_expression(ts_type_assertion.expr.as_ref())
+        }
+        Expr::TsConstAssertion(ts_const_assertion) => {
+            unwrap_expression(ts_const_assertion.expr.as_ref())
+        }
+        Expr::TsNonNull(ts_non_null_expr) => unwrap_expression(ts_non_null_expr.expr.as_ref()),
+        Expr::TsSatisfies(ts_satisfies_expr) => unwrap_expression(ts_satisfies_expr.expr.as_ref()),
+        Expr::TsInstantiation(ts_instantiation_expr) => {
+            unwrap_expression(ts_instantiation_expr.expr.as_ref())
+        }
         _ => expr,
     }
 }
@@ -420,6 +432,20 @@ fn unwrap_expression(expr: &Expr) -> &Expr {
 fn unwrap_expression_mut(expr: &mut Expr) -> &mut Expr {
     match expr {
         Expr::Paren(paren_expr) => unwrap_expression_mut(paren_expr.expr.as_mut()),
+        Expr::TsAs(ts_as_expr) => unwrap_expression_mut(ts_as_expr.expr.as_mut()),
+        Expr::TsTypeAssertion(ts_type_assertion) => {
+            unwrap_expression_mut(ts_type_assertion.expr.as_mut())
+        }
+        Expr::TsConstAssertion(ts_const_assertion) => {
+            unwrap_expression_mut(ts_const_assertion.expr.as_mut())
+        }
+        Expr::TsNonNull(ts_non_null_expr) => unwrap_expression_mut(ts_non_null_expr.expr.as_mut()),
+        Expr::TsSatisfies(ts_satisfies_expr) => {
+            unwrap_expression_mut(ts_satisfies_expr.expr.as_mut())
+        }
+        Expr::TsInstantiation(ts_instantiation_expr) => {
+            unwrap_expression_mut(ts_instantiation_expr.expr.as_mut())
+        }
         _ => expr,
     }
 }
@@ -1312,6 +1338,27 @@ mod tests {
     }
 
     #[test]
+    fn transforms_typescript_asserted_export_default_arrow_component() {
+        let output = compile(
+            "export default ((() => <div />) as any);",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.tsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(
+            output.metadata.react_functions[0].name,
+            super::DEFAULT_EXPORT_COMPONENT_NAME
+        );
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn does_not_duplicate_existing_placeholder_memo_stmt() {
         let output = compile(
             "import { c as _c } from 'react/compiler-runtime'; export function Component(){ const $ = _c(0); return <div />; }",
@@ -1394,6 +1441,24 @@ mod tests {
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid source to parse");
+
+        assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "Component");
+    }
+
+    #[test]
+    fn detects_react_function_from_typescript_asserted_variable_declarator() {
+        let output = compile(
+            "const Component = (() => <div />) as any;",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.tsx".to_string(),
                 is_module: false,
                 ..CompilerOptions::default()
             },

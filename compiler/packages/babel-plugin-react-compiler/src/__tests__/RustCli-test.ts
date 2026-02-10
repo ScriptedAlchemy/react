@@ -207,6 +207,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('transforms TypeScript-asserted default export arrow components in Rust CLI mode', () => {
+    const result = runRustCompilerCli({
+      source: 'export default ((() => <div />) as any);',
+      dialect: 'typescript',
+      filename: 'fixture.tsx',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('__default_export_component__');
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
   it('can request debug IR output from Rust CLI', () => {
     const result = runRustCompilerCli({
       source: 'function Component() { return <div />; }',
