@@ -41,6 +41,17 @@ yarn workspace snap run snap parity \
 - `--ignore-logs` (default: `true`): ignore logger output differences
 - `--skip-build` (default: `false`): reuse existing build outputs
 
+## Rust CLI bridge execution
+
+The Babel plugin Rust bridge resolves the compiler CLI command in this order:
+
+1. `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path),
+2. existing debug binary (`compiler/rust/target/debug/react_compiler_cli`),
+3. `cargo +stable run --manifest-path ... -p react_compiler_cli`.
+
+For repeated local parity runs, setting `REACT_COMPILER_RUST_CLI_BIN` to a prebuilt
+binary avoids repeated Cargo invocation overhead.
+
 ## Report shape
 
 Parity JSON includes:
