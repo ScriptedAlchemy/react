@@ -1285,6 +1285,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustPlaceholderDebug).toBeDefined();
     expect(rustPlaceholderDebug?.value).toBe('');
+    const rustRuntimeCalleeDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeCallee',
+    );
+    expect(rustRuntimeCalleeDebug).toBeDefined();
+    expect(rustRuntimeCalleeDebug?.value).toBe('');
   });
 
   it('strict rust mode matches babel output for default export components', () => {
