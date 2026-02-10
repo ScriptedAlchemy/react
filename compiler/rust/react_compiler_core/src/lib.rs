@@ -8,11 +8,11 @@ use swc_ecma_ast::{
     MemberExpr, MemberProp, Module, ModuleDecl, ModuleExportName, ModuleItem, Number, Pat, Prop,
     PropName, PropOrSpread, Script, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind, VarDeclarator,
 };
-use swc_ecma_codegen::{text_writer::JsWriter, Config as CodegenConfig, Emitter};
 use swc_ecma_parser::{
     lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax,
 };
 mod error;
+mod emit;
 mod model;
 mod parse;
 
@@ -21,6 +21,7 @@ pub use model::{
     render_react_functions_debug, CompileOutput, CompilerOptions, InputDialect, ParseMetadata,
     ReactFunction, ReactFunctionKind, SourceLocation, DEFAULT_EXPORT_COMPONENT_NAME,
 };
+use emit::{emit_module, emit_script};
 use parse::parse_syntax_error_reason;
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
@@ -373,56 +374,6 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     };
 
     Ok(CompileOutput { code, metadata })
-}
-
-fn emit_module(
-    cm: &Lrc<SourceMap>,
-    comments: &SingleThreadedComments,
-    module: &Module,
-) -> Result<String, CompilerError> {
-    let mut output = vec![];
-    {
-        let writer = JsWriter::new(cm.clone(), "\n", &mut output, None);
-        let mut emitter = Emitter {
-            cfg: CodegenConfig::default(),
-            comments: Some(comments),
-            cm: cm.clone(),
-            wr: writer,
-        };
-        emitter
-            .emit_module(module)
-            .map_err(|err| CompilerError::CodegenFailure {
-                message: err.to_string(),
-            })?;
-    }
-    String::from_utf8(output).map_err(|err| CompilerError::CodegenFailure {
-        message: err.to_string(),
-    })
-}
-
-fn emit_script(
-    cm: &Lrc<SourceMap>,
-    comments: &SingleThreadedComments,
-    script: &Script,
-) -> Result<String, CompilerError> {
-    let mut output = vec![];
-    {
-        let writer = JsWriter::new(cm.clone(), "\n", &mut output, None);
-        let mut emitter = Emitter {
-            cfg: CodegenConfig::default(),
-            comments: Some(comments),
-            cm: cm.clone(),
-            wr: writer,
-        };
-        emitter
-            .emit_script(script)
-            .map_err(|err| CompilerError::CodegenFailure {
-                message: err.to_string(),
-            })?;
-    }
-    String::from_utf8(output).map_err(|err| CompilerError::CodegenFailure {
-        message: err.to_string(),
-    })
 }
 
 fn is_component_name(name: &str) -> bool {
