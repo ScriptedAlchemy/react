@@ -941,6 +941,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('reuses module runtime aliases from TypeScript export-assignment expressions for placeholder transforms', () => {
+    const result = runRustCompilerCli({
+      source:
+        "let cache; export = (cache = require('react/compiler-runtime').c); function Component() { return null; }",
+      dialect: 'typescript',
+      filename: 'fixture.ts',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = cache(0);');
+      expect(result.code).not.toContain('import { c as _c }');
+    }
+  });
+
   it('falls back to generated module runtime import when runtime alias is conditionally assigned in class static blocks', () => {
     const result = runRustCompilerCli({
       source:
@@ -1542,6 +1561,26 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         "let cache = require('react/compiler-runtime').c; export default (cache = unknown); export function Component() { return <div />; }",
       dialect: 'javascript',
       filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('import { c as _c }');
+      expect(result.code).toContain('const $ = _c(0);');
+      expect(result.code).not.toContain('const $ = cache(0);');
+    }
+  });
+
+  it('falls back to generated module runtime import when runtime alias is reassigned in TypeScript export assignments', () => {
+    const result = runRustCompilerCli({
+      source:
+        "let cache = require('react/compiler-runtime').c; export = (cache = unknown); function Component() { return null; }",
+      dialect: 'typescript',
+      filename: 'fixture.ts',
       is_module: true,
       apply_placeholder_transforms: true,
     });

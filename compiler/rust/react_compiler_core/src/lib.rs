@@ -1812,6 +1812,13 @@ fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan
                     &mut runtime_callee_bindings,
                 );
             }
+            ModuleItem::ModuleDecl(ModuleDecl::TsExportAssignment(export_assignment)) => {
+                collect_runtime_bindings_from_script_assignment_expr(
+                    export_assignment.expr.as_ref(),
+                    &mut runtime_namespace_bindings,
+                    &mut runtime_callee_bindings,
+                );
+            }
             ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl))) => {
                 for declarator in &var_decl.decls {
                     collect_runtime_bindings_from_script_declarator(
@@ -3840,6 +3847,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_from_ts_export_assignment_in_module() {
+        let output = compile(
+            "let cache; export = (cache = require('react/compiler-runtime').c); function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_conditionally_assigned_in_class_static_block(
     ) {
         let output = compile(
@@ -4458,6 +4482,25 @@ mod tests {
             },
         )
         .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_ts_export_assignment() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; export = (cache = unknown); function Component(){ return null; }",
+            &CompilerOptions {
+                dialect: InputDialect::TypeScript,
+                filename: "fixture.ts".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid TypeScript to parse");
 
         assert!(output
             .code
