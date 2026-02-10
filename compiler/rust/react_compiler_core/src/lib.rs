@@ -1026,13 +1026,16 @@ fn fixture_entrypoint_fn_name_from_object_literal(
         let PropOrSpread::Prop(prop) = prop_or_spread else {
             return None;
         };
-        let Prop::KeyValue(key_value) = prop.as_ref() else {
-            return None;
-        };
-        if !is_fn_property_name(&key_value.key) {
-            return None;
+        match prop.as_ref() {
+            Prop::KeyValue(key_value) => {
+                if !is_fn_property_name(&key_value.key) {
+                    return None;
+                }
+                function_name_from_expr(key_value.value.as_ref())
+            }
+            Prop::Shorthand(ident) if ident.sym == *"fn" => Some(ident.sym.to_string()),
+            _ => None,
         }
-        function_name_from_expr(key_value.value.as_ref())
     })
 }
 
@@ -1698,6 +1701,26 @@ mod tests {
     fn detects_fixture_entrypoint_function_from_computed_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { ['fn']: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_shorthand_object_key() {
+        let output = compile(
+            "function component(){ return 1; } const fn = component; export const FIXTURE_ENTRYPOINT = { fn, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
