@@ -94,10 +94,6 @@ impl CompilerError {
 }
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
-    if options.dialect == InputDialect::Flow {
-        return Err(CompilerError::UnsupportedFlowSyntax);
-    }
-
     let cm: Lrc<SourceMap> = Default::default();
     let handler = Handler::with_emitter_writer(Box::new(std::io::stderr()), Some(cm.clone()));
     let fm = cm.new_source_file(
@@ -125,7 +121,18 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             no_early_errors: true,
             disallow_ambiguous_jsx_like: false,
         }),
-        InputDialect::Flow => unreachable!(),
+        InputDialect::Flow => Syntax::Es(EsSyntax {
+            jsx: true,
+            fn_bind: true,
+            decorators: true,
+            decorators_before_export: true,
+            export_default_from: true,
+            import_attributes: true,
+            allow_super_outside_method: true,
+            allow_return_outside_function: true,
+            auto_accessors: true,
+            explicit_resource_management: true,
+        }),
     };
 
     let comments = SingleThreadedComments::default();
@@ -141,7 +148,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let mut module = parser.parse_module().map_err(|err| {
             let message = err.kind().msg().to_string();
             err.into_diagnostic(&handler).emit();
-            CompilerError::ParseFailure { message }
+            if options.dialect == InputDialect::Flow {
+                CompilerError::UnsupportedFlowSyntax
+            } else {
+                CompilerError::ParseFailure { message }
+            }
         })?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
         let metadata = ParseMetadata {
@@ -157,7 +168,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let script = parser.parse_script().map_err(|err| {
             let message = err.kind().msg().to_string();
             err.into_diagnostic(&handler).emit();
-            CompilerError::ParseFailure { message }
+            if options.dialect == InputDialect::Flow {
+                CompilerError::UnsupportedFlowSyntax
+            } else {
+                CompilerError::ParseFailure { message }
+            }
         })?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
         let metadata = ParseMetadata {
@@ -1061,6 +1076,23 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
         assert!(!output.code.contains("react/compiler-runtime"));
+    }
+
+    #[test]
+    fn parses_flow_dialect_when_file_uses_only_javascript_syntax() {
+        let output = compile(
+            "/* @flow */\nfunction Component() { return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::Flow,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("flow dialect should support plain JavaScript source");
+
+        assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "Component");
     }
 
     #[test]

@@ -101,6 +101,21 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('accepts flow dialect when source uses plain JavaScript syntax', () => {
+    const result = runRustCompilerCli({
+      source: '/* @flow */\nfunction Component() { return <div />; }',
+      dialect: 'flow',
+      filename: 'fixture.js',
+      is_module: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('Component');
+    }
+  });
+
   it('can request placeholder transforms explicitly from Rust CLI', () => {
     const result = runRustCompilerCli({
       source: 'export function Component() { return <div />; }',

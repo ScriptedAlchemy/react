@@ -127,9 +127,6 @@ function maybeRunRustProgramCompiler(
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
-  if (dialect === 'flow') {
-    return;
-  }
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
@@ -158,25 +155,32 @@ function maybeRunRustProgramCompiler(
   if (!strictRustEngine || rustResult.code === sourceCode) {
     return;
   }
-  const parsed = parseProgramFromRustOutput(
-    rustResult.code,
-    pass.filename ?? null,
-    dialect,
-    sourceType,
-  );
-  stripTypeOnlyUnsupportedExpressions(parsed);
-  const canonicalSource = canonicalizeProgramForComparison(
-    sourceCode,
-    pass.filename ?? null,
-    dialect,
-    sourceType,
-  );
-  const canonicalRustOutput = canonicalizeProgramForComparison(
-    rustResult.code,
-    pass.filename ?? null,
-    dialect,
-    sourceType,
-  );
+  let parsed: BabelParser.ParseResult<t.File>;
+  let canonicalSource: string;
+  let canonicalRustOutput: string;
+  try {
+    parsed = parseProgramFromRustOutput(
+      rustResult.code,
+      pass.filename ?? null,
+      dialect,
+      sourceType,
+    );
+    stripTypeOnlyUnsupportedExpressions(parsed);
+    canonicalSource = canonicalizeProgramForComparison(
+      sourceCode,
+      pass.filename ?? null,
+      dialect,
+      sourceType,
+    );
+    canonicalRustOutput = canonicalizeProgramForComparison(
+      rustResult.code,
+      pass.filename ?? null,
+      dialect,
+      sourceType,
+    );
+  } catch {
+    return;
+  }
   if (canonicalSource === canonicalRustOutput) {
     return;
   }
