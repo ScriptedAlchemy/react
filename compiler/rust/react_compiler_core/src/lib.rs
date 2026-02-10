@@ -69,6 +69,8 @@ pub struct ReactFunction {
     pub loc: Option<SourceLocation>,
 }
 
+const DEFAULT_EXPORT_COMPONENT_NAME: &str = "__default_export_component__";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompileOutput {
     pub code: String,
@@ -414,7 +416,7 @@ fn collect_react_functions_in_decl(cm: &Lrc<SourceMap>, decl: &Decl) -> Vec<Reac
             .map(|kind| ReactFunction {
                 name: fn_decl.ident.sym.to_string(),
                 kind,
-                loc: span_to_location(cm, fn_decl.ident.span),
+                loc: span_to_location(cm, fn_decl.function.span),
             })
             .into_iter()
             .collect(),
@@ -425,19 +427,21 @@ fn collect_react_functions_in_decl(cm: &Lrc<SourceMap>, decl: &Decl) -> Vec<Reac
                 let Pat::Ident(binding) = &declarator.name else {
                     return None;
                 };
-                let is_function_value = declarator
-                    .init
-                    .as_ref()
-                    .map(|expr| matches!(&**expr, Expr::Fn(_) | Expr::Arrow(_)))
-                    .unwrap_or(false);
-                if !is_function_value {
+                let function_span = match declarator.init.as_deref() {
+                    Some(Expr::Fn(fn_expr)) => Some(fn_expr.function.span),
+                    Some(Expr::Arrow(arrow_expr)) => Some(arrow_expr.span),
+                    _ => None,
+                };
+                if function_span.is_none() {
                     return None;
                 }
 
                 react_function_kind(binding.id.sym.as_ref()).map(|kind| ReactFunction {
                     name: binding.id.sym.to_string(),
                     kind,
-                    loc: span_to_location(cm, binding.id.span),
+                    loc: function_span
+                        .and_then(|span| span_to_location(cm, span))
+                        .or_else(|| span_to_location(cm, binding.id.span)),
                 })
             })
             .collect(),
@@ -463,20 +467,26 @@ fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Ve
                     collect_react_functions_in_decl(cm, &export_decl.decl)
                 }
                 ModuleDecl::ExportDefaultDecl(default_decl) => match &default_decl.decl {
-                    DefaultDecl::Fn(fn_expr) => fn_expr
-                        .ident
-                        .as_ref()
-                        .and_then(|ident| {
-                            react_function_kind(ident.sym.as_ref()).map(|kind| ReactFunction {
+                    DefaultDecl::Fn(fn_expr) => match fn_expr.ident.as_ref() {
+                        Some(ident) => react_function_kind(ident.sym.as_ref())
+                            .map(|kind| ReactFunction {
                                 name: ident.sym.to_string(),
                                 kind,
-                                loc: span_to_location(cm, ident.span),
+                                loc: span_to_location(cm, fn_expr.function.span),
                             })
-                        })
-                        .into_iter()
-                        .collect(),
+                            .into_iter()
+                            .collect(),
+                        None => vec![ReactFunction {
+                            name: DEFAULT_EXPORT_COMPONENT_NAME.to_string(),
+                            kind: ReactFunctionKind::Component,
+                            loc: span_to_location(cm, fn_expr.function.span),
+                        }],
+                    },
                     _ => Vec::new(),
                 },
+                ModuleDecl::ExportDefaultExpr(default_expr) => {
+                    collect_react_functions_from_default_export_expr(cm, default_expr)
+                }
                 _ => Vec::new(),
             },
         })
@@ -501,6 +511,35 @@ fn collect_react_functions_in_script(cm: &Lrc<SourceMap>, script: &Script) -> Ve
         .collect();
     sort_react_functions(&mut functions);
     functions
+}
+
+fn collect_react_functions_from_default_export_expr(
+    cm: &Lrc<SourceMap>,
+    default_expr: &swc_ecma_ast::ExportDefaultExpr,
+) -> Vec<ReactFunction> {
+    match default_expr.expr.as_ref() {
+        Expr::Fn(fn_expr) => match fn_expr.ident.as_ref() {
+            Some(ident) => react_function_kind(ident.sym.as_ref())
+                .map(|kind| ReactFunction {
+                    name: ident.sym.to_string(),
+                    kind,
+                    loc: span_to_location(cm, fn_expr.function.span),
+                })
+                .into_iter()
+                .collect(),
+            None => vec![ReactFunction {
+                name: DEFAULT_EXPORT_COMPONENT_NAME.to_string(),
+                kind: ReactFunctionKind::Component,
+                loc: span_to_location(cm, fn_expr.function.span),
+            }],
+        },
+        Expr::Arrow(arrow_expr) => vec![ReactFunction {
+            name: DEFAULT_EXPORT_COMPONENT_NAME.to_string(),
+            kind: ReactFunctionKind::Component,
+            loc: span_to_location(cm, arrow_expr.span),
+        }],
+        _ => Vec::new(),
+    }
 }
 
 fn merge_react_functions(
@@ -647,7 +686,7 @@ fn collect_named_functions_in_module(
                         .map(|ident| ReactFunction {
                             name: ident.sym.to_string(),
                             kind: ReactFunctionKind::Component,
-                            loc: span_to_location(cm, ident.span),
+                            loc: span_to_location(cm, fn_expr.function.span),
                         })
                         .into_iter()
                         .collect(),
@@ -681,7 +720,7 @@ fn collect_named_functions_in_decl(
                 vec![ReactFunction {
                     name: fn_decl.ident.sym.to_string(),
                     kind: ReactFunctionKind::Component,
-                    loc: span_to_location(cm, fn_decl.ident.span),
+                    loc: span_to_location(cm, fn_decl.function.span),
                 }]
             } else {
                 Vec::new()
@@ -697,18 +736,20 @@ fn collect_named_functions_in_decl(
                 if !target_names.contains(binding.id.sym.as_ref()) {
                     return None;
                 }
-                let is_function_value = declarator
-                    .init
-                    .as_ref()
-                    .map(|expr| matches!(&**expr, Expr::Fn(_) | Expr::Arrow(_)))
-                    .unwrap_or(false);
-                if !is_function_value {
+                let function_span = match declarator.init.as_deref() {
+                    Some(Expr::Fn(fn_expr)) => Some(fn_expr.function.span),
+                    Some(Expr::Arrow(arrow_expr)) => Some(arrow_expr.span),
+                    _ => None,
+                };
+                if function_span.is_none() {
                     return None;
                 }
                 Some(ReactFunction {
                     name: binding.id.sym.to_string(),
                     kind: ReactFunctionKind::Component,
-                    loc: span_to_location(cm, binding.id.span),
+                    loc: function_span
+                        .and_then(|span| span_to_location(cm, span))
+                        .or_else(|| span_to_location(cm, binding.id.span)),
                 })
             })
             .collect(),
@@ -717,13 +758,16 @@ fn collect_named_functions_in_decl(
 }
 
 fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions: &[ReactFunction]) {
+    let should_transform_default_export = react_functions
+        .iter()
+        .any(|function| function.name == DEFAULT_EXPORT_COMPONENT_NAME);
     let transform_candidate_names: HashSet<&str> = react_functions
         .iter()
         .filter_map(|function| {
             react_function_kind(function.name.as_str()).map(|_| function.name.as_str())
         })
         .collect();
-    if transform_candidate_names.is_empty() {
+    if transform_candidate_names.is_empty() && !should_transform_default_export {
         return;
     }
 
@@ -750,6 +794,7 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
                     module_decl,
                     &transform_candidate_names,
                     runtime_callee_name.as_str(),
+                    should_transform_default_export,
                 ) {
                     transformed = true;
                 }
@@ -769,6 +814,7 @@ fn apply_placeholder_compilation_to_module_decl(
     module_decl: &mut ModuleDecl,
     react_function_names: &HashSet<&str>,
     runtime_callee_name: &str,
+    should_transform_default_export: bool,
 ) -> bool {
     match module_decl {
         ModuleDecl::ExportDecl(export_decl) => apply_placeholder_compilation_to_decl(
@@ -778,10 +824,12 @@ fn apply_placeholder_compilation_to_module_decl(
         ),
         ModuleDecl::ExportDefaultDecl(default_decl) => match &mut default_decl.decl {
             DefaultDecl::Fn(fn_expr) => {
-                let Some(ident) = fn_expr.ident.as_ref() else {
-                    return false;
-                };
-                if !react_function_names.contains(ident.sym.as_ref()) {
+                let should_transform = fn_expr
+                    .ident
+                    .as_ref()
+                    .map(|ident| react_function_names.contains(ident.sym.as_ref()))
+                    .unwrap_or(should_transform_default_export);
+                if !should_transform {
                     return false;
                 }
                 inject_placeholder_memo_init_into_function(
@@ -792,6 +840,28 @@ fn apply_placeholder_compilation_to_module_decl(
             }
             _ => false,
         },
+        ModuleDecl::ExportDefaultExpr(default_expr) => {
+            if !should_transform_default_export {
+                return false;
+            }
+            match default_expr.expr.as_mut() {
+                Expr::Fn(fn_expr) => {
+                    inject_placeholder_memo_init_into_function(
+                        &mut fn_expr.function,
+                        runtime_callee_name,
+                    );
+                    true
+                }
+                Expr::Arrow(arrow_expr) => {
+                    inject_placeholder_memo_init_into_arrow_function(
+                        arrow_expr,
+                        runtime_callee_name,
+                    );
+                    true
+                }
+                _ => false,
+            }
+        }
         _ => false,
     }
 }
@@ -1160,6 +1230,48 @@ mod tests {
         )
         .expect("expected valid JavaScript to parse");
 
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_export_default_anonymous_component() {
+        let output = compile(
+            "export default function (){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(
+            output.metadata.react_functions[0].name,
+            super::DEFAULT_EXPORT_COMPONENT_NAME
+        );
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_export_default_arrow_component() {
+        let output = compile(
+            "export default () => <div />;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(
+            output.metadata.react_functions[0].name,
+            super::DEFAULT_EXPORT_COMPONENT_NAME
+        );
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
