@@ -302,6 +302,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('resolves fixture entrypoint assigned function-expression bindings with component names', () => {
+    const result = runRustCompilerCli({
+      source:
+        'let component; component = () => 1; export const FIXTURE_ENTRYPOINT = { fn: component, params: [] };',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('component');
+    }
+  });
+
   it('can request placeholder transforms explicitly from Rust CLI', () => {
     const result = runRustCompilerCli({
       source: 'export function Component() { return <div />; }',
@@ -449,6 +467,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.detected_react_functions).toBe(1);
       expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.react_functions[0]?.name).toBe('alias');
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
+  it('transforms assigned function-expression named default export specifiers in Rust CLI mode', () => {
+    const result = runRustCompilerCli({
+      source: 'let component; component = () => <div />; export {component as default};',
+      dialect: 'javascript',
+      filename: 'fixture.jsx',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('component');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
     }

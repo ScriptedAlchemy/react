@@ -1839,6 +1839,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_assigned_function_expression_with_matching_name() {
+        let output = compile(
+            "let component; component = () => 1; export const FIXTURE_ENTRYPOINT = { fn: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_import_alias() {
         let output = compile(
             "import { c as cache } from 'react/compiler-runtime'; export function Component(){ return <div />; }",
@@ -2051,6 +2071,25 @@ mod tests {
     }
 
     #[test]
+    fn transforms_function_referenced_by_assigned_function_expression_default_export_with_component_name(
+    ) {
+        let output = compile(
+            "let component; component = () => <div />; export default component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn transforms_function_referenced_by_multi_aliased_default_export_identifier() {
         let output = compile(
             "function component(){ return <div />; } const aliasA = component; const aliasB = aliasA; export default aliasB;",
@@ -2072,6 +2111,25 @@ mod tests {
     fn transforms_function_referenced_by_named_default_export_specifier() {
         let output = compile(
             "function component(){ return <div />; } export {component as default};",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_function_referenced_by_assigned_function_expression_named_default_export_specifier(
+    ) {
+        let output = compile(
+            "let component; component = () => <div />; export {component as default};",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.jsx".to_string(),
