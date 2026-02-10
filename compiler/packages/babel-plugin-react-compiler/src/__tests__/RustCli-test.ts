@@ -7331,6 +7331,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustPlaceholderDebug).toBeDefined();
     expect(rustPlaceholderDebug?.value).toBe('');
+    const rustProtocolVersionDebug = debugValues.find(
+      value => value.name === 'RustFrontendProtocolVersion',
+    );
+    expect(rustProtocolVersionDebug).toBeDefined();
+    expect(rustProtocolVersionDebug?.value).toBe('1');
     const rustStatementCountDebug = debugValues.find(
       value => value.name === 'RustFrontendStatementCount',
     );
@@ -7539,6 +7544,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(placeholderDebug).toBeDefined();
     expect(placeholderDebug?.value).toBe('');
+    const protocolVersionDebug = debugValues.find(
+      value => value.name === 'RustFrontendProtocolVersion',
+    );
+    expect(protocolVersionDebug).toBeDefined();
+    expect(protocolVersionDebug?.value).toBe('1');
     const statementCountDebug = debugValues.find(
       value => value.name === 'RustFrontendStatementCount',
     );

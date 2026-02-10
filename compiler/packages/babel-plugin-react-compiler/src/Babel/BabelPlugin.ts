@@ -262,6 +262,14 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendProtocolVersion',
+    value:
+      rustResult.protocol_version != null
+        ? String(rustResult.protocol_version)
+        : '',
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendStatementCount',
     value: String(rustResult.statement_count),
   });

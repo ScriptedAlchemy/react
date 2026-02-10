@@ -876,6 +876,33 @@ mod tests {
     }
 
     #[test]
+    fn compile_request_accepts_supported_protocol_version() {
+        let response = handle_request(CompileRequest {
+            source: "export const value = 1;".to_string(),
+            filename: None,
+            dialect: Some("javascript".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: None,
+            emit_debug_ir: None,
+            protocol_version: Some(CLI_PROTOCOL_VERSION),
+        });
+
+        match response {
+            CompileResponse::Ok {
+                protocol_version,
+                statement_count,
+                ..
+            } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
+                assert_eq!(statement_count, 1);
+            }
+            CompileResponse::Error { message, .. } => {
+                panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
+
+    #[test]
     fn compile_request_rejects_unsupported_protocol_version() {
         let response = handle_request(CompileRequest {
             source: "export const value = 1;".to_string(),
