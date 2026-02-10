@@ -2577,9 +2577,296 @@ fn collect_runtime_bindings_from_static_block(
     runtime_callee_bindings: &mut HashSet<String>,
     may_be_conditional: bool,
 ) {
-    for stmt in &static_block.body.stmts {
-        collect_runtime_bindings_from_static_block_stmt(
-            stmt,
+    collect_runtime_bindings_from_static_block_stmts(
+        &static_block.body.stmts,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        may_be_conditional,
+    );
+}
+
+fn with_shadowed_runtime_bindings<F>(
+    shadowed_bindings: &[String],
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    scan: F,
+) where
+    F: FnOnce(&mut HashSet<String>, &mut HashSet<String>),
+{
+    let mut snapshots: Vec<(String, bool, bool)> = Vec::new();
+    for binding_name in shadowed_bindings {
+        let was_runtime_namespace = runtime_namespace_bindings.remove(binding_name.as_str());
+        let was_runtime_callee = runtime_callee_bindings.remove(binding_name.as_str());
+        snapshots.push((
+            binding_name.clone(),
+            was_runtime_namespace,
+            was_runtime_callee,
+        ));
+    }
+
+    scan(runtime_namespace_bindings, runtime_callee_bindings);
+
+    for (binding_name, was_runtime_namespace, was_runtime_callee) in snapshots {
+        runtime_namespace_bindings.remove(binding_name.as_str());
+        runtime_callee_bindings.remove(binding_name.as_str());
+        if was_runtime_namespace {
+            runtime_namespace_bindings.insert(binding_name.clone());
+        }
+        if was_runtime_callee {
+            runtime_callee_bindings.insert(binding_name);
+        }
+    }
+}
+
+fn collect_declared_binding_names_from_stmts(stmts: &[Stmt]) -> Vec<String> {
+    let mut names = Vec::new();
+    for stmt in stmts {
+        collect_declared_binding_names_from_stmt(stmt, &mut names);
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn collect_declared_binding_names_from_stmt(stmt: &Stmt, names: &mut Vec<String>) {
+    match stmt {
+        Stmt::Decl(Decl::Var(var_decl)) => {
+            for declarator in &var_decl.decls {
+                collect_binding_names_from_pat_into(&declarator.name, names);
+            }
+        }
+        Stmt::Decl(Decl::Using(using_decl)) => {
+            for declarator in &using_decl.decls {
+                collect_binding_names_from_pat_into(&declarator.name, names);
+            }
+        }
+        Stmt::Decl(Decl::Class(class_decl)) => names.push(class_decl.ident.sym.to_string()),
+        Stmt::Decl(Decl::Fn(fn_decl)) => names.push(fn_decl.ident.sym.to_string()),
+        _ => {}
+    }
+}
+
+fn collect_runtime_bindings_from_static_block_stmts(
+    stmts: &[Stmt],
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    let shadowed_bindings = collect_declared_binding_names_from_stmts(stmts);
+    with_shadowed_runtime_bindings(
+        &shadowed_bindings,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        |runtime_namespace_bindings, runtime_callee_bindings| {
+            for stmt in stmts {
+                collect_runtime_bindings_from_static_block_stmt(
+                    stmt,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
+            }
+        },
+    );
+}
+
+fn for_init_declared_binding_names(for_stmt: &swc_ecma_ast::ForStmt) -> Vec<String> {
+    let mut names = Vec::new();
+    if let Some(swc_ecma_ast::VarDeclOrExpr::VarDecl(var_decl)) = &for_stmt.init {
+        for declarator in &var_decl.decls {
+            collect_binding_names_from_pat_into(&declarator.name, &mut names);
+        }
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn for_head_declared_binding_names(for_head: &swc_ecma_ast::ForHead) -> Vec<String> {
+    let mut names = Vec::new();
+    match for_head {
+        swc_ecma_ast::ForHead::VarDecl(var_decl) => {
+            for declarator in &var_decl.decls {
+                collect_binding_names_from_pat_into(&declarator.name, &mut names);
+            }
+        }
+        swc_ecma_ast::ForHead::UsingDecl(using_decl) => {
+            for declarator in &using_decl.decls {
+                collect_binding_names_from_pat_into(&declarator.name, &mut names);
+            }
+        }
+        swc_ecma_ast::ForHead::Pat(_) => {}
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn catch_param_declared_binding_names(catch_clause: &swc_ecma_ast::CatchClause) -> Vec<String> {
+    let mut names = Vec::new();
+    if let Some(param) = &catch_clause.param {
+        collect_binding_names_from_pat_into(param, &mut names);
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn collect_runtime_bindings_from_for_stmt(
+    for_stmt: &swc_ecma_ast::ForStmt,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    let shadowed_bindings = for_init_declared_binding_names(for_stmt);
+    with_shadowed_runtime_bindings(
+        &shadowed_bindings,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        |runtime_namespace_bindings, runtime_callee_bindings| {
+            if let Some(init) = &for_stmt.init {
+                match init {
+                    swc_ecma_ast::VarDeclOrExpr::VarDecl(var_decl) => {
+                        collect_runtime_bindings_from_var_decl_in_static_block(
+                            var_decl,
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
+                    }
+                    swc_ecma_ast::VarDeclOrExpr::Expr(expr) => {
+                        collect_runtime_bindings_from_expression(
+                            expr.as_ref(),
+                            runtime_namespace_bindings,
+                            runtime_callee_bindings,
+                            may_be_conditional,
+                        );
+                    }
+                }
+            }
+            if let Some(test) = &for_stmt.test {
+                collect_runtime_bindings_from_expression(
+                    test.as_ref(),
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    may_be_conditional,
+                );
+            }
+            if let Some(update) = &for_stmt.update {
+                collect_runtime_bindings_from_expression(
+                    update.as_ref(),
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    true,
+                );
+            }
+            collect_runtime_bindings_from_static_block_stmt(
+                for_stmt.body.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                true,
+            );
+        },
+    );
+}
+
+fn collect_runtime_bindings_from_for_in_stmt(
+    for_in_stmt: &swc_ecma_ast::ForInStmt,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    let shadowed_bindings = for_head_declared_binding_names(&for_in_stmt.left);
+    with_shadowed_runtime_bindings(
+        &shadowed_bindings,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        |runtime_namespace_bindings, runtime_callee_bindings| {
+            collect_runtime_bindings_from_expression(
+                for_in_stmt.right.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+            clear_runtime_bindings_for_for_head(
+                &for_in_stmt.left,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+            collect_runtime_bindings_from_static_block_stmt(
+                for_in_stmt.body.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                true,
+            );
+        },
+    );
+}
+
+fn collect_runtime_bindings_from_for_of_stmt(
+    for_of_stmt: &swc_ecma_ast::ForOfStmt,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    let shadowed_bindings = for_head_declared_binding_names(&for_of_stmt.left);
+    with_shadowed_runtime_bindings(
+        &shadowed_bindings,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        |runtime_namespace_bindings, runtime_callee_bindings| {
+            collect_runtime_bindings_from_expression(
+                for_of_stmt.right.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            );
+            clear_runtime_bindings_for_for_head(
+                &for_of_stmt.left,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+            collect_runtime_bindings_from_static_block_stmt(
+                for_of_stmt.body.as_ref(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                true,
+            );
+        },
+    );
+}
+
+fn collect_runtime_bindings_from_try_stmt(
+    try_stmt: &swc_ecma_ast::TryStmt,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+    may_be_conditional: bool,
+) {
+    collect_runtime_bindings_from_static_block_stmts(
+        &try_stmt.block.stmts,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+        may_be_conditional,
+    );
+    if let Some(handler) = &try_stmt.handler {
+        let shadowed_bindings = catch_param_declared_binding_names(handler);
+        with_shadowed_runtime_bindings(
+            &shadowed_bindings,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            |runtime_namespace_bindings, runtime_callee_bindings| {
+                collect_runtime_bindings_from_static_block_stmts(
+                    &handler.body.stmts,
+                    runtime_namespace_bindings,
+                    runtime_callee_bindings,
+                    true,
+                );
+            },
+        );
+    }
+    if let Some(finalizer) = &try_stmt.finalizer {
+        collect_runtime_bindings_from_static_block_stmts(
+            &finalizer.stmts,
             runtime_namespace_bindings,
             runtime_callee_bindings,
             may_be_conditional,
@@ -2647,97 +2934,31 @@ fn collect_runtime_bindings_from_static_block_stmt(
             }
         }
         Stmt::Block(block_stmt) => {
-            for stmt in &block_stmt.stmts {
-                collect_runtime_bindings_from_static_block_stmt(
-                    stmt,
-                    runtime_namespace_bindings,
-                    runtime_callee_bindings,
-                    may_be_conditional,
-                );
-            }
-        }
-        Stmt::For(for_stmt) => {
-            if let Some(init) = &for_stmt.init {
-                match init {
-                    swc_ecma_ast::VarDeclOrExpr::VarDecl(var_decl) => {
-                        collect_runtime_bindings_from_var_decl_in_static_block(
-                            var_decl,
-                            runtime_namespace_bindings,
-                            runtime_callee_bindings,
-                            may_be_conditional,
-                        );
-                    }
-                    swc_ecma_ast::VarDeclOrExpr::Expr(expr) => {
-                        collect_runtime_bindings_from_expression(
-                            expr.as_ref(),
-                            runtime_namespace_bindings,
-                            runtime_callee_bindings,
-                            may_be_conditional,
-                        );
-                    }
-                }
-            }
-            if let Some(test) = &for_stmt.test {
-                collect_runtime_bindings_from_expression(
-                    test.as_ref(),
-                    runtime_namespace_bindings,
-                    runtime_callee_bindings,
-                    may_be_conditional,
-                );
-            }
-            if let Some(update) = &for_stmt.update {
-                collect_runtime_bindings_from_expression(
-                    update.as_ref(),
-                    runtime_namespace_bindings,
-                    runtime_callee_bindings,
-                    true,
-                );
-            }
-            collect_runtime_bindings_from_static_block_stmt(
-                for_stmt.body.as_ref(),
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-                true,
-            );
-        }
-        Stmt::ForIn(for_in_stmt) => {
-            collect_runtime_bindings_from_expression(
-                for_in_stmt.right.as_ref(),
+            collect_runtime_bindings_from_static_block_stmts(
+                &block_stmt.stmts,
                 runtime_namespace_bindings,
                 runtime_callee_bindings,
                 may_be_conditional,
             );
-            clear_runtime_bindings_for_for_head(
-                &for_in_stmt.left,
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-            );
-            collect_runtime_bindings_from_static_block_stmt(
-                for_in_stmt.body.as_ref(),
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-                true,
-            );
         }
-        Stmt::ForOf(for_of_stmt) => {
-            collect_runtime_bindings_from_expression(
-                for_of_stmt.right.as_ref(),
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-                may_be_conditional,
-            );
-            clear_runtime_bindings_for_for_head(
-                &for_of_stmt.left,
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-            );
-            collect_runtime_bindings_from_static_block_stmt(
-                for_of_stmt.body.as_ref(),
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-                true,
-            );
-        }
+        Stmt::For(for_stmt) => collect_runtime_bindings_from_for_stmt(
+            for_stmt,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        Stmt::ForIn(for_in_stmt) => collect_runtime_bindings_from_for_in_stmt(
+            for_in_stmt,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        Stmt::ForOf(for_of_stmt) => collect_runtime_bindings_from_for_of_stmt(
+            for_of_stmt,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
         Stmt::While(while_stmt) => {
             collect_runtime_bindings_from_expression(
                 while_stmt.test.as_ref(),
@@ -2792,36 +3013,12 @@ fn collect_runtime_bindings_from_static_block_stmt(
                 }
             }
         }
-        Stmt::Try(try_stmt) => {
-            for stmt in &try_stmt.block.stmts {
-                collect_runtime_bindings_from_static_block_stmt(
-                    stmt,
-                    runtime_namespace_bindings,
-                    runtime_callee_bindings,
-                    may_be_conditional,
-                );
-            }
-            if let Some(handler) = &try_stmt.handler {
-                for stmt in &handler.body.stmts {
-                    collect_runtime_bindings_from_static_block_stmt(
-                        stmt,
-                        runtime_namespace_bindings,
-                        runtime_callee_bindings,
-                        true,
-                    );
-                }
-            }
-            if let Some(finalizer) = &try_stmt.finalizer {
-                for stmt in &finalizer.stmts {
-                    collect_runtime_bindings_from_static_block_stmt(
-                        stmt,
-                        runtime_namespace_bindings,
-                        runtime_callee_bindings,
-                        may_be_conditional,
-                    );
-                }
-            }
-        }
+        Stmt::Try(try_stmt) => collect_runtime_bindings_from_try_stmt(
+            try_stmt,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
         Stmt::Throw(throw_stmt) => collect_runtime_bindings_from_expression(
             throw_stmt.arg.as_ref(),
             runtime_namespace_bindings,
@@ -3696,6 +3893,54 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_when_top_level_block_decl_shadows_alias_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; { let cache; cache = unknown; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_class_static_block_decl_shadows_alias_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; class RuntimeCarrier { static { let cache; cache = unknown; } } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_top_level_catch_param_shadows_alias_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; try { throw 0; } catch (cache) { cache = unknown; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_class_computed_key_assignment_in_module() {
         let output = compile(
             "let cache; class RuntimeCarrier { [cache = require('react/compiler-runtime').c](){} } export function Component(){ return <div />; }",
@@ -4294,6 +4539,55 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_top_level_block_decl_shadows_alias_mutation_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; { let cache; cache = unknown; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_class_static_block_decl_shadows_alias_mutation_in_module()
+    {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; class RuntimeCarrier { static { let cache; cache = unknown; } } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_when_top_level_catch_param_shadows_alias_mutation_in_module() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; try { throw 0; } catch (cache) { cache = unknown; } export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
     }
 
     #[test]
@@ -4905,6 +5199,60 @@ mod tests {
     fn transforms_script_component_with_runtime_alias_from_top_level_using_declaration() {
         let output = compile(
             "using cache = require('react/compiler-runtime').c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_when_top_level_block_decl_shadows_runtime_alias_mutation() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; { let cache; cache = unknown; } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_when_class_static_block_decl_shadows_runtime_alias_mutation() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; class RuntimeCarrier { static { let cache; cache = unknown; } } function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_when_top_level_catch_param_shadows_runtime_alias_mutation() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; try { throw 0; } catch (cache) { cache = unknown; } function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
