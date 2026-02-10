@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use swc_common::{
-    comments::SingleThreadedComments, errors::Handler, sync::Lrc, FileName, SourceMap, Span,
-    Spanned, DUMMY_SP,
+    comments::SingleThreadedComments, sync::Lrc, FileName, SourceMap, Span, Spanned, DUMMY_SP,
 };
 use swc_ecma_ast::{
     BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, DefaultDecl, EsVersion, Expr,
@@ -117,7 +116,6 @@ impl CompilerError {
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
     let cm: Lrc<SourceMap> = Default::default();
-    let handler = Handler::with_emitter_writer(Box::new(std::io::stderr()), Some(cm.clone()));
     let fm = cm.new_source_file(
         FileName::Custom(options.filename.clone()).into(),
         source.to_string(),
@@ -170,7 +168,6 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let mut module = parser.parse_module().map_err(|err| {
             let message = err.kind().msg().to_string();
             let location = span_to_location(&cm, err.span());
-            err.into_diagnostic(&handler).emit();
             if options.dialect == InputDialect::Flow {
                 CompilerError::UnsupportedFlowSyntax
             } else {
@@ -191,7 +188,6 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let script = parser.parse_script().map_err(|err| {
             let message = err.kind().msg().to_string();
             let location = span_to_location(&cm, err.span());
-            err.into_diagnostic(&handler).emit();
             if options.dialect == InputDialect::Flow {
                 CompilerError::UnsupportedFlowSyntax
             } else {
@@ -1163,6 +1159,27 @@ mod tests {
         .expect_err("flow is not implemented yet");
 
         assert_eq!(err, CompilerError::UnsupportedFlowSyntax);
+    }
+
+    #[test]
+    fn parse_failures_include_source_location_metadata() {
+        let err = compile(
+            "const = 1;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "broken.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect_err("invalid JavaScript should fail parsing");
+
+        match err {
+            CompilerError::ParseFailure { location, .. } => {
+                assert!(location.is_some());
+            }
+            other => panic!("expected parse failure error, got {other:?}"),
+        }
     }
 
     #[test]
