@@ -108,7 +108,7 @@ impl CompilerError {
 
     pub fn reason(&self) -> &'static str {
         match self {
-            CompilerError::UnsupportedFlowSyntax { .. } => "unsupported_syntax",
+            CompilerError::UnsupportedFlowSyntax { .. } => "flow_syntax_not_supported",
             CompilerError::ParseFailure { reason, .. } => reason,
             CompilerError::CodegenFailure { .. } => "codegen_error",
         }

@@ -117,7 +117,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'error') {
       expect(result.code).toBe('unsupported_flow_syntax');
       expect(result.category).toBe('syntax');
-      expect(result.reason).toBe('unsupported_syntax');
+      expect(result.reason).toBe('flow_syntax_not_supported');
       expect(result.severity).toBe('error');
     }
   });
