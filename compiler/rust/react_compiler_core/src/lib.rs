@@ -249,7 +249,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         };
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
-        let script = parser.parse_script().map_err(|err| {
+        let mut script = parser.parse_script().map_err(|err| {
             let message = err.kind().msg().to_string();
             let reason = parse_syntax_error_reason(err.kind());
             let location = span_to_location(&cm, err.span());
@@ -264,11 +264,16 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             }
         })?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
+        let transformed_count = if options.apply_placeholder_transforms {
+            apply_placeholder_compilation_to_script(&mut script, &react_functions)
+        } else {
+            0
+        };
         let metadata = ParseMetadata {
             statement_count: script.body.len(),
             detected_react_functions: react_functions.len(),
             react_functions,
-            placeholder_transforms_applied: 0,
+            placeholder_transforms_applied: transformed_count,
         };
         (metadata, emit_script(&cm, &comments, &script)?)
     };
@@ -1029,15 +1034,7 @@ fn member_expr_is_fixture_entrypoint_fn(member_expr: &MemberExpr) -> bool {
     if object_name != "FIXTURE_ENTRYPOINT" {
         return false;
     }
-    match &member_expr.prop {
-        MemberProp::Ident(ident_name) => ident_name.sym == *"fn",
-        MemberProp::Computed(computed_prop) => match unwrap_expression(computed_prop.expr.as_ref())
-        {
-            Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"fn",
-            _ => false,
-        },
-        _ => false,
-    }
+    is_member_prop_with(&member_expr.prop, "fn")
 }
 
 fn function_name_from_expr(expr: &Expr) -> Option<String> {
@@ -1069,11 +1066,27 @@ fn fixture_entrypoint_fn_name_from_object_literal(
 }
 
 fn is_fn_property_name(name: &PropName) -> bool {
+    is_prop_name_with(name, "fn")
+}
+
+fn is_prop_name_with(name: &PropName, expected: &str) -> bool {
     match name {
-        PropName::Ident(ident) => ident.sym == *"fn",
-        PropName::Str(str_lit) => str_lit.value == *"fn",
+        PropName::Ident(ident) => ident.sym == *expected,
+        PropName::Str(str_lit) => str_lit.value == *expected,
         PropName::Computed(computed) => match unwrap_expression(computed.expr.as_ref()) {
-            Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"fn",
+            Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *expected,
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn is_member_prop_with(prop: &MemberProp, expected: &str) -> bool {
+    match prop {
+        MemberProp::Ident(ident_name) => ident_name.sym == *expected,
+        MemberProp::Computed(computed_prop) => match unwrap_expression(computed_prop.expr.as_ref())
+        {
+            Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *expected,
             _ => false,
         },
         _ => false,
@@ -1260,6 +1273,34 @@ fn apply_placeholder_compilation_to_module(
     }
 
     transformed_count
+}
+
+fn apply_placeholder_compilation_to_script(
+    script: &mut Script,
+    react_functions: &[ReactFunction],
+) -> usize {
+    let transform_candidate_names: HashSet<String> = react_functions
+        .iter()
+        .filter_map(|function| {
+            react_function_kind(function.name.as_str()).map(|_| function.name.clone())
+        })
+        .collect();
+    if transform_candidate_names.is_empty() {
+        return 0;
+    }
+
+    let Some(runtime_callee_name) = runtime_memo_callee_name_in_script(script) else {
+        return 0;
+    };
+
+    script.body.iter_mut().fold(0, |count, stmt| {
+        count
+            + apply_placeholder_compilation_to_stmt(
+                stmt,
+                &transform_candidate_names,
+                runtime_callee_name.as_str(),
+            )
+    })
 }
 
 fn apply_placeholder_compilation_to_module_decl(
@@ -1637,6 +1678,91 @@ fn runtime_memo_callee_name_from_specifier(specifier: &ImportSpecifier) -> Optio
     Some(named.local.sym.to_string())
 }
 
+fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
+    script.body.iter().find_map(|stmt| {
+        let Stmt::Decl(Decl::Var(var_decl)) = stmt else {
+            return None;
+        };
+        var_decl
+            .decls
+            .iter()
+            .find_map(runtime_memo_callee_name_from_script_declarator)
+    })
+}
+
+fn runtime_memo_callee_name_from_script_declarator(declarator: &VarDeclarator) -> Option<String> {
+    let init = declarator.init.as_deref().map(unwrap_expression)?;
+    if is_require_runtime_call(init) {
+        let Pat::Object(object_pat) = &declarator.name else {
+            return None;
+        };
+        for prop in &object_pat.props {
+            match prop {
+                swc_ecma_ast::ObjectPatProp::KeyValue(key_value) => {
+                    if !is_prop_name_with(&key_value.key, "c") {
+                        continue;
+                    }
+                    if let Pat::Ident(binding) = key_value.value.as_ref() {
+                        return Some(binding.id.sym.to_string());
+                    }
+                }
+                swc_ecma_ast::ObjectPatProp::Assign(assign) if assign.key.id.sym == *"c" => {
+                    return Some(assign.key.id.sym.to_string());
+                }
+                _ => {}
+            }
+        }
+        return None;
+    }
+
+    let Pat::Ident(binding) = &declarator.name else {
+        return None;
+    };
+    if member_expr_is_require_runtime_c(init) {
+        return Some(binding.id.sym.to_string());
+    }
+    None
+}
+
+fn is_require_runtime_call(expr: &Expr) -> bool {
+    let Expr::Call(call_expr) = unwrap_expression(expr) else {
+        return false;
+    };
+    is_require_runtime_call_expr(call_expr)
+}
+
+fn is_require_runtime_call_expr(call_expr: &CallExpr) -> bool {
+    let Callee::Expr(callee_expr) = &call_expr.callee else {
+        return false;
+    };
+    let Expr::Ident(callee_ident) = unwrap_expression(callee_expr.as_ref()) else {
+        return false;
+    };
+    if callee_ident.sym != *"require" {
+        return false;
+    }
+    if call_expr.args.len() != 1 {
+        return false;
+    }
+    let Some(first_arg) = call_expr.args.first() else {
+        return false;
+    };
+    match unwrap_expression(first_arg.expr.as_ref()) {
+        Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"react/compiler-runtime",
+        _ => false,
+    }
+}
+
+fn member_expr_is_require_runtime_c(expr: &Expr) -> bool {
+    let Expr::Member(member_expr) = unwrap_expression(expr) else {
+        return false;
+    };
+    if !is_member_prop_with(&member_expr.prop, "c") {
+        return false;
+    }
+    is_require_runtime_call(member_expr.obj.as_ref())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -1903,6 +2029,60 @@ mod tests {
         assert!(output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("import { c as _c }"));
         assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_destructure_alias() {
+        let output = compile(
+            "const { c: cache } = require('react/compiler-runtime'); function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_member_alias() {
+        let output = compile(
+            "const cache = require('react/compiler-runtime').c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_without_runtime_binding() {
+        let output = compile(
+            "function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = _c(0);"));
     }
 
     #[test]
