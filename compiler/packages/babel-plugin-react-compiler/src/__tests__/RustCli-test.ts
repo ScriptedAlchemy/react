@@ -158,6 +158,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('resolves fixture entrypoint aliases to underlying function bindings', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function component() { return 1; } const alias = component; export const FIXTURE_ENTRYPOINT = { fn: alias, params: [] };',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('component');
+    }
+  });
+
   it('can request placeholder transforms explicitly from Rust CLI', () => {
     const result = runRustCompilerCli({
       source: 'export function Component() { return <div />; }',
@@ -255,6 +273,26 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const result = runRustCompilerCli({
       source:
         'function component() { return <div />; } const alias = component; export default alias;',
+      dialect: 'javascript',
+      filename: 'fixture.jsx',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('component');
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
+  it('transforms functions referenced by multi-aliased default export identifiers in Rust CLI mode', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function component() { return <div />; } const aliasA = component; const aliasB = aliasA; export default aliasB;',
       dialect: 'javascript',
       filename: 'fixture.jsx',
       is_module: true,

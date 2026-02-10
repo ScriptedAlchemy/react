@@ -507,6 +507,7 @@ fn collect_react_functions_in_stmt(cm: &Lrc<SourceMap>, stmt: &Stmt) -> Vec<Reac
 }
 
 fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Vec<ReactFunction> {
+    let bindings = collect_top_level_bindings(module);
     let mut functions: Vec<ReactFunction> = module
         .body
         .iter()
@@ -542,11 +543,13 @@ fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Ve
 
     let fixture_entrypoint_names = collect_fixture_entrypoint_function_names(module);
     if !fixture_entrypoint_names.is_empty() {
+        let resolved_fixture_entrypoint_names =
+            resolve_function_binding_names(&bindings, &fixture_entrypoint_names);
         let fixture_entrypoint_functions =
-            collect_named_functions_in_module(cm, module, &fixture_entrypoint_names);
+            collect_named_functions_in_module(cm, module, &resolved_fixture_entrypoint_names);
         functions = merge_react_functions(functions, fixture_entrypoint_functions);
     }
-    let default_export_function_names = collect_default_export_function_names(module);
+    let default_export_function_names = collect_default_export_function_names(module, &bindings);
     if !default_export_function_names.is_empty() {
         let default_export_functions =
             collect_named_functions_in_module(cm, module, &default_export_function_names);
@@ -740,8 +743,20 @@ fn resolve_function_binding_name(
     }
 }
 
-fn collect_default_export_function_names(module: &Module) -> HashSet<String> {
-    let bindings = collect_top_level_bindings(module);
+fn resolve_function_binding_names(
+    bindings: &HashMap<String, TopLevelBinding>,
+    names: &HashSet<String>,
+) -> HashSet<String> {
+    names
+        .iter()
+        .filter_map(|name| resolve_function_binding_name(bindings, name))
+        .collect()
+}
+
+fn collect_default_export_function_names(
+    module: &Module,
+    bindings: &HashMap<String, TopLevelBinding>,
+) -> HashSet<String> {
     module
         .body
         .iter()
@@ -791,7 +806,7 @@ fn collect_default_export_function_names(module: &Module) -> HashSet<String> {
                 _ => None,
             }
         })
-        .filter_map(|name| resolve_function_binding_name(&bindings, &name))
+        .filter_map(|name| resolve_function_binding_name(bindings, &name))
         .collect()
 }
 
@@ -963,6 +978,7 @@ fn apply_placeholder_compilation_to_module(
     module: &mut Module,
     react_functions: &[ReactFunction],
 ) -> usize {
+    let bindings = collect_top_level_bindings(module);
     let should_transform_default_export = module_has_default_export_component_candidate(module);
     let mut transform_candidate_names: HashSet<String> = react_functions
         .iter()
@@ -970,7 +986,7 @@ fn apply_placeholder_compilation_to_module(
             react_function_kind(function.name.as_str()).map(|_| function.name.clone())
         })
         .collect();
-    transform_candidate_names.extend(collect_default_export_function_names(module));
+    transform_candidate_names.extend(collect_default_export_function_names(module, &bindings));
     if transform_candidate_names.is_empty() && !should_transform_default_export {
         return 0;
     }
@@ -1412,6 +1428,27 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_referenced_via_alias() {
+        let output = compile(
+            "function component(){ return 1; } const alias = component; export const FIXTURE_ENTRYPOINT = { fn: alias, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+        assert!(!output.code.contains("react/compiler-runtime"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_import_alias() {
         let output = compile(
             "import { c as cache } from 'react/compiler-runtime'; export function Component(){ return <div />; }",
@@ -1573,6 +1610,24 @@ mod tests {
     fn transforms_function_referenced_by_aliased_default_export_identifier() {
         let output = compile(
             "function component(){ return <div />; } const alias = component; export default alias;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_function_referenced_by_multi_aliased_default_export_identifier() {
+        let output = compile(
+            "function component(){ return <div />; } const aliasA = component; const aliasB = aliasA; export default aliasB;",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.jsx".to_string(),
