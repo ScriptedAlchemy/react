@@ -3,10 +3,10 @@ use swc_common::{
     comments::SingleThreadedComments, sync::Lrc, FileName, SourceMap, Span, Spanned, DUMMY_SP,
 };
 use swc_ecma_ast::{
-    BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, DefaultDecl, EsVersion, Expr,
-    ExprOrSpread, Ident, ImportDecl, ImportNamedSpecifier, ImportSpecifier, Lit, Module,
-    ModuleDecl, ModuleExportName, ModuleItem, Number, Pat, Prop, PropName, PropOrSpread, Script,
-    Stmt, VarDecl, VarDeclKind, VarDeclarator,
+    AssignTarget, BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, DefaultDecl,
+    EsVersion, Expr, ExprOrSpread, Ident, ImportDecl, ImportNamedSpecifier, ImportSpecifier, Lit,
+    Module, ModuleDecl, ModuleExportName, ModuleItem, Number, Pat, Prop, PropName, PropOrSpread,
+    Script, SimpleAssignTarget, Stmt, VarDecl, VarDeclKind, VarDeclarator,
 };
 use swc_ecma_codegen::{text_writer::JsWriter, Config as CodegenConfig, Emitter};
 use swc_ecma_parser::{
@@ -677,9 +677,13 @@ fn collect_top_level_bindings(module: &Module) -> HashMap<String, TopLevelBindin
     let mut bindings = HashMap::new();
     for item in &module.body {
         match item {
-            ModuleItem::Stmt(Stmt::Decl(decl)) => {
-                record_top_level_bindings_from_decl(decl, &mut bindings)
-            }
+            ModuleItem::Stmt(stmt) => match stmt {
+                Stmt::Decl(decl) => record_top_level_bindings_from_decl(decl, &mut bindings),
+                Stmt::Expr(expr_stmt) => {
+                    record_top_level_bindings_from_expr(expr_stmt.expr.as_ref(), &mut bindings)
+                }
+                _ => {}
+            },
             ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
                 record_top_level_bindings_from_decl(&export_decl.decl, &mut bindings)
             }
@@ -720,6 +724,71 @@ fn record_top_level_bindings_from_decl(
             }
         }
         _ => {}
+    }
+}
+
+fn record_top_level_bindings_from_expr(
+    expr: &Expr,
+    bindings: &mut HashMap<String, TopLevelBinding>,
+) {
+    let Expr::Assign(assign_expr) = unwrap_expression(expr) else {
+        return;
+    };
+    if assign_expr.op != swc_ecma_ast::AssignOp::Assign {
+        return;
+    }
+    let Some(target_name) = assign_target_ident(&assign_expr.left) else {
+        return;
+    };
+    match unwrap_expression(assign_expr.right.as_ref()) {
+        Expr::Fn(_) | Expr::Arrow(_) => {
+            bindings.insert(target_name, TopLevelBinding::FunctionLike);
+        }
+        Expr::Ident(ident) => {
+            if matches!(
+                bindings.get(target_name.as_str()),
+                Some(TopLevelBinding::FunctionLike)
+            ) {
+                return;
+            }
+            bindings.insert(target_name, TopLevelBinding::Alias(ident.sym.to_string()));
+        }
+        _ => {}
+    }
+}
+
+fn assign_target_ident(target: &AssignTarget) -> Option<String> {
+    match target {
+        AssignTarget::Simple(simple) => simple_assign_target_ident(simple),
+        _ => None,
+    }
+}
+
+fn simple_assign_target_ident(target: &SimpleAssignTarget) -> Option<String> {
+    match target {
+        SimpleAssignTarget::Ident(binding) => Some(binding.id.sym.to_string()),
+        SimpleAssignTarget::Paren(paren_expr) => expression_ident(paren_expr.expr.as_ref()),
+        SimpleAssignTarget::TsAs(ts_as_expr) => expression_ident(ts_as_expr.expr.as_ref()),
+        SimpleAssignTarget::TsSatisfies(ts_satisfies_expr) => {
+            expression_ident(ts_satisfies_expr.expr.as_ref())
+        }
+        SimpleAssignTarget::TsNonNull(ts_non_null_expr) => {
+            expression_ident(ts_non_null_expr.expr.as_ref())
+        }
+        SimpleAssignTarget::TsTypeAssertion(ts_type_assertion) => {
+            expression_ident(ts_type_assertion.expr.as_ref())
+        }
+        SimpleAssignTarget::TsInstantiation(ts_instantiation) => {
+            expression_ident(ts_instantiation.expr.as_ref())
+        }
+        _ => None,
+    }
+}
+
+fn expression_ident(expr: &Expr) -> Option<String> {
+    match unwrap_expression(expr) {
+        Expr::Ident(ident) => Some(ident.sym.to_string()),
+        _ => None,
     }
 }
 
@@ -1449,6 +1518,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_referenced_via_assigned_alias() {
+        let output = compile(
+            "function component(){ return 1; } let alias; alias = component; export const FIXTURE_ENTRYPOINT = { fn: alias, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_import_alias() {
         let output = compile(
             "import { c as cache } from 'react/compiler-runtime'; export function Component(){ return <div />; }",
@@ -1610,6 +1699,24 @@ mod tests {
     fn transforms_function_referenced_by_aliased_default_export_identifier() {
         let output = compile(
             "function component(){ return <div />; } const alias = component; export default alias;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_function_referenced_by_assigned_default_export_identifier() {
+        let output = compile(
+            "function component(){ return <div />; } let alias; alias = component; export default alias;",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.jsx".to_string(),
