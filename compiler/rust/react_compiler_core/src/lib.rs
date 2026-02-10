@@ -1646,36 +1646,70 @@ fn make_runtime_import_decl() -> ImportDecl {
 }
 
 fn runtime_memo_callee_name(module: &Module) -> Option<String> {
-    module.body.iter().find_map(|item| {
-        let ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl)) = item else {
-            return None;
-        };
-        if import_decl.src.value != *"react/compiler-runtime" {
-            return None;
+    let mut runtime_namespace_bindings: HashSet<String> = HashSet::new();
+    let mut runtime_callee_bindings: HashSet<String> = HashSet::new();
+    for item in &module.body {
+        match item {
+            ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl)) => {
+                if import_decl.src.value != *"react/compiler-runtime" {
+                    continue;
+                }
+                collect_runtime_bindings_from_import_decl(
+                    import_decl,
+                    &mut runtime_namespace_bindings,
+                    &mut runtime_callee_bindings,
+                );
+            }
+            ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl))) => {
+                for declarator in &var_decl.decls {
+                    collect_runtime_bindings_from_script_declarator(
+                        declarator,
+                        &mut runtime_namespace_bindings,
+                        &mut runtime_callee_bindings,
+                    );
+                }
+            }
+            ModuleItem::Stmt(Stmt::Expr(expr_stmt)) => {
+                collect_runtime_bindings_from_script_assignment_expr(
+                    expr_stmt.expr.as_ref(),
+                    &mut runtime_namespace_bindings,
+                    &mut runtime_callee_bindings,
+                );
+            }
+            _ => {}
         }
-        import_decl
-            .specifiers
-            .iter()
-            .find_map(runtime_memo_callee_name_from_specifier)
-    })
+    }
+    select_runtime_callee_name(&runtime_callee_bindings)
 }
 
-fn runtime_memo_callee_name_from_specifier(specifier: &ImportSpecifier) -> Option<String> {
-    let ImportSpecifier::Named(named) = specifier else {
-        return None;
-    };
-    if named.is_type_only {
-        return None;
+fn collect_runtime_bindings_from_import_decl(
+    import_decl: &ImportDecl,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+) {
+    for specifier in &import_decl.specifiers {
+        match specifier {
+            ImportSpecifier::Named(named) => {
+                if named.is_type_only {
+                    continue;
+                }
+                let is_memo_runtime_import = named
+                    .imported
+                    .as_ref()
+                    .map(|imported| imported.atom() == &"c")
+                    .unwrap_or(named.local.sym == *"c");
+                if is_memo_runtime_import {
+                    runtime_callee_bindings.insert(named.local.sym.to_string());
+                }
+            }
+            ImportSpecifier::Namespace(namespace) => {
+                runtime_namespace_bindings.insert(namespace.local.sym.to_string());
+            }
+            ImportSpecifier::Default(default_import) => {
+                runtime_namespace_bindings.insert(default_import.local.sym.to_string());
+            }
+        }
     }
-    let is_memo_runtime_import = named
-        .imported
-        .as_ref()
-        .map(|imported| imported.atom() == &"c")
-        .unwrap_or(named.local.sym == *"c");
-    if !is_memo_runtime_import {
-        return None;
-    }
-    Some(named.local.sym.to_string())
 }
 
 fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
@@ -1700,7 +1734,11 @@ fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
             _ => {}
         }
     }
-    runtime_callee_bindings.into_iter().next()
+    select_runtime_callee_name(&runtime_callee_bindings)
+}
+
+fn select_runtime_callee_name(runtime_callee_bindings: &HashSet<String>) -> Option<String> {
+    runtime_callee_bindings.iter().min().cloned()
 }
 
 fn collect_runtime_bindings_from_script_declarator(
@@ -2129,6 +2167,40 @@ mod tests {
         .expect("expected valid JavaScript to parse");
 
         assert!(output.code.contains("c as cache"));
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_require_member_alias_in_module() {
+        let output = compile(
+            "const cache = require('react/compiler-runtime').c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_require_namespace_alias_in_module() {
+        let output = compile(
+            "const runtime = require('react/compiler-runtime'); const cache = runtime.c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
         assert!(output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("import { c as _c }"));
         assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
