@@ -116,6 +116,8 @@ function findObviousFlowTypeSyntaxMarker(
     /\binterface\s+[A-Za-z_$]/,
     /\bdeclare\s+(class|function|module|var|type|interface)\b/,
     /\btype\s+[A-Za-z_$][\w$]*\s*=/,
+    /\/\*::/,
+    /\/\/::/,
   ];
   let firstMatch: null | {index: number; length: number} = null;
   for (const pattern of flowTypeMarkers) {
