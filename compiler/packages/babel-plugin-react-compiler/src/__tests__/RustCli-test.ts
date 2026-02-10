@@ -808,6 +808,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('reuses module runtime aliases from nested class static-block assignments for placeholder transforms', () => {
+    const result = runRustCompilerCli({
+      source:
+        "let cache; class RuntimeCarrier { static { class Nested { static { cache = require('react/compiler-runtime').c; } } } } export function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = cache(0);');
+      expect(result.code).not.toContain('import { c as _c }');
+    }
+  });
+
   it('reuses module runtime aliases from export-default class static-block assignments for placeholder transforms', () => {
     const result = runRustCompilerCli({
       source:
@@ -1421,6 +1440,26 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('falls back to generated module runtime import when runtime alias is reassigned in nested class static blocks', () => {
+    const result = runRustCompilerCli({
+      source:
+        "let cache = require('react/compiler-runtime').c; class RuntimeCarrier { static { class Nested { static { cache = unknown; } } } } export function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('import { c as _c }');
+      expect(result.code).toContain('const $ = _c(0);');
+      expect(result.code).not.toContain('const $ = cache(0);');
+    }
+  });
+
   it('falls back to generated module runtime import when runtime alias is reassigned in object literals', () => {
     const result = runRustCompilerCli({
       source:
@@ -1827,6 +1866,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const result = runRustCompilerCli({
       source:
         "let cache = require('react/compiler-runtime').c; class RuntimeCarrier { static { while (cond) { cache = unknown; } } } function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.code).not.toContain('const $ = cache(0);');
+      expect(result.code).not.toContain('const $ = _c(0);');
+    }
+  });
+
+  it('does not transform script components when runtime alias is reassigned in nested class static blocks', () => {
+    const result = runRustCompilerCli({
+      source:
+        "let cache = require('react/compiler-runtime').c; class RuntimeCarrier { static { class Nested { static { cache = unknown; } } } } function Component() { return <div />; }",
       dialect: 'javascript',
       filename: 'fixture.js',
       is_module: false,
@@ -2252,6 +2310,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const result = runRustCompilerCli({
       source:
         "let cache; class RuntimeCarrier { static { do { cache = require('react/compiler-runtime').c; } while (false); } } function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = cache(0);');
+    }
+  });
+
+  it('transforms script components with runtime aliases from nested class static-block assignments', () => {
+    const result = runRustCompilerCli({
+      source:
+        "let cache; class RuntimeCarrier { static { class Nested { static { cache = require('react/compiler-runtime').c; } } } } function Component() { return <div />; }",
       dialect: 'javascript',
       filename: 'fixture.js',
       is_module: false,
