@@ -34,6 +34,7 @@ export type RustCompileResponse =
       placeholder_transforms_applied: number;
       placeholder_transformed_functions: Array<string>;
       placeholder_runtime_callee_name?: string;
+      placeholder_runtime_callee_candidates: Array<string>;
       react_functions: Array<{
         name: string;
         kind: 'Component' | 'Hook';

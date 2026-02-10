@@ -352,6 +352,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transforms_applied).toBeGreaterThan(0);
       expect(result.placeholder_transformed_functions).toEqual(['Component']);
       expect(result.placeholder_runtime_callee_name).toBe('_c');
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['_c']);
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
     }
@@ -373,6 +374,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.code).toContain('const $ = cache(0);');
       expect(result.placeholder_runtime_callee_name).toBe('cache');
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['cache']);
       expect(result.code).not.toContain('import { c as _c }');
     }
   });
@@ -1168,6 +1170,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.placeholder_transformed_functions).toEqual([]);
       expect(result.placeholder_runtime_callee_name).toBeUndefined();
+      expect(result.placeholder_runtime_callee_candidates).toEqual([]);
       expect(result.code).not.toContain('const $ = _c(0);');
     }
   });
@@ -1208,6 +1211,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
         '__default_export_component__',
       ]);
       expect(result.placeholder_runtime_callee_name).toBe('_c');
+      expect(result.placeholder_runtime_callee_candidates).toEqual(['_c']);
       expect(result.react_functions[0]?.name).toBe('__default_export_component__');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
@@ -1479,6 +1483,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustRuntimeCalleeDebug).toBeDefined();
     expect(rustRuntimeCalleeDebug?.value).toBe('');
+    const rustRuntimeCalleeCandidatesDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeCalleeCandidates',
+    );
+    expect(rustRuntimeCalleeCandidatesDebug).toBeDefined();
+    expect(rustRuntimeCalleeCandidatesDebug?.value).toBe('');
   });
 
   it('emits runtime callee debug telemetry in strict rust mode', () => {
@@ -1517,6 +1526,11 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(runtimeCalleeDebug).toBeDefined();
     expect(runtimeCalleeDebug?.value).toBe('');
+    const runtimeCalleeCandidatesDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeCalleeCandidates',
+    );
+    expect(runtimeCalleeCandidatesDebug).toBeDefined();
+    expect(runtimeCalleeCandidatesDebug?.value).toBe('');
   });
 
   it('strict rust mode matches babel output for default export components', () => {

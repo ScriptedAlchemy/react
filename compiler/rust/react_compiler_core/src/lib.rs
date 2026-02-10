@@ -49,6 +49,7 @@ pub struct ParseMetadata {
     pub placeholder_transforms_applied: usize,
     pub placeholder_transformed_functions: Vec<String>,
     pub placeholder_runtime_callee_name: Option<String>,
+    pub placeholder_runtime_callee_candidates: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +103,10 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
                 .placeholder_runtime_callee_name
                 .as_deref()
                 .unwrap_or("none")
+        ),
+        format!(
+            "placeholder_runtime_callee_candidates={}",
+            metadata.placeholder_runtime_callee_candidates.join(",")
         ),
     ];
     for (index, function) in metadata.react_functions.iter().enumerate() {
@@ -255,11 +260,16 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
-        let placeholder_runtime_callee_name = if transformed_count > 0 {
-            runtime_memo_callee_name(&module)
-        } else {
-            None
-        };
+        let (placeholder_runtime_callee_name, placeholder_runtime_callee_candidates) =
+            if transformed_count > 0 {
+                let runtime_scan = runtime_memo_callee_scan_for_module(&module);
+                (
+                    select_runtime_callee_name(&runtime_scan.runtime_callee_bindings),
+                    sorted_runtime_callee_candidates(&runtime_scan.runtime_callee_bindings),
+                )
+            } else {
+                (None, Vec::new())
+            };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
@@ -268,6 +278,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transforms_applied: transformed_count,
             placeholder_transformed_functions,
             placeholder_runtime_callee_name,
+            placeholder_runtime_callee_candidates,
         };
         (metadata, emit_module(&cm, &comments, &module)?)
     } else {
@@ -292,11 +303,16 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
-        let placeholder_runtime_callee_name = if transformed_count > 0 {
-            runtime_memo_callee_name_in_script(&script)
-        } else {
-            None
-        };
+        let (placeholder_runtime_callee_name, placeholder_runtime_callee_candidates) =
+            if transformed_count > 0 {
+                let runtime_scan = runtime_memo_callee_scan_for_script(&script);
+                (
+                    select_runtime_callee_name(&runtime_scan.runtime_callee_bindings),
+                    sorted_runtime_callee_candidates(&runtime_scan.runtime_callee_bindings),
+                )
+            } else {
+                (None, Vec::new())
+            };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
             statement_count: script.body.len(),
@@ -305,6 +321,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transforms_applied: transformed_count,
             placeholder_transformed_functions,
             placeholder_runtime_callee_name,
+            placeholder_runtime_callee_candidates,
         };
         (metadata, emit_script(&cm, &comments, &script)?)
     };
@@ -1690,7 +1707,11 @@ fn make_runtime_import_decl() -> ImportDecl {
     }
 }
 
-fn runtime_memo_callee_name(module: &Module) -> Option<String> {
+struct RuntimeMemoCalleeScan {
+    runtime_callee_bindings: HashSet<String>,
+}
+
+fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan {
     let mut runtime_namespace_bindings: HashSet<String> = HashSet::new();
     let mut runtime_callee_bindings: HashSet<String> = HashSet::new();
     for item in &module.body {
@@ -1735,7 +1756,14 @@ fn runtime_memo_callee_name(module: &Module) -> Option<String> {
             _ => {}
         }
     }
-    select_runtime_callee_name(&runtime_callee_bindings)
+    RuntimeMemoCalleeScan {
+        runtime_callee_bindings,
+    }
+}
+
+fn runtime_memo_callee_name(module: &Module) -> Option<String> {
+    let runtime_scan = runtime_memo_callee_scan_for_module(module);
+    select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
 }
 
 fn collect_runtime_bindings_from_import_decl(
@@ -1774,7 +1802,7 @@ fn collect_runtime_bindings_from_import_decl(
     }
 }
 
-fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
+fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMemoCalleeScan {
     let mut runtime_namespace_bindings: HashSet<String> = HashSet::new();
     let mut runtime_callee_bindings: HashSet<String> = HashSet::new();
     for stmt in &script.body {
@@ -1796,11 +1824,24 @@ fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
             _ => {}
         }
     }
-    select_runtime_callee_name(&runtime_callee_bindings)
+    RuntimeMemoCalleeScan {
+        runtime_callee_bindings,
+    }
+}
+
+fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
+    let runtime_scan = runtime_memo_callee_scan_for_script(script);
+    select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
 }
 
 fn select_runtime_callee_name(runtime_callee_bindings: &HashSet<String>) -> Option<String> {
     runtime_callee_bindings.iter().min().cloned()
+}
+
+fn sorted_runtime_callee_candidates(runtime_callee_bindings: &HashSet<String>) -> Vec<String> {
+    let mut candidates: Vec<String> = runtime_callee_bindings.iter().cloned().collect();
+    candidates.sort();
+    candidates
 }
 
 fn runtime_initializer_expr(expr: &Expr) -> &Expr {
@@ -2296,6 +2337,10 @@ mod tests {
         assert_eq!(
             output.metadata.placeholder_runtime_callee_name.as_deref(),
             Some("_c")
+        );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["_c".to_string()]
         );
         assert!(output
             .code
@@ -2951,6 +2996,10 @@ mod tests {
             output.metadata.placeholder_runtime_callee_name.as_deref(),
             Some("cache")
         );
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidates,
+            vec!["cache".to_string()]
+        );
         assert!(output.code.contains("const $ = cache(0);"));
     }
 
@@ -3341,6 +3390,10 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(output.metadata.placeholder_transformed_functions.is_empty());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
         assert!(!output.code.contains("const $ = _c(0);"));
     }
 
@@ -3978,6 +4031,7 @@ mod tests {
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
         assert!(debug.contains("placeholder_runtime_callee_name=none"));
+        assert!(debug.contains("placeholder_runtime_callee_candidates="));
         assert!(debug.contains("name=Component kind=Component"));
         assert!(debug.contains("name=useThing kind=Hook"));
     }

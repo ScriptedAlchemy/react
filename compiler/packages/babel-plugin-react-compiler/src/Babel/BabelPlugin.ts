@@ -265,6 +265,11 @@ function maybeRunRustProgramCompiler(
     name: 'RustFrontendRuntimeCallee',
     value: rustResult.placeholder_runtime_callee_name ?? '',
   });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendRuntimeCalleeCandidates',
+    value: rustResult.placeholder_runtime_callee_candidates.join(','),
+  });
   if (!strictRustEngine || rustResult.code === sourceCode) {
     return;
   }
