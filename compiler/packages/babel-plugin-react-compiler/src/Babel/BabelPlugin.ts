@@ -220,7 +220,19 @@ function maybeRunRustProgramCompiler(
   if (pass.filename != null) {
     rustRequest.filename = pass.filename;
   }
-  const rustResult = runRustCompilerCli(rustRequest);
+  let rustResult: ReturnType<typeof runRustCompilerCli>;
+  try {
+    rustResult = runRustCompilerCli(rustRequest);
+  } catch {
+    if (strictRustEngine) {
+      logStrictRustFrontendFallback(
+        logger,
+        filename,
+        'rust_frontend_invocation_failure',
+      );
+    }
+    return;
+  }
 
   if (rustResult.status === 'error') {
     if (

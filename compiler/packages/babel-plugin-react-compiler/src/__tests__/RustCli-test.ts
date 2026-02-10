@@ -7904,6 +7904,44 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('strict rust mode falls back when rust cli invocation fails', () => {
+    const source = 'export function Component() { return <div />; }';
+    const loggedEvents: Array<any> = [];
+    const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.tsx', 'typescript', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+          logger: {
+            logEvent(_filename, event) {
+              loggedEvents.push(event);
+            },
+          },
+        }),
+      ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.tsx',
+      'typescript',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+    const fallbackEvent = loggedEvents.find(
+      event =>
+        event.kind === 'CompileSkip' &&
+        event.reason === 'rust_frontend_invocation_failure',
+    );
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent?.loc).toBeNull();
+  });
+
   it('logs strict rust fallback location for recoverable flow frontend errors', () => {
     const loggedEvents: Array<unknown> = [];
     const source = [
