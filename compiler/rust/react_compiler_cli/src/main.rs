@@ -5,6 +5,8 @@ use react_compiler_core::{
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
+const CLI_PROTOCOL_VERSION: u32 = 1;
+
 #[derive(Debug, Deserialize)]
 struct CompileRequest {
     source: String,
@@ -13,6 +15,7 @@ struct CompileRequest {
     is_module: Option<bool>,
     apply_placeholder_transforms: Option<bool>,
     emit_debug_ir: Option<bool>,
+    protocol_version: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -20,6 +23,7 @@ struct CompileRequest {
 enum CompileResponse {
     #[serde(rename = "ok")]
     Ok {
+        protocol_version: u32,
         code: String,
         statement_count: usize,
         statement_count_after_transform: usize,
@@ -64,6 +68,7 @@ enum CompileResponse {
     },
     #[serde(rename = "error")]
     Error {
+        protocol_version: u32,
         code: String,
         category: String,
         reason: String,
@@ -98,10 +103,27 @@ fn parse_dialect(dialect: Option<&str>) -> Result<InputDialect, String> {
 }
 
 fn handle_request(request: CompileRequest) -> CompileResponse {
+    if let Some(requested_protocol_version) = request.protocol_version {
+        if requested_protocol_version != CLI_PROTOCOL_VERSION {
+            return CompileResponse::Error {
+                protocol_version: CLI_PROTOCOL_VERSION,
+                code: "unsupported_protocol_version".to_string(),
+                category: "request".to_string(),
+                reason: "invalid_option".to_string(),
+                severity: "error".to_string(),
+                message: format!(
+                    "Unsupported protocol_version: {requested_protocol_version}. This CLI supports protocol_version {CLI_PROTOCOL_VERSION}"
+                ),
+                location: None,
+            };
+        }
+    }
+
     let dialect = match parse_dialect(request.dialect.as_deref()) {
         Ok(dialect) => dialect,
         Err(message) => {
             return CompileResponse::Error {
+                protocol_version: CLI_PROTOCOL_VERSION,
                 code: "unsupported_dialect".to_string(),
                 category: "request".to_string(),
                 reason: "invalid_option".to_string(),
@@ -129,6 +151,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                 None
             };
             CompileResponse::Ok {
+                protocol_version: CLI_PROTOCOL_VERSION,
                 code: output.code,
                 statement_count: output.metadata.statement_count,
                 statement_count_after_transform: output.metadata.statement_count_after_transform,
@@ -241,6 +264,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
             }
         }
         Err(error) => CompileResponse::Error {
+            protocol_version: CLI_PROTOCOL_VERSION,
             code: error.code().to_string(),
             category: error.category().to_string(),
             reason: error.reason().to_string(),
@@ -288,6 +312,7 @@ fn main() {
     let response = match serde_json::from_str::<CompileRequest>(&input) {
         Ok(request) => handle_request(request),
         Err(error) => CompileResponse::Error {
+            protocol_version: CLI_PROTOCOL_VERSION,
             code: "invalid_request".to_string(),
             category: "request".to_string(),
             reason: "invalid_request".to_string(),
@@ -315,7 +340,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{handle_request, parse_dialect, CompileRequest, CompileResponse};
+    use super::{
+        handle_request, parse_dialect, CompileRequest, CompileResponse, CLI_PROTOCOL_VERSION,
+    };
     use react_compiler_core::InputDialect;
 
     #[test]
@@ -337,10 +364,12 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
             CompileResponse::Ok {
+                protocol_version,
                 statement_count,
                 statement_count_after_transform,
                 placeholder_runtime_helper_import_count_before_transform,
@@ -379,6 +408,7 @@ mod tests {
                 placeholder_runtime_namespace_candidate_count,
                 ..
             } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
                 assert_eq!(statement_count, 1);
                 assert_eq!(statement_count_after_transform, 1);
                 assert_eq!(placeholder_runtime_helper_import_count_before_transform, 0);
@@ -437,16 +467,19 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
             CompileResponse::Error {
+                protocol_version,
                 code,
                 category,
                 reason,
                 severity,
                 ..
             } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
                 assert_eq!(code, "unsupported_dialect");
                 assert_eq!(category, "request");
                 assert_eq!(reason, "invalid_option");
@@ -467,6 +500,7 @@ mod tests {
             is_module: Some(false),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
@@ -499,6 +533,7 @@ mod tests {
             is_module: Some(false),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
@@ -531,6 +566,7 @@ mod tests {
             is_module: Some(false),
             apply_placeholder_transforms: Some(false),
             emit_debug_ir: Some(true),
+            protocol_version: None,
         });
 
         match response {
@@ -610,6 +646,7 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: Some(true),
             emit_debug_ir: Some(true),
+            protocol_version: None,
         });
 
         match response {
@@ -669,6 +706,7 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: Some(true),
             emit_debug_ir: Some(false),
+            protocol_version: None,
         });
 
         match response {
@@ -770,6 +808,7 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: Some(true),
             emit_debug_ir: Some(false),
+            protocol_version: None,
         });
 
         match response {
@@ -832,6 +871,41 @@ mod tests {
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
+
+    #[test]
+    fn compile_request_rejects_unsupported_protocol_version() {
+        let response = handle_request(CompileRequest {
+            source: "export const value = 1;".to_string(),
+            filename: None,
+            dialect: Some("javascript".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: None,
+            emit_debug_ir: None,
+            protocol_version: Some(CLI_PROTOCOL_VERSION + 1),
+        });
+
+        match response {
+            CompileResponse::Error {
+                protocol_version,
+                code,
+                category,
+                reason,
+                severity,
+                message,
+                ..
+            } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
+                assert_eq!(code, "unsupported_protocol_version");
+                assert_eq!(category, "request");
+                assert_eq!(reason, "invalid_option");
+                assert_eq!(severity, "error");
+                assert!(message.contains("Unsupported protocol_version"));
+            }
+            CompileResponse::Ok { .. } => {
+                panic!("expected unsupported protocol version error")
             }
         }
     }

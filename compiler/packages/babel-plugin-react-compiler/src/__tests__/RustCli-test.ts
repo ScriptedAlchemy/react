@@ -80,6 +80,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
+      expect(result.protocol_version).toBe(1);
       expect(result.statement_count).toBe(1);
       expect(result.statement_count_after_transform).toBe(1);
       expect(
@@ -168,6 +169,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
 
     expect(result.status).toBe('error');
     if (result.status === 'error') {
+      expect(result.protocol_version).toBe(1);
       expect(result.code).toBe('unsupported_flow_syntax');
       expect(result.category).toBe('syntax');
       expect(result.reason).toBe('flow_syntax_not_supported');

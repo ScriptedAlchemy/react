@@ -9,6 +9,8 @@ import fs from 'fs';
 import path from 'path';
 import {spawnSync} from 'child_process';
 
+const RUST_CLI_PROTOCOL_VERSION = 1;
+
 export type RustCompileRequest = {
   source: string;
   filename?: string;
@@ -16,6 +18,7 @@ export type RustCompileRequest = {
   is_module?: boolean;
   apply_placeholder_transforms?: boolean;
   emit_debug_ir?: boolean;
+  protocol_version?: number;
 };
 
 type RustSourceLocation = {
@@ -28,6 +31,7 @@ type RustSourceLocation = {
 export type RustCompileResponse =
   | {
       status: 'ok';
+      protocol_version?: number;
       code: string;
       statement_count: number;
       statement_count_after_transform: number;
@@ -73,6 +77,7 @@ export type RustCompileResponse =
     }
   | {
       status: 'error';
+      protocol_version?: number;
       code: string;
       category: string;
       reason: string;
@@ -165,8 +170,13 @@ export function runRustCompilerCli(
 ): RustCompileResponse {
   const manifestPath = resolveRustManifestPath();
   const invocation = resolveRustCliInvocation(manifestPath);
+  const requestPayload: RustCompileRequest = {
+    ...request,
+    protocol_version:
+      request.protocol_version ?? RUST_CLI_PROTOCOL_VERSION,
+  };
   const result = spawnSync(invocation.command, invocation.args, {
-    input: JSON.stringify(request),
+    input: JSON.stringify(requestPayload),
     encoding: 'utf-8',
   });
 
@@ -180,5 +190,29 @@ export function runRustCompilerCli(
     throw new Error('Rust compiler CLI returned an empty response');
   }
 
-  return JSON.parse(result.stdout) as RustCompileResponse;
+  const response = JSON.parse(result.stdout) as RustCompileResponse;
+  assertCompatibleRustCliProtocolVersion(response);
+  return response;
+}
+
+function assertCompatibleRustCliProtocolVersion(
+  response: RustCompileResponse,
+): void {
+  const protocolVersion = (response as {protocol_version?: unknown})
+    .protocol_version;
+  if (protocolVersion == null) {
+    return;
+  }
+  if (!Number.isInteger(protocolVersion)) {
+    throw new Error(
+      `Rust compiler CLI returned non-integer protocol_version: ${String(
+        protocolVersion,
+      )}`,
+    );
+  }
+  if (protocolVersion !== RUST_CLI_PROTOCOL_VERSION) {
+    throw new Error(
+      `Rust compiler CLI protocol_version mismatch. Expected ${RUST_CLI_PROTOCOL_VERSION}, received ${protocolVersion}`,
+    );
+  }
 }
