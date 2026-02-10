@@ -225,6 +225,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('transforms functions referenced by default export identifiers in Rust CLI mode', () => {
+    const result = runRustCompilerCli({
+      source: 'function component() { return <div />; } export default component;',
+      dialect: 'javascript',
+      filename: 'fixture.jsx',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('component');
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
   it('can request debug IR output from Rust CLI', () => {
     const result = runRustCompilerCli({
       source: 'function Component() { return <div />; }',

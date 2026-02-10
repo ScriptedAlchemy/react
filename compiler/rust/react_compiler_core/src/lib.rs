@@ -508,14 +508,12 @@ fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Ve
                 }
                 ModuleDecl::ExportDefaultDecl(default_decl) => match &default_decl.decl {
                     DefaultDecl::Fn(fn_expr) => match fn_expr.ident.as_ref() {
-                        Some(ident) => react_function_kind(ident.sym.as_ref())
-                            .map(|kind| ReactFunction {
-                                name: ident.sym.to_string(),
-                                kind,
-                                loc: span_to_location(cm, fn_expr.function.span),
-                            })
-                            .into_iter()
-                            .collect(),
+                        Some(ident) => vec![ReactFunction {
+                            name: ident.sym.to_string(),
+                            kind: react_function_kind(ident.sym.as_ref())
+                                .unwrap_or(ReactFunctionKind::Component),
+                            loc: span_to_location(cm, fn_expr.function.span),
+                        }],
                         None => vec![ReactFunction {
                             name: DEFAULT_EXPORT_COMPONENT_NAME.to_string(),
                             kind: ReactFunctionKind::Component,
@@ -538,6 +536,12 @@ fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Ve
             collect_named_functions_in_module(cm, module, &fixture_entrypoint_names);
         functions = merge_react_functions(functions, fixture_entrypoint_functions);
     }
+    let default_export_function_names = collect_default_export_function_names(module);
+    if !default_export_function_names.is_empty() {
+        let default_export_functions =
+            collect_named_functions_in_module(cm, module, &default_export_function_names);
+        functions = merge_react_functions(functions, default_export_functions);
+    }
 
     sort_react_functions(&mut functions);
     functions
@@ -559,14 +563,12 @@ fn collect_react_functions_from_default_export_expr(
 ) -> Vec<ReactFunction> {
     match unwrap_expression(default_expr.expr.as_ref()) {
         Expr::Fn(fn_expr) => match fn_expr.ident.as_ref() {
-            Some(ident) => react_function_kind(ident.sym.as_ref())
-                .map(|kind| ReactFunction {
-                    name: ident.sym.to_string(),
-                    kind,
-                    loc: span_to_location(cm, fn_expr.function.span),
-                })
-                .into_iter()
-                .collect(),
+            Some(ident) => vec![ReactFunction {
+                name: ident.sym.to_string(),
+                kind: react_function_kind(ident.sym.as_ref())
+                    .unwrap_or(ReactFunctionKind::Component),
+                loc: span_to_location(cm, fn_expr.function.span),
+            }],
             None => vec![ReactFunction {
                 name: DEFAULT_EXPORT_COMPONENT_NAME.to_string(),
                 kind: ReactFunctionKind::Component,
@@ -651,6 +653,56 @@ fn collect_fixture_entrypoint_function_names(module: &Module) -> HashSet<String>
             _ => Vec::new(),
         })
         .collect()
+}
+
+fn collect_default_export_function_names(module: &Module) -> HashSet<String> {
+    module
+        .body
+        .iter()
+        .filter_map(|item| {
+            let ModuleItem::ModuleDecl(module_decl) = item else {
+                return None;
+            };
+            match module_decl {
+                ModuleDecl::ExportDefaultDecl(default_decl) => match &default_decl.decl {
+                    DefaultDecl::Fn(fn_expr) => {
+                        fn_expr.ident.as_ref().map(|ident| ident.sym.to_string())
+                    }
+                    _ => None,
+                },
+                ModuleDecl::ExportDefaultExpr(default_expr) => {
+                    match unwrap_expression(default_expr.expr.as_ref()) {
+                        Expr::Ident(ident) => Some(ident.sym.to_string()),
+                        Expr::Fn(fn_expr) => {
+                            fn_expr.ident.as_ref().map(|ident| ident.sym.to_string())
+                        }
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+fn module_has_default_export_component_candidate(module: &Module) -> bool {
+    module.body.iter().any(|item| {
+        let ModuleItem::ModuleDecl(module_decl) = item else {
+            return false;
+        };
+        match module_decl {
+            ModuleDecl::ExportDefaultDecl(default_decl) => {
+                matches!(&default_decl.decl, DefaultDecl::Fn(_))
+            }
+            ModuleDecl::ExportDefaultExpr(default_expr) => {
+                matches!(
+                    unwrap_expression(default_expr.expr.as_ref()),
+                    Expr::Fn(_) | Expr::Arrow(_)
+                )
+            }
+            _ => false,
+        }
+    })
 }
 
 fn collect_fixture_entrypoint_names_from_var_decl(var_decl: &VarDecl) -> Vec<String> {
@@ -798,15 +850,14 @@ fn collect_named_functions_in_decl(
 }
 
 fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions: &[ReactFunction]) {
-    let should_transform_default_export = react_functions
-        .iter()
-        .any(|function| function.name == DEFAULT_EXPORT_COMPONENT_NAME);
-    let transform_candidate_names: HashSet<&str> = react_functions
+    let should_transform_default_export = module_has_default_export_component_candidate(module);
+    let mut transform_candidate_names: HashSet<String> = react_functions
         .iter()
         .filter_map(|function| {
-            react_function_kind(function.name.as_str()).map(|_| function.name.as_str())
+            react_function_kind(function.name.as_str()).map(|_| function.name.clone())
         })
         .collect();
+    transform_candidate_names.extend(collect_default_export_function_names(module));
     if transform_candidate_names.is_empty() && !should_transform_default_export {
         return;
     }
@@ -852,7 +903,7 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
 
 fn apply_placeholder_compilation_to_module_decl(
     module_decl: &mut ModuleDecl,
-    react_function_names: &HashSet<&str>,
+    react_function_names: &HashSet<String>,
     runtime_callee_name: &str,
     should_transform_default_export: bool,
 ) -> bool {
@@ -864,12 +915,7 @@ fn apply_placeholder_compilation_to_module_decl(
         ),
         ModuleDecl::ExportDefaultDecl(default_decl) => match &mut default_decl.decl {
             DefaultDecl::Fn(fn_expr) => {
-                let should_transform = fn_expr
-                    .ident
-                    .as_ref()
-                    .map(|ident| react_function_names.contains(ident.sym.as_ref()))
-                    .unwrap_or(should_transform_default_export);
-                if !should_transform {
+                if !should_transform_default_export {
                     return false;
                 }
                 inject_placeholder_memo_init_into_function(
@@ -908,7 +954,7 @@ fn apply_placeholder_compilation_to_module_decl(
 
 fn apply_placeholder_compilation_to_stmt(
     stmt: &mut Stmt,
-    react_function_names: &HashSet<&str>,
+    react_function_names: &HashSet<String>,
     runtime_callee_name: &str,
 ) -> bool {
     match stmt {
@@ -921,7 +967,7 @@ fn apply_placeholder_compilation_to_stmt(
 
 fn apply_placeholder_compilation_to_decl(
     decl: &mut Decl,
-    react_function_names: &HashSet<&str>,
+    react_function_names: &HashSet<String>,
     runtime_callee_name: &str,
 ) -> bool {
     match decl {
@@ -1354,6 +1400,46 @@ mod tests {
             output.metadata.react_functions[0].name,
             super::DEFAULT_EXPORT_COMPONENT_NAME
         );
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_named_default_export_component_even_when_name_is_not_react_like() {
+        let output = compile(
+            "export default function component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_function_referenced_by_default_export_identifier() {
+        let output = compile(
+            "function component(){ return <div />; } export default component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
