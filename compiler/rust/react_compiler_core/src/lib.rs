@@ -1710,14 +1710,20 @@ fn collect_runtime_bindings_from_import_decl(
                     .map(|imported| imported.atom() == &"c")
                     .unwrap_or(named.local.sym == *"c");
                 if is_memo_runtime_import {
-                    runtime_callee_bindings.insert(named.local.sym.to_string());
+                    let binding_name = named.local.sym.to_string();
+                    runtime_callee_bindings.insert(binding_name.clone());
+                    runtime_namespace_bindings.remove(binding_name.as_str());
                 }
             }
             ImportSpecifier::Namespace(namespace) => {
-                runtime_namespace_bindings.insert(namespace.local.sym.to_string());
+                let binding_name = namespace.local.sym.to_string();
+                runtime_namespace_bindings.insert(binding_name.clone());
+                runtime_callee_bindings.remove(binding_name.as_str());
             }
             ImportSpecifier::Default(default_import) => {
-                runtime_namespace_bindings.insert(default_import.local.sym.to_string());
+                let binding_name = default_import.local.sym.to_string();
+                runtime_namespace_bindings.insert(binding_name.clone());
+                runtime_callee_bindings.remove(binding_name.as_str());
             }
         }
     }
@@ -1763,7 +1769,9 @@ fn collect_runtime_bindings_from_script_declarator(
     if is_require_runtime_call(init) {
         match &declarator.name {
             Pat::Ident(binding) => {
-                runtime_namespace_bindings.insert(binding.id.sym.to_string());
+                let binding_name = binding.id.sym.to_string();
+                runtime_namespace_bindings.insert(binding_name.clone());
+                runtime_callee_bindings.remove(binding_name.as_str());
             }
             Pat::Object(object_pat) => {
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
@@ -1782,13 +1790,17 @@ fn collect_runtime_bindings_from_script_declarator(
                     runtime_callee_bindings.insert(callee_name);
                 }
             } else if let Pat::Ident(binding) = &declarator.name {
-                runtime_namespace_bindings.insert(binding.id.sym.to_string());
+                let binding_name = binding.id.sym.to_string();
+                runtime_namespace_bindings.insert(binding_name.clone());
+                runtime_callee_bindings.remove(binding_name.as_str());
             }
             return;
         }
         if runtime_callee_bindings.contains(namespace_name.as_str()) {
             if let Pat::Ident(binding) = &declarator.name {
-                runtime_callee_bindings.insert(binding.id.sym.to_string());
+                let binding_name = binding.id.sym.to_string();
+                runtime_callee_bindings.insert(binding_name.clone());
+                runtime_namespace_bindings.remove(binding_name.as_str());
             }
             return;
         }
@@ -1796,8 +1808,37 @@ fn collect_runtime_bindings_from_script_declarator(
 
     if member_expr_is_runtime_namespace_c(init, runtime_namespace_bindings) {
         if let Pat::Ident(binding) = &declarator.name {
-            runtime_callee_bindings.insert(binding.id.sym.to_string());
+            let binding_name = binding.id.sym.to_string();
+            runtime_callee_bindings.insert(binding_name.clone());
+            runtime_namespace_bindings.remove(binding_name.as_str());
         }
+        return;
+    }
+
+    clear_runtime_bindings_for_pat(
+        &declarator.name,
+        runtime_namespace_bindings,
+        runtime_callee_bindings,
+    );
+}
+
+fn clear_runtime_bindings_for_pat(
+    pattern: &Pat,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+) {
+    match pattern {
+        Pat::Ident(binding) => {
+            runtime_namespace_bindings.remove(binding.id.sym.as_ref());
+            runtime_callee_bindings.remove(binding.id.sym.as_ref());
+        }
+        Pat::Object(object_pat) => {
+            if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
+                runtime_namespace_bindings.remove(callee_name.as_str());
+                runtime_callee_bindings.remove(callee_name.as_str());
+            }
+        }
+        _ => {}
     }
 }
 
@@ -1816,8 +1857,9 @@ fn collect_runtime_bindings_from_script_assignment_expr(
     let target_object_pat = assign_target_object_pat(&assign_expr.left);
     let right = unwrap_expression(assign_expr.right.as_ref());
     if is_require_runtime_call(right) {
-        if let Some(target_name) = target_ident.clone() {
-            runtime_namespace_bindings.insert(target_name);
+        if let Some(target_name) = target_ident.as_ref() {
+            runtime_namespace_bindings.insert(target_name.clone());
+            runtime_callee_bindings.remove(target_name.as_str());
         }
         if let Some(object_pat) = target_object_pat {
             if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
@@ -1828,8 +1870,9 @@ fn collect_runtime_bindings_from_script_assignment_expr(
     }
     if let Some(namespace_name) = expression_ident(right) {
         if runtime_namespace_bindings.contains(namespace_name.as_str()) {
-            if let Some(target_name) = target_ident.clone() {
-                runtime_namespace_bindings.insert(target_name);
+            if let Some(target_name) = target_ident.as_ref() {
+                runtime_namespace_bindings.insert(target_name.clone());
+                runtime_callee_bindings.remove(target_name.as_str());
             }
             if let Some(object_pat) = target_object_pat {
                 if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
@@ -1839,15 +1882,29 @@ fn collect_runtime_bindings_from_script_assignment_expr(
             return;
         }
         if runtime_callee_bindings.contains(namespace_name.as_str()) {
-            if let Some(target_name) = target_ident {
-                runtime_callee_bindings.insert(target_name);
+            if let Some(target_name) = target_ident.as_ref() {
+                runtime_callee_bindings.insert(target_name.clone());
+                runtime_namespace_bindings.remove(target_name.as_str());
             }
             return;
         }
     }
     if member_expr_is_runtime_namespace_c(right, runtime_namespace_bindings) {
-        if let Some(target_name) = target_ident {
-            runtime_callee_bindings.insert(target_name);
+        if let Some(target_name) = target_ident.as_ref() {
+            runtime_callee_bindings.insert(target_name.clone());
+            runtime_namespace_bindings.remove(target_name.as_str());
+        }
+        return;
+    }
+
+    if let Some(target_name) = target_ident.as_ref() {
+        runtime_namespace_bindings.remove(target_name.as_str());
+        runtime_callee_bindings.remove(target_name.as_str());
+    }
+    if let Some(object_pat) = target_object_pat {
+        if let Some(callee_name) = extract_runtime_callee_from_object_pat(object_pat) {
+            runtime_namespace_bindings.remove(callee_name.as_str());
+            runtime_callee_bindings.remove(callee_name.as_str());
         }
     }
 }
@@ -2383,6 +2440,25 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; cache = unknown; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_destructure_alias() {
         let output = compile(
             "const { c: cache } = require('react/compiler-runtime'); function Component(){ return <div />; }",
@@ -2452,6 +2528,25 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
         assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_reassigned() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; cache = unknown; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
     }
 
     #[test]
