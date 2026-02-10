@@ -7006,7 +7006,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.debug_ir).toContain(
         'placeholder_runtime_helper_import_added=false',
       );
-      expect(result.debug_ir).toContain('placeholder_transform_candidates=');
+      expect(result.debug_ir).toContain('placeholder_transform_candidates=Component');
       expect(result.debug_ir).toContain('name=Component kind=Component');
     }
   });
@@ -7142,7 +7142,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       value => value.name === 'RustFrontendPlaceholderTransformCandidates',
     );
     expect(rustPlaceholderTransformCandidatesDebug).toBeDefined();
-    expect(rustPlaceholderTransformCandidatesDebug?.value).toBe('');
+    expect(rustPlaceholderTransformCandidatesDebug?.value).toBe('Component');
     const rustRuntimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );
@@ -7237,7 +7237,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       value => value.name === 'RustFrontendPlaceholderTransformCandidates',
     );
     expect(placeholderTransformCandidatesDebug).toBeDefined();
-    expect(placeholderTransformCandidatesDebug?.value).toBe('');
+    expect(placeholderTransformCandidatesDebug?.value).toBe('Component');
     const runtimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );

@@ -426,6 +426,7 @@ mod tests {
                 let debug_ir = debug_ir.expect("expected debug_ir payload when requested");
                 assert!(debug_ir.contains("ReactiveFunctionsDebug v0"));
                 assert!(debug_ir.contains("name=Component kind=Component"));
+                assert!(debug_ir.contains("placeholder_transform_candidates=Component"));
                 assert!(placeholder_transformed_functions.is_empty());
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
@@ -463,6 +464,7 @@ mod tests {
                     "placeholder_runtime_helper_import_count_after_transform=1"
                 ));
                 assert!(debug_ir.contains("placeholder_runtime_helper_import_added=true"));
+                assert!(debug_ir.contains("placeholder_transform_candidates=Component"));
                 assert!(debug_ir.contains("placeholder_transforms_applied=1"));
                 assert!(debug_ir.contains("placeholder_transformed_functions=Component"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_name=_c"));

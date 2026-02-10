@@ -306,13 +306,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         })?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
         let original_statement_count = module.body.len();
-        let mut placeholder_transform_candidates = if options.apply_placeholder_transforms {
+        let mut placeholder_transform_candidates =
             collect_placeholder_transform_candidate_names_for_module(&module, &react_functions)
                 .into_iter()
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
+                .collect::<Vec<_>>();
         sort_and_dedup_names(&mut placeholder_transform_candidates);
         let runtime_helper_import_count_before_transform = if options.apply_placeholder_transforms {
             count_runtime_helper_imports(&module)
@@ -403,13 +400,10 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         })?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
         let original_statement_count = script.body.len();
-        let mut placeholder_transform_candidates = if options.apply_placeholder_transforms {
+        let mut placeholder_transform_candidates =
             collect_placeholder_transform_candidate_names_for_script(&react_functions)
                 .into_iter()
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
+                .collect::<Vec<_>>();
         sort_and_dedup_names(&mut placeholder_transform_candidates);
         let (
             placeholder_runtime_callee_name_before_transform,
@@ -12466,7 +12460,7 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_helper_import_count_before_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_added=false"));
-        assert!(debug.contains("placeholder_transform_candidates="));
+        assert!(debug.contains("placeholder_transform_candidates=Component,useThing"));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
