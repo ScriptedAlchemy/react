@@ -3163,6 +3163,26 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_conditionally_assigned_via_optional_computed_member(
+    ) {
+        let output = compile(
+            "let cache; maybe?.[cache = require('react/compiler-runtime').c]; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_from_object_literal_assignment_in_module() {
         let output = compile(
             "let cache; const payload = {value: (cache = require('react/compiler-runtime').c)}; export function Component(){ return <div />; }",
@@ -3462,6 +3482,26 @@ mod tests {
     ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; maybe?.(cache = unknown); export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn falls_back_to_import_when_module_runtime_alias_is_conditionally_reassigned_via_optional_computed_member(
+    ) {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; maybe?.[cache = unknown]; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -3798,6 +3838,26 @@ mod tests {
     }
 
     #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_conditionally_assigned_via_optional_computed_member(
+    ) {
+        let output = compile(
+            "let cache; maybe?.[cache = require('react/compiler-runtime').c]; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_alias_from_object_literal_assignment() {
         let output = compile(
             "let cache; const payload = {value: (cache = require('react/compiler-runtime').c)}; function Component(){ return <div />; }",
@@ -4026,6 +4086,26 @@ mod tests {
     ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; maybe?.(cache = unknown); function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_is_conditionally_reassigned_via_optional_computed_member(
+    ) {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; maybe?.[cache = unknown]; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
