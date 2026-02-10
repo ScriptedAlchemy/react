@@ -76,21 +76,3 @@ Parity JSON includes:
 This allows faster triage by separating semantic differences from
 formatting/logging noise.
 
-## Strict preflight fallback reason markers
-
-When strict mode preflight detects known unsupported frontend syntax, the plugin
-falls back to the Babel frontend path and emits `CompileSkip` events with
-reason strings that include marker categories.
-
-Examples:
-
-- Flow preflight:
-  - `rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported:type_alias`
-  - `rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported:typed_function_params`
-  - `rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported:flow_type_cast`
-- TypeScript preflight:
-  - `rust_frontend_preflight:typescript_instantiation_expression`
-  - `rust_frontend_preflight:typescript_satisfies_expression`
-
-These marker kinds are intended for triage dashboards and fallback burn-down
-tracking while native Rust frontend support is expanded.
