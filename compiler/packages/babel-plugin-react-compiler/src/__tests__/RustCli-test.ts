@@ -81,6 +81,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.statement_count).toBe(1);
+      expect(result.statement_count_after_transform).toBe(1);
       expect(result.detected_react_functions).toBe(0);
       expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.react_functions).toEqual([]);
@@ -349,6 +350,8 @@ describeWithCargo('Rust compiler CLI bridge', () => {
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
+      expect(result.statement_count).toBe(1);
+      expect(result.statement_count_after_transform).toBe(2);
       expect(result.placeholder_transforms_applied).toBeGreaterThan(0);
       expect(result.placeholder_transformed_functions).toEqual(['Component']);
       expect(result.placeholder_runtime_callee_name_before_transform).toBeUndefined();
@@ -7015,6 +7018,16 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustPlaceholderDebug).toBeDefined();
     expect(rustPlaceholderDebug?.value).toBe('');
+    const rustStatementCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendStatementCount',
+    );
+    expect(rustStatementCountDebug).toBeDefined();
+    expect(rustStatementCountDebug?.value).toBe('1');
+    const rustStatementCountAfterTransformDebug = debugValues.find(
+      value => value.name === 'RustFrontendStatementCountAfterTransform',
+    );
+    expect(rustStatementCountAfterTransformDebug).toBeDefined();
+    expect(rustStatementCountAfterTransformDebug?.value).toBe('1');
     const rustRuntimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );
@@ -7080,6 +7093,16 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(placeholderDebug).toBeDefined();
     expect(placeholderDebug?.value).toBe('');
+    const statementCountDebug = debugValues.find(
+      value => value.name === 'RustFrontendStatementCount',
+    );
+    expect(statementCountDebug).toBeDefined();
+    expect(statementCountDebug?.value).toBe('1');
+    const statementCountAfterTransformDebug = debugValues.find(
+      value => value.name === 'RustFrontendStatementCountAfterTransform',
+    );
+    expect(statementCountAfterTransformDebug).toBeDefined();
+    expect(statementCountAfterTransformDebug?.value).toBe('1');
     const runtimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );

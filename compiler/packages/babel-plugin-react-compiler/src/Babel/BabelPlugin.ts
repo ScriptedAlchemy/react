@@ -262,6 +262,16 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendStatementCount',
+    value: String(rustResult.statement_count),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendStatementCountAfterTransform',
+    value: String(rustResult.statement_count_after_transform),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCallee',
     value: rustResult.placeholder_runtime_callee_name ?? '',
   });

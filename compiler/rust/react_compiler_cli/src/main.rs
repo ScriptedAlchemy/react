@@ -22,6 +22,7 @@ enum CompileResponse {
     Ok {
         code: String,
         statement_count: usize,
+        statement_count_after_transform: usize,
         detected_react_functions: usize,
         react_functions: Vec<SerializedReactFunction>,
         placeholder_transforms_applied: usize,
@@ -106,6 +107,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
             CompileResponse::Ok {
                 code: output.code,
                 statement_count: output.metadata.statement_count,
+                statement_count_after_transform: output.metadata.statement_count_after_transform,
                 detected_react_functions: output.metadata.detected_react_functions,
                 react_functions: output
                     .metadata
@@ -247,6 +249,7 @@ mod tests {
         match response {
             CompileResponse::Ok {
                 statement_count,
+                statement_count_after_transform,
                 detected_react_functions,
                 react_functions,
                 placeholder_transforms_applied,
@@ -260,6 +263,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(statement_count, 1);
+                assert_eq!(statement_count_after_transform, 1);
                 assert_eq!(detected_react_functions, 0);
                 assert!(react_functions.is_empty());
                 assert_eq!(placeholder_transforms_applied, 0);

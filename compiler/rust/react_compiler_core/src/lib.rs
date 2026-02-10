@@ -44,6 +44,7 @@ impl Default for CompilerOptions {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseMetadata {
     pub statement_count: usize,
+    pub statement_count_after_transform: usize,
     pub detected_react_functions: usize,
     pub react_functions: Vec<ReactFunction>,
     pub placeholder_transforms_applied: usize,
@@ -89,6 +90,10 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
     let mut lines = vec![
         "ReactiveFunctionsDebug v0".to_string(),
         format!("statement_count={}", metadata.statement_count),
+        format!(
+            "statement_count_after_transform={}",
+            metadata.statement_count_after_transform
+        ),
         format!(
             "detected_react_functions={}",
             metadata.detected_react_functions
@@ -301,6 +306,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
+        let transformed_statement_count = module.body.len();
         let (
             placeholder_runtime_callee_name,
             placeholder_runtime_callee_candidates,
@@ -321,6 +327,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
+            statement_count_after_transform: transformed_statement_count,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -349,6 +356,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             }
         })?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
+        let original_statement_count = script.body.len();
         let (
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
@@ -369,6 +377,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             Vec::new()
         };
         let transformed_count = placeholder_transformed_functions.len();
+        let transformed_statement_count = script.body.len();
         let (
             placeholder_runtime_callee_name,
             placeholder_runtime_callee_candidates,
@@ -388,7 +397,8 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             };
         sort_and_dedup_names(&mut placeholder_transformed_functions);
         let metadata = ParseMetadata {
-            statement_count: script.body.len(),
+            statement_count: original_statement_count,
+            statement_count_after_transform: transformed_statement_count,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -11904,6 +11914,8 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
+        assert_eq!(output.metadata.statement_count, 3);
+        assert_eq!(output.metadata.statement_count_after_transform, 4);
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
@@ -11974,6 +11986,7 @@ mod tests {
         .expect("expected valid TypeScript to parse");
 
         assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.statement_count_after_transform, 1);
         assert_eq!(output.metadata.detected_react_functions, 0);
         assert!(output.metadata.react_functions.is_empty());
         assert!(!output.code.contains("react/compiler-runtime"));
@@ -12270,6 +12283,7 @@ mod tests {
         let debug = render_react_functions_debug(&output.metadata);
         assert!(debug.contains("ReactiveFunctionsDebug v0"));
         assert!(debug.contains("statement_count=2"));
+        assert!(debug.contains("statement_count_after_transform=2"));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));

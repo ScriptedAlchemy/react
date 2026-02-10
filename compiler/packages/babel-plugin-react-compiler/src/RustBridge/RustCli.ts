@@ -30,6 +30,7 @@ export type RustCompileResponse =
       status: 'ok';
       code: string;
       statement_count: number;
+      statement_count_after_transform: number;
       detected_react_functions: number;
       placeholder_transforms_applied: number;
       placeholder_transformed_functions: Array<string>;
