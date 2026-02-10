@@ -31,6 +31,24 @@ function withStrictRustEngine<T>(fn: () => T): T {
   }
 }
 
+function withEnvVar<T>(name: string, value: string, fn: () => T): T {
+  const previous = process.env[name];
+  process.env[name] = value;
+  try {
+    return fn();
+  } finally {
+    if (previous == null) {
+      delete process.env[name];
+    } else {
+      process.env[name] = previous;
+    }
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function canonicalizeCode(code: string | null | undefined): string {
   const source = code ?? '';
   try {
@@ -151,6 +169,19 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
     }
+  });
+
+  it('uses explicit rust cli binary override when configured', () => {
+    withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () => {
+      expect(() =>
+        runRustCompilerCli({
+          source: 'const value = 1;',
+          dialect: 'javascript',
+          filename: 'fixture.js',
+          is_module: false,
+        }),
+      ).toThrow(new RegExp(escapeRegExp(`Rust compiler CLI (${process.execPath})`)));
+    });
   });
 
   it('can be selected as compiler engine in Babel plugin options', () => {
