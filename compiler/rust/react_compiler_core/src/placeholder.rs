@@ -14,7 +14,10 @@ pub(crate) fn inject_placeholder_memo_init_into_function(
     }
     let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match function.body.as_mut() {
-        Some(body) => body.stmts.insert(0, memo_stmt),
+        Some(body) => {
+            let insertion_index = first_non_directive_stmt_index(&body.stmts);
+            body.stmts.insert(insertion_index, memo_stmt);
+        }
         None => {
             function.body = Some(BlockStmt {
                 span: DUMMY_SP,
@@ -36,7 +39,8 @@ pub(crate) fn inject_placeholder_memo_init_into_arrow_function(
     let memo_stmt = make_placeholder_memo_stmt(runtime_callee_name);
     match arrow.body.as_mut() {
         BlockStmtOrExpr::BlockStmt(block) => {
-            block.stmts.insert(0, memo_stmt);
+            let insertion_index = first_non_directive_stmt_index(&block.stmts);
+            block.stmts.insert(insertion_index, memo_stmt);
         }
         BlockStmtOrExpr::Expr(expr) => {
             let return_stmt = Stmt::Return(swc_ecma_ast::ReturnStmt {
@@ -91,7 +95,10 @@ fn function_has_placeholder_memo_init(
     function
         .body
         .as_ref()
-        .and_then(|body| body.stmts.first())
+        .and_then(|body| {
+            body.stmts
+                .get(first_non_directive_stmt_index(&body.stmts))
+        })
         .map(|stmt| stmt_is_placeholder_memo_init(stmt, runtime_callee_name))
         .unwrap_or(false)
 }
@@ -105,9 +112,27 @@ fn arrow_has_placeholder_memo_init(
     };
     block
         .stmts
-        .first()
+        .get(first_non_directive_stmt_index(&block.stmts))
         .map(|stmt| stmt_is_placeholder_memo_init(stmt, runtime_callee_name))
         .unwrap_or(false)
+}
+
+fn first_non_directive_stmt_index(stmts: &[Stmt]) -> usize {
+    stmts
+        .iter()
+        .position(|stmt| !stmt_is_directive_prologue(stmt))
+        .unwrap_or(stmts.len())
+}
+
+fn stmt_is_directive_prologue(stmt: &Stmt) -> bool {
+    matches!(
+        stmt,
+        Stmt::Expr(expr_stmt)
+            if matches!(
+                expr_stmt.expr.as_ref(),
+                Expr::Lit(Lit::Str(_))
+            )
+    )
 }
 
 fn stmt_is_placeholder_memo_init(stmt: &Stmt, runtime_callee_name: &str) -> bool {

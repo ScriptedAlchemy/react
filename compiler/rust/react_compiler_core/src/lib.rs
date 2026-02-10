@@ -8019,6 +8019,54 @@ mod tests {
     }
 
     #[test]
+    fn does_not_duplicate_existing_placeholder_memo_stmt_after_directive() {
+        let output = compile(
+            "import { c as _c } from 'react/compiler-runtime'; export function Component(){ \"use strict\"; const $ = _c(0); return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.code.matches("const $ = _c(0);").count(), 1);
+        let directive_index = output
+            .code
+            .find("\"use strict\";")
+            .expect("expected use strict directive to exist");
+        let memo_index = output
+            .code
+            .find("const $ = _c(0);")
+            .expect("expected memo statement to exist");
+        assert!(directive_index < memo_index);
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
+    fn inserts_placeholder_memo_stmt_after_function_directives() {
+        let output = compile(
+            "export function Component(){ \"use strict\"; return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        let directive_index = output
+            .code
+            .find("\"use strict\";")
+            .expect("expected use strict directive to exist");
+        let memo_index = output
+            .code
+            .find("const $ = _c(0);")
+            .expect("expected inserted memo statement to exist");
+        assert!(directive_index < memo_index);
+    }
+
+    #[test]
     fn parses_typescript_source() {
         let output = compile(
             "export function id<T>(value: T): T { return value; }",
