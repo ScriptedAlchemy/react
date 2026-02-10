@@ -19,6 +19,7 @@ mod model;
 mod parse;
 mod placeholder;
 mod react_fn;
+mod runtime_scan;
 
 pub use error::CompilerError;
 pub use model::{
@@ -45,6 +46,10 @@ use react_fn::{
     count_detected_react_functions_by_kind, count_placeholder_transform_names_by_kind,
     derive_placeholder_transform_status, react_function_kind, sort_and_dedup_names,
     sort_react_functions,
+};
+use runtime_scan::{
+    select_runtime_callee_name, sorted_runtime_callee_candidates,
+    sorted_runtime_namespace_candidates, RuntimeMemoCalleeScan,
 };
 
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
@@ -1016,11 +1021,6 @@ fn apply_placeholder_compilation_to_decl(
     }
 }
 
-struct RuntimeMemoCalleeScan {
-    runtime_namespace_bindings: HashSet<String>,
-    runtime_callee_bindings: HashSet<String>,
-}
-
 fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMemoCalleeScan {
     let mut runtime_namespace_bindings: HashSet<String> = HashSet::new();
     let mut runtime_callee_bindings: HashSet<String> = HashSet::new();
@@ -1538,24 +1538,6 @@ fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMemoCalleeScan
 fn runtime_memo_callee_name_in_script(script: &Script) -> Option<String> {
     let runtime_scan = runtime_memo_callee_scan_for_script(script);
     select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
-}
-
-fn select_runtime_callee_name(runtime_callee_bindings: &HashSet<String>) -> Option<String> {
-    runtime_callee_bindings.iter().min().cloned()
-}
-
-fn sorted_runtime_callee_candidates(runtime_callee_bindings: &HashSet<String>) -> Vec<String> {
-    let mut candidates: Vec<String> = runtime_callee_bindings.iter().cloned().collect();
-    candidates.sort();
-    candidates
-}
-
-fn sorted_runtime_namespace_candidates(
-    runtime_namespace_bindings: &HashSet<String>,
-) -> Vec<String> {
-    let mut candidates: Vec<String> = runtime_namespace_bindings.iter().cloned().collect();
-    candidates.sort();
-    candidates
 }
 
 fn runtime_initializer_expr(expr: &Expr) -> &Expr {
