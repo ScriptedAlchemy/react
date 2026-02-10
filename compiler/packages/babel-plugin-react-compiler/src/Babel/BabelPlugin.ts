@@ -49,6 +49,19 @@ function isRecoverableRustFrontendErrorCode(code: string): boolean {
   );
 }
 
+function logStrictRustFrontendFallback(
+  logger: Logger | null,
+  filename: string | null,
+  reason: string,
+): void {
+  logger?.logEvent(filename, {
+    kind: 'CompileSkip',
+    fnLoc: null,
+    reason,
+    loc: null,
+  });
+}
+
 function detectRustDialect(
   filename: string | null,
   sourceCode: string | null,
@@ -143,6 +156,13 @@ function maybeRunRustProgramCompiler(
       !strictRustEngine ||
       isRecoverableRustFrontendErrorCode(rustResult.code)
     ) {
+      if (strictRustEngine) {
+        logStrictRustFrontendFallback(
+          logger,
+          filename,
+          `rust_frontend_error:${rustResult.code}:${rustResult.reason}`,
+        );
+      }
       return;
     }
     logger?.logEvent(filename, {
@@ -179,6 +199,13 @@ function maybeRunRustProgramCompiler(
       sourceType,
     );
   } catch {
+    if (strictRustEngine) {
+      logStrictRustFrontendFallback(
+        logger,
+        filename,
+        'rust_frontend_parse_or_canonicalization_failure',
+      );
+    }
     return;
   }
   if (canonicalSource === canonicalRustOutput) {
