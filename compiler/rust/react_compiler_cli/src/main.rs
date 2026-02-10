@@ -24,7 +24,13 @@ enum CompileResponse {
         react_functions: Vec<SerializedReactFunction>,
     },
     #[serde(rename = "error")]
-    Error { code: String, message: String },
+    Error {
+        code: String,
+        category: String,
+        severity: String,
+        message: String,
+        location: Option<SerializedSourceLocation>,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -57,7 +63,10 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
         Err(message) => {
             return CompileResponse::Error {
                 code: "unsupported_dialect".to_string(),
+                category: "request".to_string(),
+                severity: "error".to_string(),
                 message,
+                location: None,
             }
         }
     };
@@ -85,7 +94,10 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
         },
         Err(error) => CompileResponse::Error {
             code: error.code().to_string(),
+            category: error.category().to_string(),
+            severity: error.severity().to_string(),
             message: error.to_string(),
+            location: error.location().map(serialize_source_location),
         },
     }
 }
@@ -128,7 +140,10 @@ fn main() {
         Ok(request) => handle_request(request),
         Err(error) => CompileResponse::Error {
             code: "invalid_request".to_string(),
+            category: "request".to_string(),
+            severity: "error".to_string(),
             message: format!("Invalid request JSON: {error}"),
+            location: None,
         },
     };
 
@@ -201,11 +216,47 @@ mod tests {
         });
 
         match response {
-            CompileResponse::Error { code, .. } => {
+            CompileResponse::Error {
+                code,
+                category,
+                severity,
+                ..
+            } => {
                 assert_eq!(code, "unsupported_dialect");
+                assert_eq!(category, "request");
+                assert_eq!(severity, "error");
             }
             CompileResponse::Ok { .. } => {
                 panic!("expected error response for unsupported dialect")
+            }
+        }
+    }
+
+    #[test]
+    fn compile_request_returns_parse_failure_location() {
+        let response = handle_request(CompileRequest {
+            source: "const = 1;".to_string(),
+            filename: Some("broken.js".to_string()),
+            dialect: Some("javascript".to_string()),
+            is_module: Some(false),
+            apply_placeholder_transforms: None,
+        });
+
+        match response {
+            CompileResponse::Error {
+                code,
+                category,
+                severity,
+                location,
+                ..
+            } => {
+                assert_eq!(code, "parse_failure");
+                assert_eq!(category, "syntax");
+                assert_eq!(severity, "error");
+                assert!(location.is_some());
+            }
+            CompileResponse::Ok { .. } => {
+                panic!("expected parse failure for invalid javascript source")
             }
         }
     }

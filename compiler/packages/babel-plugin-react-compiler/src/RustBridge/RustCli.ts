@@ -17,6 +17,13 @@ export type RustCompileRequest = {
   apply_placeholder_transforms?: boolean;
 };
 
+type RustSourceLocation = {
+  start_line: number;
+  start_column: number;
+  end_line: number;
+  end_column: number;
+};
+
 export type RustCompileResponse =
   | {
       status: 'ok';
@@ -26,15 +33,17 @@ export type RustCompileResponse =
       react_functions: Array<{
         name: string;
         kind: 'Component' | 'Hook';
-        loc: null | {
-          start_line: number;
-          start_column: number;
-          end_line: number;
-          end_column: number;
-        };
+        loc: null | RustSourceLocation;
       }>;
     }
-  | {status: 'error'; code: string; message: string};
+  | {
+      status: 'error';
+      code: string;
+      category: string;
+      severity: string;
+      message: string;
+      location?: RustSourceLocation | null;
+    };
 
 function resolveRustManifestPath(): string {
   const explicitPath = process.env['REACT_COMPILER_RUST_MANIFEST'];

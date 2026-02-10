@@ -98,6 +98,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('error');
     if (result.status === 'error') {
       expect(result.code).toBe('unsupported_flow_syntax');
+      expect(result.category).toBe('syntax');
+      expect(result.severity).toBe('error');
+    }
+  });
+
+  it('returns parse diagnostics metadata for JavaScript parse failures', () => {
+    const result = runRustCompilerCli({
+      source: 'const = 1;',
+      dialect: 'javascript',
+      filename: 'broken.js',
+      is_module: false,
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.code).toBe('parse_failure');
+      expect(result.category).toBe('syntax');
+      expect(result.severity).toBe('error');
+      expect(result.location).not.toBeNull();
     }
   });
 

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use swc_common::{
     comments::SingleThreadedComments, errors::Handler, sync::Lrc, FileName, SourceMap, Span,
-    DUMMY_SP,
+    Spanned, DUMMY_SP,
 };
 use swc_ecma_ast::{
     BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Decl, DefaultDecl, EsVersion, Expr,
@@ -78,7 +78,10 @@ pub enum CompilerError {
     #[error("Flow syntax is not supported by the Rust frontend yet")]
     UnsupportedFlowSyntax,
     #[error("Failed to parse input: {message}")]
-    ParseFailure { message: String },
+    ParseFailure {
+        message: String,
+        location: Option<SourceLocation>,
+    },
     #[error("Failed to emit compiled output: {message}")]
     CodegenFailure { message: String },
 }
@@ -89,6 +92,25 @@ impl CompilerError {
             CompilerError::UnsupportedFlowSyntax => "unsupported_flow_syntax",
             CompilerError::ParseFailure { .. } => "parse_failure",
             CompilerError::CodegenFailure { .. } => "codegen_failure",
+        }
+    }
+
+    pub fn category(&self) -> &'static str {
+        match self {
+            CompilerError::UnsupportedFlowSyntax => "syntax",
+            CompilerError::ParseFailure { .. } => "syntax",
+            CompilerError::CodegenFailure { .. } => "internal",
+        }
+    }
+
+    pub fn severity(&self) -> &'static str {
+        "error"
+    }
+
+    pub fn location(&self) -> Option<&SourceLocation> {
+        match self {
+            CompilerError::ParseFailure { location, .. } => location.as_ref(),
+            _ => None,
         }
     }
 }
@@ -147,11 +169,12 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     let (metadata, code) = if options.is_module {
         let mut module = parser.parse_module().map_err(|err| {
             let message = err.kind().msg().to_string();
+            let location = span_to_location(&cm, err.span());
             err.into_diagnostic(&handler).emit();
             if options.dialect == InputDialect::Flow {
                 CompilerError::UnsupportedFlowSyntax
             } else {
-                CompilerError::ParseFailure { message }
+                CompilerError::ParseFailure { message, location }
             }
         })?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
@@ -167,11 +190,12 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     } else {
         let script = parser.parse_script().map_err(|err| {
             let message = err.kind().msg().to_string();
+            let location = span_to_location(&cm, err.span());
             err.into_diagnostic(&handler).emit();
             if options.dialect == InputDialect::Flow {
                 CompilerError::UnsupportedFlowSyntax
             } else {
-                CompilerError::ParseFailure { message }
+                CompilerError::ParseFailure { message, location }
             }
         })?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
