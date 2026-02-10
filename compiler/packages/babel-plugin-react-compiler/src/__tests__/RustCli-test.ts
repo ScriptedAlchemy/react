@@ -107,6 +107,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('detects react function metadata from assignment expressions', () => {
+    const result = runRustCompilerCli({
+      source: 'let Component; Component = () => <div />;',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('Component');
+      expect(result.react_functions[0]?.kind).toBe('Component');
+      expect(result.react_functions[0]?.loc).not.toBeNull();
+    }
+  });
+
   it('returns structured rust error code for unsupported flow syntax', () => {
     const result = runRustCompilerCli({
       source: '// @flow\nfunction Component(props: {x: number}) { return props.x; }',
@@ -332,6 +350,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.placeholder_transforms_applied).toBeGreaterThan(0);
+      expect(result.code).toContain('react/compiler-runtime');
+      expect(result.code).toContain('const $ = _c(0);');
+    }
+  });
+
+  it('transforms react-like assignment expressions in module Rust CLI mode', () => {
+    const result = runRustCompilerCli({
+      source: 'let Component; Component = () => <div />; export {Component};',
+      dialect: 'javascript',
+      filename: 'fixture.jsx',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.react_functions[0]?.name).toBe('Component');
       expect(result.code).toContain('react/compiler-runtime');
       expect(result.code).toContain('const $ = _c(0);');
     }

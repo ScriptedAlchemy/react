@@ -502,8 +502,37 @@ fn collect_react_functions_in_decl(cm: &Lrc<SourceMap>, decl: &Decl) -> Vec<Reac
 fn collect_react_functions_in_stmt(cm: &Lrc<SourceMap>, stmt: &Stmt) -> Vec<ReactFunction> {
     match stmt {
         Stmt::Decl(decl) => collect_react_functions_in_decl(cm, decl),
+        Stmt::Expr(expr_stmt) => collect_react_functions_in_expr(cm, expr_stmt.expr.as_ref()),
         _ => Vec::new(),
     }
+}
+
+fn collect_react_functions_in_expr(cm: &Lrc<SourceMap>, expr: &Expr) -> Vec<ReactFunction> {
+    let Expr::Assign(assign_expr) = unwrap_expression(expr) else {
+        return Vec::new();
+    };
+    if assign_expr.op != swc_ecma_ast::AssignOp::Assign {
+        return Vec::new();
+    }
+    let Some(target_name) = assign_target_ident(&assign_expr.left) else {
+        return Vec::new();
+    };
+    let Some(kind) = react_function_kind(target_name.as_str()) else {
+        return Vec::new();
+    };
+    let function_span = match unwrap_expression(assign_expr.right.as_ref()) {
+        Expr::Fn(fn_expr) => Some(fn_expr.function.span),
+        Expr::Arrow(arrow_expr) => Some(arrow_expr.span),
+        _ => None,
+    };
+    let Some(function_span) = function_span else {
+        return Vec::new();
+    };
+    vec![ReactFunction {
+        name: target_name,
+        kind,
+        loc: span_to_location(cm, function_span),
+    }]
 }
 
 fn collect_react_functions_in_module(cm: &Lrc<SourceMap>, module: &Module) -> Vec<ReactFunction> {
@@ -2126,6 +2155,25 @@ mod tests {
     }
 
     #[test]
+    fn transforms_react_like_assignment_expression_in_module() {
+        let output = compile(
+            "let Component; Component = () => <div />; export {Component};",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "Component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn transforms_function_referenced_by_assigned_function_expression_named_default_export_specifier(
     ) {
         let output = compile(
@@ -2236,6 +2284,28 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
         assert!(!output.code.contains("react/compiler-runtime"));
+    }
+
+    #[test]
+    fn detects_react_function_from_assignment_expression() {
+        let output = compile(
+            "let Component; Component = () => <div />;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid source to parse");
+
+        assert_eq!(output.metadata.statement_count, 2);
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "Component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
     }
 
     #[test]
