@@ -272,6 +272,21 @@ function maybeRunRustProgramCompiler(
   });
   logger?.debugLogIRs?.({
     kind: 'debug',
+    name: 'RustFrontendRuntimeHelperImportCountBeforeTransform',
+    value: String(rustResult.placeholder_runtime_helper_import_count_before_transform),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendRuntimeHelperImportCountAfterTransform',
+    value: String(rustResult.placeholder_runtime_helper_import_count_after_transform),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
+    name: 'RustFrontendRuntimeHelperImportAdded',
+    value: String(rustResult.placeholder_runtime_helper_import_added),
+  });
+  logger?.debugLogIRs?.({
+    kind: 'debug',
     name: 'RustFrontendRuntimeCallee',
     value: rustResult.placeholder_runtime_callee_name ?? '',
   });

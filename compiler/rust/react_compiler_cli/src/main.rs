@@ -23,6 +23,9 @@ enum CompileResponse {
         code: String,
         statement_count: usize,
         statement_count_after_transform: usize,
+        placeholder_runtime_helper_import_count_before_transform: usize,
+        placeholder_runtime_helper_import_count_after_transform: usize,
+        placeholder_runtime_helper_import_added: bool,
         detected_react_functions: usize,
         react_functions: Vec<SerializedReactFunction>,
         placeholder_transforms_applied: usize,
@@ -108,6 +111,15 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                 code: output.code,
                 statement_count: output.metadata.statement_count,
                 statement_count_after_transform: output.metadata.statement_count_after_transform,
+                placeholder_runtime_helper_import_count_before_transform: output
+                    .metadata
+                    .placeholder_runtime_helper_import_count_before_transform,
+                placeholder_runtime_helper_import_count_after_transform: output
+                    .metadata
+                    .placeholder_runtime_helper_import_count_after_transform,
+                placeholder_runtime_helper_import_added: output
+                    .metadata
+                    .placeholder_runtime_helper_import_added,
                 detected_react_functions: output.metadata.detected_react_functions,
                 react_functions: output
                     .metadata
@@ -250,6 +262,9 @@ mod tests {
             CompileResponse::Ok {
                 statement_count,
                 statement_count_after_transform,
+                placeholder_runtime_helper_import_count_before_transform,
+                placeholder_runtime_helper_import_count_after_transform,
+                placeholder_runtime_helper_import_added,
                 detected_react_functions,
                 react_functions,
                 placeholder_transforms_applied,
@@ -264,6 +279,9 @@ mod tests {
             } => {
                 assert_eq!(statement_count, 1);
                 assert_eq!(statement_count_after_transform, 1);
+                assert_eq!(placeholder_runtime_helper_import_count_before_transform, 0);
+                assert_eq!(placeholder_runtime_helper_import_count_after_transform, 0);
+                assert!(!placeholder_runtime_helper_import_added);
                 assert_eq!(detected_react_functions, 0);
                 assert!(react_functions.is_empty());
                 assert_eq!(placeholder_transforms_applied, 0);
@@ -398,6 +416,9 @@ mod tests {
             CompileResponse::Ok {
                 placeholder_transforms_applied,
                 placeholder_transformed_functions,
+                placeholder_runtime_helper_import_count_before_transform,
+                placeholder_runtime_helper_import_count_after_transform,
+                placeholder_runtime_helper_import_added,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
                 placeholder_runtime_namespace_candidates_before_transform,
@@ -411,6 +432,9 @@ mod tests {
                     placeholder_transformed_functions,
                     vec!["__default_export_component__"]
                 );
+                assert_eq!(placeholder_runtime_helper_import_count_before_transform, 0);
+                assert_eq!(placeholder_runtime_helper_import_count_after_transform, 1);
+                assert!(placeholder_runtime_helper_import_added);
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
                 assert!(placeholder_runtime_namespace_candidates_before_transform.is_empty());

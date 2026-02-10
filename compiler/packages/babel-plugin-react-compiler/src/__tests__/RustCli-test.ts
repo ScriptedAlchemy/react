@@ -82,6 +82,13 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'ok') {
       expect(result.statement_count).toBe(1);
       expect(result.statement_count_after_transform).toBe(1);
+      expect(
+        result.placeholder_runtime_helper_import_count_before_transform,
+      ).toBe(0);
+      expect(
+        result.placeholder_runtime_helper_import_count_after_transform,
+      ).toBe(0);
+      expect(result.placeholder_runtime_helper_import_added).toBe(false);
       expect(result.detected_react_functions).toBe(0);
       expect(result.placeholder_transforms_applied).toBe(0);
       expect(result.react_functions).toEqual([]);
@@ -352,6 +359,13 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'ok') {
       expect(result.statement_count).toBe(1);
       expect(result.statement_count_after_transform).toBe(2);
+      expect(
+        result.placeholder_runtime_helper_import_count_before_transform,
+      ).toBe(0);
+      expect(
+        result.placeholder_runtime_helper_import_count_after_transform,
+      ).toBe(1);
+      expect(result.placeholder_runtime_helper_import_added).toBe(true);
       expect(result.placeholder_transforms_applied).toBeGreaterThan(0);
       expect(result.placeholder_transformed_functions).toEqual(['Component']);
       expect(result.placeholder_runtime_callee_name_before_transform).toBeUndefined();
@@ -1186,6 +1200,13 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'ok') {
       expect(result.detected_react_functions).toBe(1);
       expect(result.placeholder_transforms_applied).toBe(1);
+      expect(
+        result.placeholder_runtime_helper_import_count_before_transform,
+      ).toBe(0);
+      expect(
+        result.placeholder_runtime_helper_import_count_after_transform,
+      ).toBe(0);
+      expect(result.placeholder_runtime_helper_import_added).toBe(false);
       expect(result.code).toContain('const $ = cache(0);');
       expect(result.code).not.toContain('import { c as _c }');
     }
@@ -7028,6 +7049,21 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(rustStatementCountAfterTransformDebug).toBeDefined();
     expect(rustStatementCountAfterTransformDebug?.value).toBe('1');
+    const rustRuntimeHelperImportCountBeforeTransformDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeHelperImportCountBeforeTransform',
+    );
+    expect(rustRuntimeHelperImportCountBeforeTransformDebug).toBeDefined();
+    expect(rustRuntimeHelperImportCountBeforeTransformDebug?.value).toBe('0');
+    const rustRuntimeHelperImportCountAfterTransformDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeHelperImportCountAfterTransform',
+    );
+    expect(rustRuntimeHelperImportCountAfterTransformDebug).toBeDefined();
+    expect(rustRuntimeHelperImportCountAfterTransformDebug?.value).toBe('0');
+    const rustRuntimeHelperImportAddedDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeHelperImportAdded',
+    );
+    expect(rustRuntimeHelperImportAddedDebug).toBeDefined();
+    expect(rustRuntimeHelperImportAddedDebug?.value).toBe('false');
     const rustRuntimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );
@@ -7103,6 +7139,21 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
     expect(statementCountAfterTransformDebug).toBeDefined();
     expect(statementCountAfterTransformDebug?.value).toBe('1');
+    const runtimeHelperImportCountBeforeTransformDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeHelperImportCountBeforeTransform',
+    );
+    expect(runtimeHelperImportCountBeforeTransformDebug).toBeDefined();
+    expect(runtimeHelperImportCountBeforeTransformDebug?.value).toBe('0');
+    const runtimeHelperImportCountAfterTransformDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeHelperImportCountAfterTransform',
+    );
+    expect(runtimeHelperImportCountAfterTransformDebug).toBeDefined();
+    expect(runtimeHelperImportCountAfterTransformDebug?.value).toBe('0');
+    const runtimeHelperImportAddedDebug = debugValues.find(
+      value => value.name === 'RustFrontendRuntimeHelperImportAdded',
+    );
+    expect(runtimeHelperImportAddedDebug).toBeDefined();
+    expect(runtimeHelperImportAddedDebug?.value).toBe('false');
     const runtimeCalleeDebug = debugValues.find(
       value => value.name === 'RustFrontendRuntimeCallee',
     );

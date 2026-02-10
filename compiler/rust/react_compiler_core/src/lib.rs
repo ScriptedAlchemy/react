@@ -45,6 +45,9 @@ impl Default for CompilerOptions {
 pub struct ParseMetadata {
     pub statement_count: usize,
     pub statement_count_after_transform: usize,
+    pub placeholder_runtime_helper_import_count_before_transform: usize,
+    pub placeholder_runtime_helper_import_count_after_transform: usize,
+    pub placeholder_runtime_helper_import_added: bool,
     pub detected_react_functions: usize,
     pub react_functions: Vec<ReactFunction>,
     pub placeholder_transforms_applied: usize,
@@ -93,6 +96,18 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "statement_count_after_transform={}",
             metadata.statement_count_after_transform
+        ),
+        format!(
+            "placeholder_runtime_helper_import_count_before_transform={}",
+            metadata.placeholder_runtime_helper_import_count_before_transform
+        ),
+        format!(
+            "placeholder_runtime_helper_import_count_after_transform={}",
+            metadata.placeholder_runtime_helper_import_count_after_transform
+        ),
+        format!(
+            "placeholder_runtime_helper_import_added={}",
+            metadata.placeholder_runtime_helper_import_added
         ),
         format!(
             "detected_react_functions={}",
@@ -286,6 +301,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         })?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
         let original_statement_count = module.body.len();
+        let runtime_helper_import_count_before_transform = if options.apply_placeholder_transforms {
+            count_runtime_helper_imports(&module)
+        } else {
+            0
+        };
         let (
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
@@ -307,6 +327,13 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         };
         let transformed_count = placeholder_transformed_functions.len();
         let transformed_statement_count = module.body.len();
+        let runtime_helper_import_count_after_transform = if options.apply_placeholder_transforms {
+            count_runtime_helper_imports(&module)
+        } else {
+            0
+        };
+        let runtime_helper_import_added = runtime_helper_import_count_after_transform
+            > runtime_helper_import_count_before_transform;
         let (
             placeholder_runtime_callee_name,
             placeholder_runtime_callee_candidates,
@@ -328,6 +355,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
+            placeholder_runtime_helper_import_count_before_transform:
+                runtime_helper_import_count_before_transform,
+            placeholder_runtime_helper_import_count_after_transform:
+                runtime_helper_import_count_after_transform,
+            placeholder_runtime_helper_import_added: runtime_helper_import_added,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -399,6 +431,9 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
+            placeholder_runtime_helper_import_count_before_transform: 0,
+            placeholder_runtime_helper_import_count_after_transform: 0,
+            placeholder_runtime_helper_import_added: false,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -1792,6 +1827,35 @@ fn make_runtime_import_decl() -> ImportDecl {
         with: None,
         phase: Default::default(),
     }
+}
+
+fn count_runtime_helper_imports(module: &Module) -> usize {
+    module
+        .body
+        .iter()
+        .filter_map(|item| match item {
+            ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl))
+                if import_decl.src.value == *"react/compiler-runtime" =>
+            {
+                Some(import_decl)
+            }
+            _ => None,
+        })
+        .map(|import_decl| {
+            import_decl
+                .specifiers
+                .iter()
+                .filter(|specifier| match specifier {
+                    ImportSpecifier::Named(named) if !named.is_type_only => named
+                        .imported
+                        .as_ref()
+                        .map(|imported| imported.atom() == &"c")
+                        .unwrap_or(named.local.sym == *"c"),
+                    _ => false,
+                })
+                .count()
+        })
+        .sum()
 }
 
 struct RuntimeMemoCalleeScan {
@@ -4189,6 +4253,20 @@ mod tests {
         .expect("expected valid JavaScript to parse");
 
         assert_eq!(output.metadata.statement_count, 1);
+        assert_eq!(output.metadata.statement_count_after_transform, 2);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_helper_import_count_before_transform,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_helper_import_count_after_transform,
+            1
+        );
+        assert!(output.metadata.placeholder_runtime_helper_import_added);
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions.len(), 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
@@ -4464,6 +4542,19 @@ mod tests {
         assert!(output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("import { c as _c }"));
         assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_helper_import_count_before_transform,
+            1
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_helper_import_count_after_transform,
+            1
+        );
+        assert!(!output.metadata.placeholder_runtime_helper_import_added);
     }
 
     #[test]
@@ -12284,6 +12375,9 @@ mod tests {
         assert!(debug.contains("ReactiveFunctionsDebug v0"));
         assert!(debug.contains("statement_count=2"));
         assert!(debug.contains("statement_count_after_transform=2"));
+        assert!(debug.contains("placeholder_runtime_helper_import_count_before_transform=0"));
+        assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=0"));
+        assert!(debug.contains("placeholder_runtime_helper_import_added=false"));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
