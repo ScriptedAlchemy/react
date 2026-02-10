@@ -25,6 +25,7 @@ enum CompileResponse {
         detected_react_functions: usize,
         react_functions: Vec<SerializedReactFunction>,
         placeholder_transforms_applied: usize,
+        placeholder_transformed_functions: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         debug_ir: Option<String>,
     },
@@ -105,6 +106,10 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                     .map(serialize_react_function)
                     .collect(),
                 placeholder_transforms_applied: output.metadata.placeholder_transforms_applied,
+                placeholder_transformed_functions: output
+                    .metadata
+                    .placeholder_transformed_functions
+                    .clone(),
                 debug_ir,
             }
         }
@@ -213,12 +218,14 @@ mod tests {
                 detected_react_functions,
                 react_functions,
                 placeholder_transforms_applied,
+                placeholder_transformed_functions,
                 ..
             } => {
                 assert_eq!(statement_count, 1);
                 assert_eq!(detected_react_functions, 0);
                 assert!(react_functions.is_empty());
                 assert_eq!(placeholder_transforms_applied, 0);
+                assert!(placeholder_transformed_functions.is_empty());
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -300,10 +307,15 @@ mod tests {
         });
 
         match response {
-            CompileResponse::Ok { debug_ir, .. } => {
+            CompileResponse::Ok {
+                debug_ir,
+                placeholder_transformed_functions,
+                ..
+            } => {
                 let debug_ir = debug_ir.expect("expected debug_ir payload when requested");
                 assert!(debug_ir.contains("ReactiveFunctionsDebug v0"));
                 assert!(debug_ir.contains("name=Component kind=Component"));
+                assert!(placeholder_transformed_functions.is_empty());
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
@@ -325,9 +337,14 @@ mod tests {
         match response {
             CompileResponse::Ok {
                 placeholder_transforms_applied,
+                placeholder_transformed_functions,
                 ..
             } => {
                 assert_eq!(placeholder_transforms_applied, 1);
+                assert_eq!(
+                    placeholder_transformed_functions,
+                    vec!["__default_export_component__"]
+                );
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
