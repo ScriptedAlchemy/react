@@ -48,6 +48,7 @@ pub struct ParseMetadata {
     pub placeholder_runtime_helper_import_count_before_transform: usize,
     pub placeholder_runtime_helper_import_count_after_transform: usize,
     pub placeholder_runtime_helper_import_added: bool,
+    pub placeholder_transform_candidates: Vec<String>,
     pub detected_react_functions: usize,
     pub react_functions: Vec<ReactFunction>,
     pub placeholder_transforms_applied: usize,
@@ -108,6 +109,10 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "placeholder_runtime_helper_import_added={}",
             metadata.placeholder_runtime_helper_import_added
+        ),
+        format!(
+            "placeholder_transform_candidates={}",
+            metadata.placeholder_transform_candidates.join(",")
         ),
         format!(
             "detected_react_functions={}",
@@ -301,6 +306,14 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         })?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
         let original_statement_count = module.body.len();
+        let mut placeholder_transform_candidates = if options.apply_placeholder_transforms {
+            collect_placeholder_transform_candidate_names_for_module(&module, &react_functions)
+                .into_iter()
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        sort_and_dedup_names(&mut placeholder_transform_candidates);
         let runtime_helper_import_count_before_transform = if options.apply_placeholder_transforms {
             count_runtime_helper_imports(&module)
         } else {
@@ -360,6 +373,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_helper_import_count_after_transform:
                 runtime_helper_import_count_after_transform,
             placeholder_runtime_helper_import_added: runtime_helper_import_added,
+            placeholder_transform_candidates,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -389,6 +403,14 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         })?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
         let original_statement_count = script.body.len();
+        let mut placeholder_transform_candidates = if options.apply_placeholder_transforms {
+            collect_placeholder_transform_candidate_names_for_script(&react_functions)
+                .into_iter()
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        sort_and_dedup_names(&mut placeholder_transform_candidates);
         let (
             placeholder_runtime_callee_name_before_transform,
             placeholder_runtime_callee_candidates_before_transform,
@@ -434,6 +456,7 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_runtime_helper_import_count_before_transform: 0,
             placeholder_runtime_helper_import_count_after_transform: 0,
             placeholder_runtime_helper_import_added: false,
+            placeholder_transform_candidates,
             detected_react_functions: react_functions.len(),
             react_functions,
             placeholder_transforms_applied: transformed_count,
@@ -1396,19 +1419,59 @@ fn collect_named_functions_in_decl(
     }
 }
 
-fn apply_placeholder_compilation_to_module(
-    module: &mut Module,
+fn module_has_anonymous_default_export_component_candidate(module: &Module) -> bool {
+    module.body.iter().any(|item| {
+        let ModuleItem::ModuleDecl(module_decl) = item else {
+            return false;
+        };
+        match module_decl {
+            ModuleDecl::ExportDefaultDecl(default_decl) => {
+                matches!(&default_decl.decl, DefaultDecl::Fn(fn_expr) if fn_expr.ident.is_none())
+            }
+            ModuleDecl::ExportDefaultExpr(default_expr) => {
+                match unwrap_expression(default_expr.expr.as_ref()) {
+                    Expr::Arrow(_) => true,
+                    Expr::Fn(fn_expr) => fn_expr.ident.is_none(),
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    })
+}
+
+fn collect_placeholder_transform_candidate_names_for_script(
     react_functions: &[ReactFunction],
-) -> Vec<String> {
-    let bindings = collect_top_level_bindings(module);
-    let should_transform_default_export = module_has_default_export_component_candidate(module);
-    let mut transform_candidate_names: HashSet<String> = react_functions
+) -> HashSet<String> {
+    react_functions
         .iter()
         .filter_map(|function| {
             react_function_kind(function.name.as_str()).map(|_| function.name.clone())
         })
-        .collect();
+        .collect()
+}
+
+fn collect_placeholder_transform_candidate_names_for_module(
+    module: &Module,
+    react_functions: &[ReactFunction],
+) -> HashSet<String> {
+    let bindings = collect_top_level_bindings(module);
+    let mut transform_candidate_names =
+        collect_placeholder_transform_candidate_names_for_script(react_functions);
     transform_candidate_names.extend(collect_default_export_function_names(module, &bindings));
+    if module_has_anonymous_default_export_component_candidate(module) {
+        transform_candidate_names.insert(DEFAULT_EXPORT_COMPONENT_NAME.to_string());
+    }
+    transform_candidate_names
+}
+
+fn apply_placeholder_compilation_to_module(
+    module: &mut Module,
+    react_functions: &[ReactFunction],
+) -> Vec<String> {
+    let should_transform_default_export = module_has_default_export_component_candidate(module);
+    let transform_candidate_names =
+        collect_placeholder_transform_candidate_names_for_module(module, react_functions);
     if transform_candidate_names.is_empty() && !should_transform_default_export {
         return Vec::new();
     }
@@ -1454,12 +1517,8 @@ fn apply_placeholder_compilation_to_script(
     script: &mut Script,
     react_functions: &[ReactFunction],
 ) -> Vec<String> {
-    let transform_candidate_names: HashSet<String> = react_functions
-        .iter()
-        .filter_map(|function| {
-            react_function_kind(function.name.as_str()).map(|_| function.name.clone())
-        })
-        .collect();
+    let transform_candidate_names =
+        collect_placeholder_transform_candidate_names_for_script(react_functions);
     if transform_candidate_names.is_empty() {
         return Vec::new();
     }
@@ -4267,6 +4326,10 @@ mod tests {
             1
         );
         assert!(output.metadata.placeholder_runtime_helper_import_added);
+        assert_eq!(
+            output.metadata.placeholder_transform_candidates,
+            vec!["Component".to_string()]
+        );
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.react_functions.len(), 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
@@ -11774,6 +11837,10 @@ mod tests {
             output.metadata.react_functions[0].name,
             super::DEFAULT_EXPORT_COMPONENT_NAME
         );
+        assert_eq!(
+            output.metadata.placeholder_transform_candidates,
+            vec![super::DEFAULT_EXPORT_COMPONENT_NAME.to_string()]
+        );
         assert!(output.code.contains("react/compiler-runtime"));
         assert!(output.code.contains("const $ = _c(0);"));
     }
@@ -12399,6 +12466,7 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_helper_import_count_before_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_added=false"));
+        assert!(debug.contains("placeholder_transform_candidates="));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
@@ -12432,6 +12500,7 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_helper_import_count_before_transform=0"));
         assert!(debug.contains("placeholder_runtime_helper_import_count_after_transform=1"));
         assert!(debug.contains("placeholder_runtime_helper_import_added=true"));
+        assert!(debug.contains("placeholder_transform_candidates=Component"));
         assert!(debug.contains("placeholder_transforms_applied=1"));
         assert!(debug.contains("placeholder_transformed_functions=Component"));
         assert!(debug.contains("placeholder_runtime_callee_name=_c"));
