@@ -528,11 +528,13 @@ fn collect_named_functions_in_decl(
 }
 
 fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions: &[ReactFunction]) {
-    let react_function_names: HashSet<&str> = react_functions
+    let transform_candidate_names: HashSet<&str> = react_functions
         .iter()
-        .map(|function| function.name.as_str())
+        .filter_map(|function| {
+            react_function_kind(function.name.as_str()).map(|_| function.name.as_str())
+        })
         .collect();
-    if react_function_names.is_empty() {
+    if transform_candidate_names.is_empty() {
         return;
     }
 
@@ -548,7 +550,7 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
             ModuleItem::Stmt(stmt) => {
                 if apply_placeholder_compilation_to_stmt(
                     stmt,
-                    &react_function_names,
+                    &transform_candidate_names,
                     runtime_callee_name.as_str(),
                 ) {
                     transformed = true;
@@ -557,7 +559,7 @@ fn apply_placeholder_compilation_to_module(module: &mut Module, react_functions:
             ModuleItem::ModuleDecl(module_decl) => {
                 if apply_placeholder_compilation_to_module_decl(
                     module_decl,
-                    &react_function_names,
+                    &transform_candidate_names,
                     runtime_callee_name.as_str(),
                 ) {
                     transformed = true;
@@ -934,6 +936,7 @@ mod tests {
             output.metadata.react_functions[0].kind,
             super::ReactFunctionKind::Component
         );
+        assert!(!output.code.contains("react/compiler-runtime"));
     }
 
     #[test]

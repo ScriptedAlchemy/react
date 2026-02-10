@@ -141,6 +141,6 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
 
     expect(result.code).toContain('function component');
-    expect(result.code).toContain('const $ = _c(0);');
+    expect(result.code).not.toContain('react/compiler-runtime');
   });
 });
