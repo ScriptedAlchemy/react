@@ -90,20 +90,25 @@ function resolveRustCliInvocation(manifestPath: string): {
     };
   }
 
-  const rustWorkspaceRoot = path.dirname(manifestPath);
-  const binaryName =
-    process.platform === 'win32' ? 'react_compiler_cli.exe' : 'react_compiler_cli';
-  const debugBinaryPath = path.resolve(
-    rustWorkspaceRoot,
-    'target',
-    'debug',
-    binaryName,
-  );
-  if (fs.existsSync(debugBinaryPath)) {
-    return {
-      command: debugBinaryPath,
-      args: [],
-    };
+  const usePrebuiltBinary =
+    process.env['REACT_COMPILER_RUST_USE_PREBUILT_BIN'] === '1' ||
+    process.env['REACT_COMPILER_RUST_USE_PREBUILT_BIN'] === 'true';
+  if (usePrebuiltBinary) {
+    const rustWorkspaceRoot = path.dirname(manifestPath);
+    const binaryName =
+      process.platform === 'win32' ? 'react_compiler_cli.exe' : 'react_compiler_cli';
+    const debugBinaryPath = path.resolve(
+      rustWorkspaceRoot,
+      'target',
+      'debug',
+      binaryName,
+    );
+    if (fs.existsSync(debugBinaryPath)) {
+      return {
+        command: debugBinaryPath,
+        args: [],
+      };
+    }
   }
 
   return {

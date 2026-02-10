@@ -116,7 +116,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     if (result.status === 'error') {
       expect(result.code).toBe('parse_failure');
       expect(result.category).toBe('syntax');
-      expect(result.reason).toBe('parse_error');
+      expect(result.reason).toBe('unexpected_token');
       expect(result.severity).toBe('error');
       expect(result.location).not.toBeNull();
     }

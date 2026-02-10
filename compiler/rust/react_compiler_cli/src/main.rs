@@ -259,7 +259,7 @@ mod tests {
             } => {
                 assert_eq!(code, "parse_failure");
                 assert_eq!(category, "syntax");
-                assert_eq!(reason, "parse_error");
+                assert_eq!(reason, "unexpected_token");
                 assert_eq!(severity, "error");
                 assert!(location.is_some());
             }

@@ -9,7 +9,10 @@ use swc_ecma_ast::{
     Stmt, VarDecl, VarDeclKind, VarDeclarator,
 };
 use swc_ecma_codegen::{text_writer::JsWriter, Config as CodegenConfig, Emitter};
-use swc_ecma_parser::{lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax};
+use swc_ecma_parser::{
+    error::SyntaxError as ParserSyntaxError, lexer::Lexer, EsSyntax, Parser, StringInput, Syntax,
+    TsSyntax,
+};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,6 +82,7 @@ pub enum CompilerError {
     #[error("Failed to parse input: {message}")]
     ParseFailure {
         message: String,
+        reason: &'static str,
         location: Option<SourceLocation>,
     },
     #[error("Failed to emit compiled output: {message}")]
@@ -105,7 +109,7 @@ impl CompilerError {
     pub fn reason(&self) -> &'static str {
         match self {
             CompilerError::UnsupportedFlowSyntax { .. } => "unsupported_syntax",
-            CompilerError::ParseFailure { .. } => "parse_error",
+            CompilerError::ParseFailure { reason, .. } => reason,
             CompilerError::CodegenFailure { .. } => "codegen_error",
         }
     }
@@ -176,11 +180,16 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     let (metadata, code) = if options.is_module {
         let mut module = parser.parse_module().map_err(|err| {
             let message = err.kind().msg().to_string();
+            let reason = parse_syntax_error_reason(err.kind());
             let location = span_to_location(&cm, err.span());
             if options.dialect == InputDialect::Flow {
                 CompilerError::UnsupportedFlowSyntax { location }
             } else {
-                CompilerError::ParseFailure { message, location }
+                CompilerError::ParseFailure {
+                    message,
+                    reason,
+                    location,
+                }
             }
         })?;
         let react_functions = collect_react_functions_in_module(&cm, &module);
@@ -196,11 +205,16 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     } else {
         let script = parser.parse_script().map_err(|err| {
             let message = err.kind().msg().to_string();
+            let reason = parse_syntax_error_reason(err.kind());
             let location = span_to_location(&cm, err.span());
             if options.dialect == InputDialect::Flow {
                 CompilerError::UnsupportedFlowSyntax { location }
             } else {
-                CompilerError::ParseFailure { message, location }
+                CompilerError::ParseFailure {
+                    message,
+                    reason,
+                    location,
+                }
             }
         })?;
         let react_functions = collect_react_functions_in_script(&cm, &script);
@@ -213,6 +227,51 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
     };
 
     Ok(CompileOutput { code, metadata })
+}
+
+fn parse_syntax_error_reason(kind: &ParserSyntaxError) -> &'static str {
+    match kind {
+        ParserSyntaxError::Unexpected { .. }
+        | ParserSyntaxError::UnexpectedTokenWithSuggestions { .. }
+        | ParserSyntaxError::UnexpectedChar { .. }
+        | ParserSyntaxError::Hash => "unexpected_token",
+        ParserSyntaxError::Expected(..)
+        | ParserSyntaxError::ExpectedIdent
+        | ParserSyntaxError::ExpectedSemi
+        | ParserSyntaxError::ExpectedSemiForExprStmt { .. }
+        | ParserSyntaxError::ExpectedUnicodeEscape
+        | ParserSyntaxError::ExpectedDigit { .. } => "expected_token",
+        ParserSyntaxError::UnterminatedBlockComment
+        | ParserSyntaxError::UnterminatedStrLit
+        | ParserSyntaxError::UnterminatedRegExp
+        | ParserSyntaxError::UnterminatedTpl
+        | ParserSyntaxError::UnterminatedJSXContents => "unterminated_syntax",
+        ParserSyntaxError::InvalidIdentChar
+        | ParserSyntaxError::InvalidStrEscape
+        | ParserSyntaxError::InvalidUnicodeEscape
+        | ParserSyntaxError::BadCharacterEscapeSequence { .. } => "invalid_syntax",
+        ParserSyntaxError::Eof => "unexpected_eof",
+        _ => classify_parse_error_message(kind.msg().as_ref()),
+    }
+}
+
+fn classify_parse_error_message(message: &str) -> &'static str {
+    if message.contains("Unexpected token") || message.starts_with("Unexpected character") {
+        return "unexpected_token";
+    }
+    if message.starts_with("Unexpected eof") {
+        return "unexpected_eof";
+    }
+    if message.starts_with("Expected ") {
+        return "expected_token";
+    }
+    if message.starts_with("Unterminated ") {
+        return "unterminated_syntax";
+    }
+    if message.starts_with("Invalid ") {
+        return "invalid_syntax";
+    }
+    "parse_error"
 }
 
 fn emit_module(
