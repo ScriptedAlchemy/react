@@ -40,6 +40,7 @@ export type RustCompileResponse =
       status: 'error';
       code: string;
       category: string;
+      reason: string;
       severity: string;
       message: string;
       location?: RustSourceLocation | null;

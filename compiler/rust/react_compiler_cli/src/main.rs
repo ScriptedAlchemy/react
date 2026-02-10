@@ -27,6 +27,7 @@ enum CompileResponse {
     Error {
         code: String,
         category: String,
+        reason: String,
         severity: String,
         message: String,
         location: Option<SerializedSourceLocation>,
@@ -64,6 +65,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
             return CompileResponse::Error {
                 code: "unsupported_dialect".to_string(),
                 category: "request".to_string(),
+                reason: "invalid_option".to_string(),
                 severity: "error".to_string(),
                 message,
                 location: None,
@@ -95,6 +97,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
         Err(error) => CompileResponse::Error {
             code: error.code().to_string(),
             category: error.category().to_string(),
+            reason: error.reason().to_string(),
             severity: error.severity().to_string(),
             message: error.to_string(),
             location: error.location().map(serialize_source_location),
@@ -141,6 +144,7 @@ fn main() {
         Err(error) => CompileResponse::Error {
             code: "invalid_request".to_string(),
             category: "request".to_string(),
+            reason: "invalid_request".to_string(),
             severity: "error".to_string(),
             message: format!("Invalid request JSON: {error}"),
             location: None,
@@ -219,11 +223,13 @@ mod tests {
             CompileResponse::Error {
                 code,
                 category,
+                reason,
                 severity,
                 ..
             } => {
                 assert_eq!(code, "unsupported_dialect");
                 assert_eq!(category, "request");
+                assert_eq!(reason, "invalid_option");
                 assert_eq!(severity, "error");
             }
             CompileResponse::Ok { .. } => {
@@ -246,12 +252,14 @@ mod tests {
             CompileResponse::Error {
                 code,
                 category,
+                reason,
                 severity,
                 location,
                 ..
             } => {
                 assert_eq!(code, "parse_failure");
                 assert_eq!(category, "syntax");
+                assert_eq!(reason, "parse_error");
                 assert_eq!(severity, "error");
                 assert!(location.is_some());
             }
