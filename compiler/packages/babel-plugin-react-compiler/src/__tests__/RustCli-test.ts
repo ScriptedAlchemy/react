@@ -447,6 +447,38 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('strict rust mode preflight-skips inline flow parameter annotations', () => {
+    const source = [
+      '// @flow',
+      'function Component(props: {name: string}) {',
+      '  return props.name;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [{name: "A"}] };',
+    ].join('\n');
+
+    const rustResult = withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+        }),
+      ),
+    );
+    const babelResult = runBabelPluginReactCompiler(
+      source,
+      '/fixture.js',
+      'flow',
+      {
+        compilationMode: 'all',
+        compilerEngine: 'babel',
+      },
+    );
+
+    expect(canonicalizeCode(rustResult.code)).toBe(
+      canonicalizeCode(babelResult.code),
+    );
+  });
+
   it('strict rust mode falls back on TS instantiation expressions', () => {
     const source = [
       'function id<T>(x: T): T {',

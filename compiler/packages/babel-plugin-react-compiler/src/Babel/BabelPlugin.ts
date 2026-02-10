@@ -155,6 +155,9 @@ function findObviousFlowTypeSyntaxMarker(
     /\binterface\s+[A-Za-z_$]/,
     /\bdeclare\s+(class|function|module|var|type|interface)\b/,
     /\btype\s+[A-Za-z_$][\w$]*\s*=/,
+    /\bfunction\s+[A-Za-z_$][\w$]*\s*\([^)]*:\s*[^)]*\)/,
+    /\([^)]*:\s*[^)]*\)\s*=>/,
+    /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:\s*[^=;]+[=;]/,
     /\/\*::/,
     /\/\/::/,
   ];
