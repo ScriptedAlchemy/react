@@ -231,6 +231,11 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
 
 fn parse_syntax_error_reason(kind: &ParserSyntaxError) -> &'static str {
     match kind {
+        ParserSyntaxError::Unexpected { got, .. }
+            if got.contains("eof") || got.contains("EOF") || got.contains("<eof>") =>
+        {
+            "unexpected_eof"
+        }
         ParserSyntaxError::Unexpected { .. }
         | ParserSyntaxError::UnexpectedTokenWithSuggestions { .. }
         | ParserSyntaxError::UnexpectedChar { .. }
@@ -256,13 +261,14 @@ fn parse_syntax_error_reason(kind: &ParserSyntaxError) -> &'static str {
 }
 
 fn classify_parse_error_message(message: &str) -> &'static str {
+    let normalized = message.to_ascii_lowercase();
     if message.contains("Unexpected token") || message.starts_with("Unexpected character") {
         return "unexpected_token";
     }
-    if message.starts_with("Unexpected eof") {
+    if message.starts_with("Unexpected eof") || normalized.contains("unexpected eof") {
         return "unexpected_eof";
     }
-    if message.starts_with("Expected ") {
+    if message.starts_with("Expected ") || normalized.contains(" expected") {
         return "expected_token";
     }
     if message.starts_with("Unterminated ") {
@@ -1292,6 +1298,48 @@ mod tests {
         match err {
             CompilerError::ParseFailure { reason, .. } => {
                 assert_eq!(reason, "unterminated_syntax");
+            }
+            other => panic!("expected parse failure error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_failure_reason_is_classified_as_expected_token() {
+        let err = compile(
+            "const value = ;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "broken.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect_err("invalid JavaScript should fail parsing");
+
+        match err {
+            CompilerError::ParseFailure { reason, .. } => {
+                assert_eq!(reason, "expected_token");
+            }
+            other => panic!("expected parse failure error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_failure_reason_is_classified_as_unexpected_eof() {
+        let err = compile(
+            "function Component(",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "broken.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect_err("invalid JavaScript should fail parsing");
+
+        match err {
+            CompilerError::ParseFailure { reason, .. } => {
+                assert_eq!(reason, "unexpected_eof");
             }
             other => panic!("expected parse failure error, got {other:?}"),
         }
