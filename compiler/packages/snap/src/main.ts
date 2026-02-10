@@ -29,6 +29,9 @@ process.stdin.on('keypress', function (_, key) {
   }
 });
 
+const childEnv = {...process.env};
+delete childEnv['NO_COLOR'];
+
 const childProc = fork(require.resolve('./runner.js'), hideBin(process.argv), {
   // for some reason, keypress events aren't sent to handlers in both processes
   // when we `inherit` stdin.
@@ -36,7 +39,7 @@ const childProc = fork(require.resolve('./runner.js'), hideBin(process.argv), {
   stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
   // forward existing env variables, like `NODE_OPTIONS` which VSCode uses to attach
   // its debugger
-  env: {...process.env, FORCE_COLOR: 'true'},
+  env: {...childEnv, FORCE_COLOR: 'true'},
 });
 
 invariant(

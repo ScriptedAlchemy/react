@@ -1,0 +1,36 @@
+name: (Compiler) Strict Rust Parity
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * *'
+
+permissions: {}
+
+defaults:
+  run:
+    working-directory: compiler
+
+jobs:
+  strict_rust_parity_full:
+    name: Strict Rust parity full fixture sweep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: yarn
+          cache-dependency-path: compiler/yarn.lock
+      - name: Setup rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Restore cached node_modules
+        uses: actions/cache@v4
+        id: node_modules
+        with:
+          path: |
+            **/node_modules
+          key: compiler-node_modules-v6-${{ runner.arch }}-${{ runner.os }}-${{ hashFiles('compiler/yarn.lock') }}
+      - run: yarn install --frozen-lockfile
+        if: steps.node_modules.outputs.cache-hit != 'true'
+      - run: yarn snap:parity:full
