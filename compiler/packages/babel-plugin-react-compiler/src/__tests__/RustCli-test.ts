@@ -469,6 +469,25 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('reuses module runtime shorthand destructure aliases for placeholder transforms', () => {
+    const result = runRustCompilerCli({
+      source:
+        "const runtime = require('react/compiler-runtime'); const { c } = runtime; export function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = c(0);');
+      expect(result.code).not.toContain('import { c as _c }');
+    }
+  });
+
   it('transforms script components with runtime require destructure aliases', () => {
     const result = runRustCompilerCli({
       source:
@@ -484,6 +503,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
       expect(result.detected_react_functions).toBe(1);
       expect(result.placeholder_transforms_applied).toBe(1);
       expect(result.code).toContain('const $ = cache(0);');
+    }
+  });
+
+  it('transforms script components with runtime require shorthand destructure aliases', () => {
+    const result = runRustCompilerCli({
+      source:
+        "const { c } = require('react/compiler-runtime'); function Component() { return <div />; }",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: true,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(1);
+      expect(result.code).toContain('const $ = c(0);');
     }
   });
 
