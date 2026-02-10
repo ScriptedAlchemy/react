@@ -87,6 +87,20 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('returns structured rust error code for unsupported flow syntax', () => {
+    const result = runRustCompilerCli({
+      source: '// @flow\nfunction Component(props: {x: number}) { return props.x; }',
+      dialect: 'flow',
+      filename: 'fixture.js',
+      is_module: false,
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.code).toBe('unsupported_flow_syntax');
+    }
+  });
+
   it('can request placeholder transforms explicitly from Rust CLI', () => {
     const result = runRustCompilerCli({
       source: 'export function Component() { return <div />; }',

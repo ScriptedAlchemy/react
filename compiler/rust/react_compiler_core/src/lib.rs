@@ -83,6 +83,16 @@ pub enum CompilerError {
     CodegenFailure { message: String },
 }
 
+impl CompilerError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            CompilerError::UnsupportedFlowSyntax => "unsupported_flow_syntax",
+            CompilerError::ParseFailure { .. } => "parse_failure",
+            CompilerError::CodegenFailure { .. } => "codegen_failure",
+        }
+    }
+}
+
 pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput, CompilerError> {
     if options.dialect == InputDialect::Flow {
         return Err(CompilerError::UnsupportedFlowSyntax);

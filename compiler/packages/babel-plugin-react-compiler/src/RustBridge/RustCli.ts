@@ -34,7 +34,7 @@ export type RustCompileResponse =
         };
       }>;
     }
-  | {status: 'error'; message: string};
+  | {status: 'error'; code: string; message: string};
 
 function resolveRustManifestPath(): string {
   const explicitPath = process.env['REACT_COMPILER_RUST_MANIFEST'];

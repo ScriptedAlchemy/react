@@ -24,7 +24,7 @@ enum CompileResponse {
         react_functions: Vec<SerializedReactFunction>,
     },
     #[serde(rename = "error")]
-    Error { message: String },
+    Error { code: String, message: String },
 }
 
 #[derive(Debug, Serialize)]
@@ -54,7 +54,12 @@ fn parse_dialect(dialect: Option<&str>) -> Result<InputDialect, String> {
 fn handle_request(request: CompileRequest) -> CompileResponse {
     let dialect = match parse_dialect(request.dialect.as_deref()) {
         Ok(dialect) => dialect,
-        Err(message) => return CompileResponse::Error { message },
+        Err(message) => {
+            return CompileResponse::Error {
+                code: "unsupported_dialect".to_string(),
+                message,
+            }
+        }
     };
 
     let options = CompilerOptions {
@@ -79,6 +84,7 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                 .collect(),
         },
         Err(error) => CompileResponse::Error {
+            code: error.code().to_string(),
             message: error.to_string(),
         },
     }
@@ -121,6 +127,7 @@ fn main() {
     let response = match serde_json::from_str::<CompileRequest>(&input) {
         Ok(request) => handle_request(request),
         Err(error) => CompileResponse::Error {
+            code: "invalid_request".to_string(),
             message: format!("Invalid request JSON: {error}"),
         },
     };
@@ -177,8 +184,28 @@ mod tests {
                 assert_eq!(detected_react_functions, 0);
                 assert!(react_functions.is_empty());
             }
-            CompileResponse::Error { message } => {
+            CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
+
+    #[test]
+    fn compile_request_returns_error_code_for_unsupported_dialect() {
+        let response = handle_request(CompileRequest {
+            source: "const value = 1;".to_string(),
+            filename: None,
+            dialect: Some("unknown".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: None,
+        });
+
+        match response {
+            CompileResponse::Error { code, .. } => {
+                assert_eq!(code, "unsupported_dialect");
+            }
+            CompileResponse::Ok { .. } => {
+                panic!("expected error response for unsupported dialect")
             }
         }
     }

@@ -40,6 +40,15 @@ function isStrictRustEngineEnabled(): boolean {
   );
 }
 
+function isRecoverableRustFrontendErrorCode(code: string): boolean {
+  return (
+    code === 'unsupported_flow_syntax' ||
+    code === 'parse_failure' ||
+    code === 'codegen_failure' ||
+    code === 'unsupported_dialect'
+  );
+}
+
 function detectRustDialect(
   filename: string | null,
   sourceCode: string | null,
@@ -133,15 +142,18 @@ function maybeRunRustProgramCompiler(
   const rustResult = runRustCompilerCli(rustRequest);
 
   if (rustResult.status === 'error') {
-    if (!strictRustEngine) {
+    if (
+      !strictRustEngine ||
+      isRecoverableRustFrontendErrorCode(rustResult.code)
+    ) {
       return;
     }
     logger?.logEvent(filename, {
       kind: 'PipelineError',
       fnLoc: null,
-      data: `[RustCompiler] ${rustResult.message}`,
+      data: `[RustCompiler:${rustResult.code}] ${rustResult.message}`,
     });
-    throw new Error(`[RustCompiler] ${rustResult.message}`);
+    throw new Error(`[RustCompiler:${rustResult.code}] ${rustResult.message}`);
   }
   if (!strictRustEngine || rustResult.code === sourceCode) {
     return;
