@@ -147,7 +147,109 @@ function detectRustDialect(
 
 function findObviousFlowTypeSyntaxMarker(
   sourceCode: string,
+  sourceType: 'script' | 'module',
 ): null | {index: number; length: number; kind: string} {
+  try {
+    const ast = BabelParser.parse(sourceCode, {
+      sourceType,
+      plugins: ['flow', 'jsx'],
+    });
+    let firstMatch: null | {index: number; length: number; kind: string} = null;
+    const recordMarker = (
+      kind: string,
+      node: {start?: number | null; end?: number | null},
+    ): void => {
+      if (node.start == null || node.end == null) {
+        return;
+      }
+      const candidate = {
+        index: node.start,
+        length: Math.max(node.end - node.start, 1),
+        kind,
+      };
+      if (firstMatch == null || candidate.index < firstMatch.index) {
+        firstMatch = candidate;
+      }
+    };
+    traverse(ast, {
+      TypeAlias(path) {
+        recordMarker('type_alias', path.node);
+      },
+      OpaqueType(path) {
+        recordMarker('opaque_type', path.node);
+      },
+      InterfaceDeclaration(path) {
+        recordMarker('interface', path.node);
+      },
+      DeclareClass(path) {
+        recordMarker('declare', path.node);
+      },
+      DeclareFunction(path) {
+        recordMarker('declare', path.node);
+      },
+      DeclareModule(path) {
+        recordMarker('declare', path.node);
+      },
+      DeclareVariable(path) {
+        recordMarker('declare', path.node);
+      },
+      DeclareTypeAlias(path) {
+        recordMarker('declare', path.node);
+      },
+      DeclareInterface(path) {
+        recordMarker('declare', path.node);
+      },
+      TypeCastExpression(path) {
+        recordMarker('flow_type_cast', path.node);
+      },
+      Function(path) {
+        const hasTypedParam = path.node.params.some(
+          param => (param as any).typeAnnotation != null,
+        );
+        if (hasTypedParam) {
+          recordMarker('typed_function_params', path.node);
+        }
+        if (path.node.returnType != null) {
+          recordMarker('typed_function_return', path.node);
+        }
+      },
+      ArrowFunctionExpression(path) {
+        const hasTypedParam = path.node.params.some(
+          param => (param as any).typeAnnotation != null,
+        );
+        if (hasTypedParam) {
+          recordMarker('typed_arrow_params', path.node);
+        }
+      },
+      VariableDeclarator(path) {
+        if ((path.node.id as any).typeAnnotation != null) {
+          recordMarker('typed_variable', path.node.id as any);
+        }
+      },
+      ImportDeclaration(path) {
+        if (
+          path.node.importKind === 'type' ||
+          path.node.importKind === 'typeof' ||
+          path.node.specifiers.some(
+            specifier =>
+              t.isImportSpecifier(specifier) && specifier.importKind === 'type',
+          )
+        ) {
+          recordMarker('import_type', path.node);
+        }
+      },
+      ExportNamedDeclaration(path) {
+        if (path.node.exportKind === 'type') {
+          recordMarker('export_type', path.node);
+        }
+      },
+    });
+    if (firstMatch != null) {
+      return firstMatch;
+    }
+  } catch {
+    // Fall back to regex-based marker detection when parser preflight fails.
+  }
   const flowTypeMarkers = [
     {pattern: /\bimport\s+type\b/, kind: 'import_type'},
     {pattern: /\bexport\s+type\b/, kind: 'export_type'},
@@ -391,7 +493,9 @@ function maybeRunRustProgramCompiler(
     return;
   }
   const flowTypeMarker =
-    dialect === 'flow' ? findObviousFlowTypeSyntaxMarker(sourceCode) : null;
+    dialect === 'flow'
+      ? findObviousFlowTypeSyntaxMarker(sourceCode, sourceType)
+      : null;
   if (dialect === 'flow' && flowTypeMarker != null) {
     if (strictRustEngine) {
       logStrictRustFrontendFallback(

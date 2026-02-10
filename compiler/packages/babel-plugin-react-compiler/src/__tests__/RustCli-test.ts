@@ -450,6 +450,44 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('logs strict rust preflight reason and location for flow import type syntax', () => {
+    const loggedEvents: Array<unknown> = [];
+    const source = [
+      '// @flow',
+      "import type {User} from './types';",
+      'function Component(props: {user: User}) {',
+      '  return props.user.name;',
+      '}',
+      'export const FIXTURE_ENTRYPOINT = { fn: Component, params: [{user: {name: "A"}}] };',
+    ].join('\n');
+
+    withEnvVar('REACT_COMPILER_RUST_CLI_BIN', process.execPath, () =>
+      withStrictRustEngine(() =>
+        runBabelPluginReactCompiler(source, '/fixture.js', 'flow', {
+          compilationMode: 'all',
+          compilerEngine: 'rust',
+          logger: {
+            logEvent(_filename, event) {
+              loggedEvents.push(event);
+            },
+          },
+        }),
+      ),
+    );
+
+    const fallbackEvent = loggedEvents.find(
+      (event: any) =>
+        event.kind === 'CompileSkip' &&
+        event.reason ===
+          'rust_frontend_error:unsupported_flow_syntax:flow_syntax_not_supported:import_type',
+    ) as any;
+    expect(fallbackEvent).toBeDefined();
+    expect(fallbackEvent.loc).not.toBeNull();
+    if (fallbackEvent.loc != null) {
+      expect(fallbackEvent.loc.start.index).toBe(source.indexOf("import type {User}"));
+    }
+  });
+
   it('strict rust mode preflight-skips inline flow parameter annotations', () => {
     const source = [
       '// @flow',
@@ -586,7 +624,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(fallbackEvent.loc).not.toBeNull();
     if (fallbackEvent.loc != null) {
       expect(fallbackEvent.loc.start.index).toBe(
-        source.indexOf('(props.name: string)'),
+        source.indexOf('(props.name: string)') + 1,
       );
     }
   });
