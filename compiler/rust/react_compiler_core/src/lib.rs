@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use swc_common::{
     comments::SingleThreadedComments, sync::Lrc, FileName, SourceMap, Span, Spanned, DUMMY_SP,
 };
@@ -665,7 +665,83 @@ fn collect_fixture_entrypoint_function_names(module: &Module) -> HashSet<String>
         .collect()
 }
 
+enum TopLevelBinding {
+    FunctionLike,
+    Alias(String),
+}
+
+fn collect_top_level_bindings(module: &Module) -> HashMap<String, TopLevelBinding> {
+    let mut bindings = HashMap::new();
+    for item in &module.body {
+        match item {
+            ModuleItem::Stmt(Stmt::Decl(decl)) => {
+                record_top_level_bindings_from_decl(decl, &mut bindings)
+            }
+            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
+                record_top_level_bindings_from_decl(&export_decl.decl, &mut bindings)
+            }
+            _ => {}
+        }
+    }
+    bindings
+}
+
+fn record_top_level_bindings_from_decl(
+    decl: &Decl,
+    bindings: &mut HashMap<String, TopLevelBinding>,
+) {
+    match decl {
+        Decl::Fn(fn_decl) => {
+            bindings.insert(fn_decl.ident.sym.to_string(), TopLevelBinding::FunctionLike);
+        }
+        Decl::Var(var_decl) => {
+            for declarator in &var_decl.decls {
+                let Pat::Ident(binding) = &declarator.name else {
+                    continue;
+                };
+                let Some(init) = declarator.init.as_deref().map(unwrap_expression) else {
+                    continue;
+                };
+                match init {
+                    Expr::Fn(_) | Expr::Arrow(_) => {
+                        bindings.insert(binding.id.sym.to_string(), TopLevelBinding::FunctionLike);
+                    }
+                    Expr::Ident(ident) => {
+                        bindings.insert(
+                            binding.id.sym.to_string(),
+                            TopLevelBinding::Alias(ident.sym.to_string()),
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn resolve_function_binding_name(
+    bindings: &HashMap<String, TopLevelBinding>,
+    name: &str,
+) -> Option<String> {
+    let mut current = name.to_string();
+    let mut visited = HashSet::new();
+    loop {
+        if !visited.insert(current.clone()) {
+            return None;
+        }
+        match bindings.get(current.as_str()) {
+            Some(TopLevelBinding::FunctionLike) => return Some(current),
+            Some(TopLevelBinding::Alias(next)) => {
+                current = next.clone();
+            }
+            None => return None,
+        }
+    }
+}
+
 fn collect_default_export_function_names(module: &Module) -> HashSet<String> {
+    let bindings = collect_top_level_bindings(module);
     module
         .body
         .iter()
@@ -715,6 +791,7 @@ fn collect_default_export_function_names(module: &Module) -> HashSet<String> {
                 _ => None,
             }
         })
+        .filter_map(|name| resolve_function_binding_name(&bindings, &name))
         .collect()
 }
 
@@ -1493,9 +1570,45 @@ mod tests {
     }
 
     #[test]
+    fn transforms_function_referenced_by_aliased_default_export_identifier() {
+        let output = compile(
+            "function component(){ return <div />; } const alias = component; export default alias;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
     fn transforms_function_referenced_by_named_default_export_specifier() {
         let output = compile(
             "function component(){ return <div />; } export {component as default};",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.jsx".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert!(output.code.contains("react/compiler-runtime"));
+        assert!(output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn transforms_function_referenced_by_aliased_named_default_export_specifier() {
+        let output = compile(
+            "function component(){ return <div />; } const alias = component; export {alias as default};",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.jsx".to_string(),
