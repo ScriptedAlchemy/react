@@ -1861,7 +1861,15 @@ fn collect_runtime_bindings_from_script_assignment_expr(
     runtime_namespace_bindings: &mut HashSet<String>,
     runtime_callee_bindings: &mut HashSet<String>,
 ) {
-    let Expr::Assign(assign_expr) = unwrap_expression(expr) else {
+    let expression = unwrap_expression(expr);
+    let Expr::Assign(assign_expr) = expression else {
+        if let Some(binding_name) = runtime_binding_name_from_side_effect_expression(expression) {
+            clear_runtime_bindings_for_name(
+                binding_name.as_str(),
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+            );
+        }
         return;
     };
     if assign_expr.op != swc_ecma_ast::AssignOp::Assign {
@@ -1949,8 +1957,30 @@ fn clear_runtime_bindings_for_assign_target(
     runtime_callee_bindings: &mut HashSet<String>,
 ) {
     for binding_name in collect_binding_names_from_assign_target(target) {
-        runtime_namespace_bindings.remove(binding_name.as_str());
-        runtime_callee_bindings.remove(binding_name.as_str());
+        clear_runtime_bindings_for_name(
+            binding_name.as_str(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+        );
+    }
+}
+
+fn clear_runtime_bindings_for_name(
+    binding_name: &str,
+    runtime_namespace_bindings: &mut HashSet<String>,
+    runtime_callee_bindings: &mut HashSet<String>,
+) {
+    runtime_namespace_bindings.remove(binding_name);
+    runtime_callee_bindings.remove(binding_name);
+}
+
+fn runtime_binding_name_from_side_effect_expression(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Update(update_expr) => expression_ident(update_expr.arg.as_ref()),
+        Expr::Unary(unary_expr) if unary_expr.op == swc_ecma_ast::UnaryOp::Delete => {
+            expression_ident(unary_expr.arg.as_ref())
+        }
+        _ => None,
     }
 }
 
@@ -2620,6 +2650,25 @@ mod tests {
     }
 
     #[test]
+    fn falls_back_to_import_when_module_runtime_alias_uses_update_expression() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; cache++; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output
+            .code
+            .contains("import { c as _c } from \"react/compiler-runtime\";"));
+        assert!(output.code.contains("const $ = _c(0);"));
+        assert!(!output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn falls_back_to_import_when_module_runtime_alias_is_overwritten_by_object_pattern_assignment()
     {
         let output = compile(
@@ -2753,6 +2802,25 @@ mod tests {
     fn does_not_transform_script_component_when_runtime_alias_uses_compound_assignment() {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; cache += 1; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 0);
+        assert!(!output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("const $ = _c(0);"));
+    }
+
+    #[test]
+    fn does_not_transform_script_component_when_runtime_alias_uses_update_expression() {
+        let output = compile(
+            "let cache = require('react/compiler-runtime').c; cache++; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
