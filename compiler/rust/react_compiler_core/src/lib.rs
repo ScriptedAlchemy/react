@@ -63,6 +63,8 @@ pub struct ParseMetadata {
     pub placeholder_transform_skipped_hook_count: usize,
     pub detected_component_function_count: usize,
     pub detected_hook_function_count: usize,
+    pub detected_component_functions: Vec<String>,
+    pub detected_hook_functions: Vec<String>,
     pub detected_react_functions: usize,
     pub react_functions: Vec<ReactFunction>,
     pub placeholder_transforms_applied: usize,
@@ -187,6 +189,14 @@ pub fn render_react_functions_debug(metadata: &ParseMetadata) -> String {
         format!(
             "detected_hook_function_count={}",
             metadata.detected_hook_function_count
+        ),
+        format!(
+            "detected_component_functions={}",
+            metadata.detected_component_functions.join(",")
+        ),
+        format!(
+            "detected_hook_functions={}",
+            metadata.detected_hook_functions.join(",")
         ),
         format!(
             "detected_react_functions={}",
@@ -493,6 +503,8 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let placeholder_runtime_namespace_candidate_count =
             placeholder_runtime_namespace_candidates.len();
         let detected_kind_counts = count_detected_react_functions_by_kind(&react_functions);
+        let (detected_component_functions, detected_hook_functions) =
+            collect_detected_react_function_names_by_kind(&react_functions);
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
@@ -515,6 +527,8 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transform_skipped_hook_count: skipped_kind_counts.hook_count,
             detected_component_function_count: detected_kind_counts.component_count,
             detected_hook_function_count: detected_kind_counts.hook_count,
+            detected_component_functions,
+            detected_hook_functions,
             placeholder_transform_candidates,
             placeholder_transform_skipped_functions,
             detected_react_functions: react_functions.len(),
@@ -630,6 +644,8 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
         let placeholder_runtime_namespace_candidate_count =
             placeholder_runtime_namespace_candidates.len();
         let detected_kind_counts = count_detected_react_functions_by_kind(&react_functions);
+        let (detected_component_functions, detected_hook_functions) =
+            collect_detected_react_function_names_by_kind(&react_functions);
         let metadata = ParseMetadata {
             statement_count: original_statement_count,
             statement_count_after_transform: transformed_statement_count,
@@ -650,6 +666,8 @@ pub fn compile(source: &str, options: &CompilerOptions) -> Result<CompileOutput,
             placeholder_transform_skipped_hook_count: skipped_kind_counts.hook_count,
             detected_component_function_count: detected_kind_counts.component_count,
             detected_hook_function_count: detected_kind_counts.hook_count,
+            detected_component_functions,
+            detected_hook_functions,
             placeholder_transform_candidates,
             placeholder_transform_skipped_functions,
             detected_react_functions: react_functions.len(),
@@ -1112,6 +1130,21 @@ fn count_detected_react_functions_by_kind(
             }
             counts
         })
+}
+
+fn collect_detected_react_function_names_by_kind(
+    react_functions: &[ReactFunction],
+) -> (Vec<String>, Vec<String>) {
+    react_functions.iter().fold(
+        (Vec::new(), Vec::new()),
+        |(mut component_names, mut hook_names), function| {
+            match function.kind {
+                ReactFunctionKind::Component => component_names.push(function.name.clone()),
+                ReactFunctionKind::Hook => hook_names.push(function.name.clone()),
+            }
+            (component_names, hook_names)
+        },
+    )
 }
 
 fn derive_placeholder_transform_status(
@@ -4633,6 +4666,11 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.detected_component_function_count, 1);
         assert_eq!(output.metadata.detected_hook_function_count, 0);
+        assert_eq!(
+            output.metadata.detected_component_functions,
+            vec!["Component".to_string()]
+        );
+        assert!(output.metadata.detected_hook_functions.is_empty());
         assert_eq!(output.metadata.react_functions.len(), 1);
         assert_eq!(output.metadata.react_functions[0].name, "Component");
         assert_eq!(
@@ -9107,6 +9145,11 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.detected_component_function_count, 1);
         assert_eq!(output.metadata.detected_hook_function_count, 0);
+        assert_eq!(
+            output.metadata.detected_component_functions,
+            vec!["Component".to_string()]
+        );
+        assert!(output.metadata.detected_hook_functions.is_empty());
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
@@ -12212,6 +12255,11 @@ mod tests {
         assert_eq!(output.metadata.detected_component_function_count, 1);
         assert_eq!(output.metadata.detected_hook_function_count, 0);
         assert_eq!(
+            output.metadata.detected_component_functions,
+            vec![super::DEFAULT_EXPORT_COMPONENT_NAME.to_string()]
+        );
+        assert!(output.metadata.detected_hook_functions.is_empty());
+        assert_eq!(
             output.metadata.react_functions[0].name,
             super::DEFAULT_EXPORT_COMPONENT_NAME
         );
@@ -12580,6 +12628,11 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.detected_component_function_count, 0);
         assert_eq!(output.metadata.detected_hook_function_count, 1);
+        assert!(output.metadata.detected_component_functions.is_empty());
+        assert_eq!(
+            output.metadata.detected_hook_functions,
+            vec!["useValue".to_string()]
+        );
         assert_eq!(output.metadata.react_functions[0].name, "useValue");
         assert_eq!(
             output.metadata.react_functions[0].kind,
@@ -12630,6 +12683,11 @@ mod tests {
         assert_eq!(output.metadata.detected_react_functions, 1);
         assert_eq!(output.metadata.detected_component_function_count, 0);
         assert_eq!(output.metadata.detected_hook_function_count, 1);
+        assert!(output.metadata.detected_component_functions.is_empty());
+        assert_eq!(
+            output.metadata.detected_hook_functions,
+            vec!["useValue".to_string()]
+        );
         assert_eq!(output.metadata.placeholder_transforms_applied, 1);
         assert_eq!(
             output.metadata.placeholder_transform_candidates,
@@ -12988,6 +13046,8 @@ mod tests {
         assert!(debug.contains("placeholder_transform_status=disabled"));
         assert!(debug.contains("detected_component_function_count=1"));
         assert!(debug.contains("detected_hook_function_count=1"));
+        assert!(debug.contains("detected_component_functions=Component"));
+        assert!(debug.contains("detected_hook_functions=useThing"));
         assert!(debug.contains("detected_react_functions=2"));
         assert!(debug.contains("placeholder_transforms_applied=0"));
         assert!(debug.contains("placeholder_transformed_functions="));
@@ -13044,6 +13104,8 @@ mod tests {
         assert!(debug.contains("placeholder_transform_status=transformed"));
         assert!(debug.contains("detected_component_function_count=1"));
         assert!(debug.contains("detected_hook_function_count=0"));
+        assert!(debug.contains("detected_component_functions=Component"));
+        assert!(debug.contains("detected_hook_functions="));
         assert!(debug.contains("placeholder_transforms_applied=1"));
         assert!(debug.contains("placeholder_transformed_functions=Component"));
         assert!(debug.contains("placeholder_runtime_callee_name=_c"));

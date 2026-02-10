@@ -41,6 +41,8 @@ enum CompileResponse {
         placeholder_transform_skipped_hook_count: usize,
         detected_component_function_count: usize,
         detected_hook_function_count: usize,
+        detected_component_functions: Vec<String>,
+        detected_hook_functions: Vec<String>,
         detected_react_functions: usize,
         react_functions: Vec<SerializedReactFunction>,
         placeholder_transforms_applied: usize,
@@ -185,6 +187,8 @@ fn handle_request(request: CompileRequest) -> CompileResponse {
                     .metadata
                     .detected_component_function_count,
                 detected_hook_function_count: output.metadata.detected_hook_function_count,
+                detected_component_functions: output.metadata.detected_component_functions.clone(),
+                detected_hook_functions: output.metadata.detected_hook_functions.clone(),
                 detected_react_functions: output.metadata.detected_react_functions,
                 react_functions: output
                     .metadata
@@ -357,6 +361,8 @@ mod tests {
                 placeholder_transform_skipped_hook_count,
                 detected_component_function_count,
                 detected_hook_function_count,
+                detected_component_functions,
+                detected_hook_functions,
                 detected_react_functions,
                 react_functions,
                 placeholder_transforms_applied,
@@ -393,6 +399,8 @@ mod tests {
                 assert_eq!(placeholder_transform_skipped_hook_count, 0);
                 assert_eq!(detected_component_function_count, 0);
                 assert_eq!(detected_hook_function_count, 0);
+                assert!(detected_component_functions.is_empty());
+                assert!(detected_hook_functions.is_empty());
                 assert_eq!(detected_react_functions, 0);
                 assert!(react_functions.is_empty());
                 assert_eq!(placeholder_transforms_applied, 0);
@@ -557,6 +565,8 @@ mod tests {
                 assert!(debug_ir.contains("placeholder_transform_status=disabled"));
                 assert!(debug_ir.contains("detected_component_function_count=1"));
                 assert!(debug_ir.contains("detected_hook_function_count=0"));
+                assert!(debug_ir.contains("detected_component_functions=Component"));
+                assert!(debug_ir.contains("detected_hook_functions="));
                 assert!(debug_ir.contains("placeholder_runtime_callee_reused=false"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_generated=false"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_candidate_count=0"));
@@ -627,6 +637,8 @@ mod tests {
                 assert!(debug_ir.contains("placeholder_transform_status=transformed"));
                 assert!(debug_ir.contains("detected_component_function_count=1"));
                 assert!(debug_ir.contains("detected_hook_function_count=0"));
+                assert!(debug_ir.contains("detected_component_functions=Component"));
+                assert!(debug_ir.contains("detected_hook_functions="));
                 assert!(debug_ir.contains("placeholder_runtime_callee_reused=false"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_generated=true"));
                 assert!(debug_ir.contains("placeholder_runtime_callee_candidate_count=1"));
@@ -681,6 +693,8 @@ mod tests {
                 placeholder_transform_skipped_hook_count,
                 detected_component_function_count,
                 detected_hook_function_count,
+                detected_component_functions,
+                detected_hook_functions,
                 placeholder_runtime_callee_name_before_transform,
                 placeholder_runtime_callee_candidates_before_transform,
                 placeholder_runtime_callee_candidate_count_before_transform,
@@ -718,6 +732,11 @@ mod tests {
                 assert_eq!(placeholder_transform_skipped_hook_count, 0);
                 assert_eq!(detected_component_function_count, 1);
                 assert_eq!(detected_hook_function_count, 0);
+                assert_eq!(
+                    detected_component_functions,
+                    vec!["__default_export_component__"]
+                );
+                assert!(detected_hook_functions.is_empty());
                 assert_eq!(placeholder_transform_status, "transformed");
                 assert!(placeholder_runtime_callee_name_before_transform.is_none());
                 assert!(placeholder_runtime_callee_candidates_before_transform.is_empty());
@@ -770,6 +789,8 @@ mod tests {
                 placeholder_transform_skipped_hook_count,
                 detected_component_function_count,
                 detected_hook_function_count,
+                detected_component_functions,
+                detected_hook_functions,
                 placeholder_runtime_helper_import_count_before_transform,
                 placeholder_runtime_helper_import_count_after_transform,
                 placeholder_runtime_helper_import_added,
@@ -795,6 +816,8 @@ mod tests {
                 assert_eq!(placeholder_transform_skipped_hook_count, 0);
                 assert_eq!(detected_component_function_count, 0);
                 assert_eq!(detected_hook_function_count, 1);
+                assert!(detected_component_functions.is_empty());
+                assert_eq!(detected_hook_functions, vec!["useValue"]);
                 assert_eq!(placeholder_runtime_helper_import_count_before_transform, 0);
                 assert_eq!(placeholder_runtime_helper_import_count_after_transform, 1);
                 assert!(placeholder_runtime_helper_import_added);
