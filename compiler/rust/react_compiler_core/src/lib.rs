@@ -3,9 +3,9 @@ use swc_common::{
     comments::SingleThreadedComments, sync::Lrc, FileName, SourceMap, Spanned,
 };
 use swc_ecma_ast::{
-    AssignTarget, Callee, Decl, DefaultDecl, EsVersion, Expr, ImportDecl,
-    ImportSpecifier, Lit, MemberProp, Module, ModuleDecl, ModuleItem, Pat, Prop, PropName,
-    PropOrSpread, Script, SimpleAssignTarget, Stmt, VarDecl, VarDeclarator,
+    AssignTarget, Callee, Decl, DefaultDecl, EsVersion, Expr, Lit, MemberProp, Module,
+    ModuleDecl, ModuleItem, Pat, Prop, PropName, PropOrSpread, Script, SimpleAssignTarget, Stmt,
+    VarDecl, VarDeclarator,
 };
 use swc_ecma_parser::{
     lexer::Lexer, EsSyntax, Parser, StringInput, Syntax, TsSyntax,
@@ -51,8 +51,9 @@ use react_fn::{
     sort_react_functions,
 };
 use runtime_scan::{
-    select_runtime_callee_name, sorted_runtime_callee_candidates,
-    sorted_runtime_namespace_candidates, RuntimeMemoCalleeScan,
+    collect_runtime_bindings_from_import_decl, select_runtime_callee_name,
+    sorted_runtime_callee_candidates, sorted_runtime_namespace_candidates,
+    RuntimeMemoCalleeScan,
 };
 use runtime_binding_utils::{
     assign_target_object_pat, collect_binding_names_from_assign_target,
@@ -1447,42 +1448,6 @@ fn collect_runtime_bindings_from_decl(
 fn runtime_memo_callee_name(module: &Module) -> Option<String> {
     let runtime_scan = runtime_memo_callee_scan_for_module(module);
     select_runtime_callee_name(&runtime_scan.runtime_callee_bindings)
-}
-
-fn collect_runtime_bindings_from_import_decl(
-    import_decl: &ImportDecl,
-    runtime_namespace_bindings: &mut HashSet<String>,
-    runtime_callee_bindings: &mut HashSet<String>,
-) {
-    for specifier in &import_decl.specifiers {
-        match specifier {
-            ImportSpecifier::Named(named) => {
-                if named.is_type_only {
-                    continue;
-                }
-                let is_memo_runtime_import = named
-                    .imported
-                    .as_ref()
-                    .map(|imported| imported.atom() == &"c")
-                    .unwrap_or(named.local.sym == *"c");
-                if is_memo_runtime_import {
-                    let binding_name = named.local.sym.to_string();
-                    runtime_callee_bindings.insert(binding_name.clone());
-                    runtime_namespace_bindings.remove(binding_name.as_str());
-                }
-            }
-            ImportSpecifier::Namespace(namespace) => {
-                let binding_name = namespace.local.sym.to_string();
-                runtime_namespace_bindings.insert(binding_name.clone());
-                runtime_callee_bindings.remove(binding_name.as_str());
-            }
-            ImportSpecifier::Default(default_import) => {
-                let binding_name = default_import.local.sym.to_string();
-                runtime_namespace_bindings.insert(binding_name.clone());
-                runtime_callee_bindings.remove(binding_name.as_str());
-            }
-        }
-    }
 }
 
 fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMemoCalleeScan {
