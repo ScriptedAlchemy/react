@@ -443,6 +443,31 @@ function assertRustCompileResponseShape(
       placeholder_runtime_helper_import_count_before_transform as number;
     const typedRuntimeHelperImportCountAfterTransform =
       placeholder_runtime_helper_import_count_after_transform as number;
+    const detectedKindByName = new Map<string, 'Component' | 'Hook'>();
+    for (const fn of typedReactFunctions) {
+      if (!detectedKindByName.has(fn.name)) {
+        detectedKindByName.set(fn.name, fn.kind);
+      }
+    }
+    const transformCandidateSet = new Set(typedTransformCandidates);
+    const transformedSet = new Set(typedTransformedFunctions);
+    const skippedSet = new Set(typedTransformSkippedFunctions);
+    const hasValidDetectedComponentNames =
+      typedDetectedComponentFunctions.every(
+        name => detectedKindByName.get(name) === 'Component',
+      );
+    const hasValidDetectedHookNames = typedDetectedHookFunctions.every(
+      name => detectedKindByName.get(name) === 'Hook',
+    );
+    const transformedFunctionsAreCandidates = typedTransformedFunctions.every(
+      name => transformCandidateSet.has(name),
+    );
+    const skippedFunctionsAreCandidates = typedTransformSkippedFunctions.every(
+      name => transformCandidateSet.has(name),
+    );
+    const transformedAndSkippedAreDisjoint = typedTransformSkippedFunctions.every(
+      name => !transformedSet.has(name),
+    );
     if (
       detected_react_functions !== typedReactFunctions.length ||
       detected_component_function_count !==
@@ -499,6 +524,13 @@ function assertRustCompileResponseShape(
         )) ||
       (typedRuntimeCalleeName != null &&
         !typedRuntimeCalleeCandidates.includes(typedRuntimeCalleeName)) ||
+      !hasValidDetectedComponentNames ||
+      !hasValidDetectedHookNames ||
+      !transformedFunctionsAreCandidates ||
+      !skippedFunctionsAreCandidates ||
+      !transformedAndSkippedAreDisjoint ||
+      transformedSet.size !== typedTransformedFunctions.length ||
+      skippedSet.size !== typedTransformSkippedFunctions.length ||
       (placeholder_runtime_callee_reused &&
         !(
           placeholder_transforms_applied > 0 &&
