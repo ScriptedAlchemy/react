@@ -147,6 +147,22 @@ fn is_require_runtime_call_expr(call_expr: &CallExpr) -> bool {
     };
     match unwrap_expression(first_arg.expr.as_ref()) {
         Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"react/compiler-runtime",
+        Expr::Tpl(template_literal)
+            if template_literal.exprs.is_empty() && template_literal.quasis.len() == 1 =>
+        {
+            template_literal
+                .quasis
+                .first()
+                .and_then(|quasi| {
+                    quasi
+                        .cooked
+                        .as_ref()
+                        .map(|value| value.as_ref())
+                        .or_else(|| Some(quasi.raw.as_ref()))
+                })
+                .map(|value| value == "react/compiler-runtime")
+                .unwrap_or(false)
+        }
         _ => false,
     }
 }
