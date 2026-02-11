@@ -17,13 +17,11 @@ import type {
   PluginOptions,
   CompilerReactTarget,
   CompilerPipelineValue,
-} from 'babel-plugin-react-compiler/src/Entrypoint';
-import type {
   Effect,
   ValueKind,
   ValueReason,
-} from 'babel-plugin-react-compiler/src/HIR';
-import type {parseConfigPragmaForTests as ParseConfigPragma} from 'babel-plugin-react-compiler/src/Utils/TestUtils';
+  parseConfigPragmaForTests as ParseConfigPragma,
+} from 'babel-plugin-react-compiler/src';
 import * as HermesParser from 'hermes-parser';
 import invariant from 'invariant';
 import path from 'path';

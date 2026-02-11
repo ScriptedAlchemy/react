@@ -10,7 +10,7 @@ import {transformFromAstSync} from '@babel/core';
 import generate from '@babel/generator';
 import traverse from '@babel/traverse';
 import * as t from '@babel/types';
-import type {parseConfigPragmaForTests as ParseConfigPragma} from 'babel-plugin-react-compiler/src/Utils/TestUtils';
+import type {parseConfigPragmaForTests as ParseConfigPragma} from 'babel-plugin-react-compiler/src';
 import {parseInput} from './compiler.js';
 import {PARSE_CONFIG_PRAGMA_IMPORT, BABEL_PLUGIN_SRC} from './constants.js';
 

@@ -6,9 +6,6 @@
  */
 
 import type {PluginObj} from '@babel/core';
-import type {parseConfigPragmaForTests as ParseConfigPragma} from 'babel-plugin-react-compiler/src/Utils/TestUtils';
-import type {printFunctionWithOutlined as PrintFunctionWithOutlined} from 'babel-plugin-react-compiler/src/HIR/PrintHIR';
-import type {printReactiveFunctionWithOutlined as PrintReactiveFunctionWithOutlined} from 'babel-plugin-react-compiler/src/ReactiveScopes/PrintReactiveFunction';
 import {TransformResult, transformFixtureInput} from './compiler';
 import {
   PARSE_CONFIG_PRAGMA_IMPORT,
@@ -24,6 +21,9 @@ import type {
   Effect,
   ValueKind,
   ValueReason,
+  parseConfigPragmaForTests as ParseConfigPragma,
+  printFunctionWithOutlined as PrintFunctionWithOutlined,
+  printReactiveFunctionWithOutlined as PrintReactiveFunctionWithOutlined,
 } from 'babel-plugin-react-compiler/src';
 import chalk from 'chalk';
 
