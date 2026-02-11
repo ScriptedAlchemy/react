@@ -554,6 +554,7 @@ function assertRustCompileResponseShape(
       typedRuntimeCalleeCandidates.some(name =>
         runtimeNamespaceCandidatesSet.has(name),
       ) ||
+      transformCandidateSet.size !== typedTransformCandidates.length ||
       !transformedFunctionsAreCandidates ||
       !skippedFunctionsAreCandidates ||
       !transformedAndSkippedAreDisjoint ||

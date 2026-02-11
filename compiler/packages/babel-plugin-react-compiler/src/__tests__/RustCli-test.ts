@@ -8290,6 +8290,64 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('throws when rust cli returns duplicated transform candidate names', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    withTempRustCliScript(
+      `process.stdout.write(JSON.stringify({
+        status: "ok",
+        code: "const value = 1;",
+        statement_count: 1,
+        statement_count_after_transform: 1,
+        placeholder_runtime_helper_import_count_before_transform: 0,
+        placeholder_runtime_helper_import_count_after_transform: 0,
+        placeholder_runtime_helper_import_added: false,
+        placeholder_runtime_callee_reused: false,
+        placeholder_runtime_callee_generated: false,
+        placeholder_transform_status: "transformed",
+        detected_react_functions: 1,
+        detected_component_function_count: 1,
+        detected_hook_function_count: 0,
+        detected_component_functions: ["Component"],
+        detected_hook_functions: [],
+        placeholder_transforms_applied: 1,
+        placeholder_transform_candidates: ["Component", "Component"],
+        placeholder_transform_skipped_functions: ["Component"],
+        placeholder_transform_candidate_count: 2,
+        placeholder_transform_skipped_count: 1,
+        placeholder_transform_candidate_component_count: 2,
+        placeholder_transform_candidate_hook_count: 0,
+        placeholder_transform_transformed_component_count: 1,
+        placeholder_transform_transformed_hook_count: 0,
+        placeholder_transform_skipped_component_count: 1,
+        placeholder_transform_skipped_hook_count: 0,
+        placeholder_transformed_functions: ["Component"],
+        placeholder_runtime_callee_candidates_before_transform: [],
+        placeholder_runtime_callee_candidate_count_before_transform: 0,
+        placeholder_runtime_namespace_candidates_before_transform: [],
+        placeholder_runtime_namespace_candidate_count_before_transform: 0,
+        placeholder_runtime_callee_candidates: [],
+        placeholder_runtime_callee_candidate_count: 0,
+        placeholder_runtime_namespace_candidates: [],
+        placeholder_runtime_namespace_candidate_count: 0,
+        react_functions: [{name: "Component", kind: "Component", loc: null}]
+      }));`,
+      scriptPath => {
+        withEnvVar('REACT_COMPILER_RUST_CLI_BIN', scriptPath, () => {
+          expect(() =>
+            runRustCompilerCli({
+              source: 'const value = 1;',
+              dialect: 'javascript',
+              filename: 'fixture.js',
+              is_module: false,
+            }),
+          ).toThrow('inconsistent count fields');
+        });
+      },
+    );
+  });
+
   it('throws when rust cli returns detected names with mismatched kinds', () => {
     if (process.platform === 'win32') {
       return;
