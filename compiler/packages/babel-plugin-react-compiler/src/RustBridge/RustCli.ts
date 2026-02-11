@@ -260,6 +260,27 @@ function assertRustCompileResponseShape(
       `Rust compiler CLI returned invalid status: ${String(status)}`,
     );
   }
+  const payload = response as {[key: string]: unknown};
+  if (status === 'ok') {
+    if (typeof payload.code !== 'string') {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (missing code string)',
+      );
+    }
+    return;
+  }
+  if (
+    typeof payload.code !== 'string' ||
+    typeof payload.category !== 'string' ||
+    typeof payload.reason !== 'string' ||
+    typeof payload.severity !== 'string' ||
+    typeof payload.message !== 'string'
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid error payload (missing required typed fields)',
+    );
+  }
+  return;
   if (status === 'ok') {
     const {
       code,
