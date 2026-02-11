@@ -113,8 +113,6 @@ export function maybeRunRustProgramCompiler(
   maybeApplyStrictRustProgramReplacement(
     prog,
     pass,
-    logger,
-    filename,
     sourceCode,
     sourceType,
     dialect,
@@ -125,8 +123,6 @@ export function maybeRunRustProgramCompiler(
 function maybeApplyStrictRustProgramReplacement(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
-  logger: RustFrontendLogger | null,
-  filename: string | null,
   sourceCode: string,
   sourceType: 'script' | 'module',
   dialect: 'javascript' | 'typescript',
@@ -146,11 +142,6 @@ function maybeApplyStrictRustProgramReplacement(
     stripTypeOnlyUnsupportedExpressions(parsed);
   } catch {
     const reason = 'rust_frontend_parse_failure';
-    logger?.logEvent(filename, {
-      kind: 'PipelineError',
-      fnLoc: null,
-      data: `[RustCompiler:${reason}] failed to parse rust output for replacement`,
-    });
     throw new Error(
       `[RustCompiler:${reason}] failed to parse rust output for replacement`,
     );
