@@ -104,12 +104,18 @@ function createRustCompileErrorDetail(
   result: Extract<RustCompileResponse, {status: 'error'}>,
   filename: string | null,
 ): CompilerErrorDetailOptions {
+  const severity =
+    result.category === 'request'
+      ? ErrorSeverity.InvalidConfig
+      : result.category === 'internal'
+        ? ErrorSeverity.Invariant
+        : ErrorSeverity.InvalidJS;
   const loc = toLegacySourceLocation(result.location, filename);
   return {
     category: result.category,
     reason: result.reason,
     description: result.message,
-    severity: ErrorSeverity.InvalidJS,
+    severity,
     loc,
     suggestions: null,
     options: {
