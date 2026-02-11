@@ -127,6 +127,7 @@ export function maybeRunRustProgramCompiler(
   const sourceCode = pass.file.code ?? '';
   const filename = pass.filename ?? null;
   const logger = getRustFrontendLogger(pass);
+  const emitDebugIr = logger?.debugLogIRs != null;
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(filename);
   const rustRequest: RustCompileRequest = {
@@ -134,7 +135,7 @@ export function maybeRunRustProgramCompiler(
     dialect,
     is_module: prog.node.sourceType === 'module',
     apply_placeholder_transforms: true,
-    emit_debug_ir: false,
+    emit_debug_ir: emitDebugIr,
   };
   if (filename != null) {
     rustRequest.filename = filename;
@@ -160,6 +161,13 @@ export function maybeRunRustProgramCompiler(
       detail: createRustCompileErrorDetail(rustResult, filename),
     });
     throw new Error(`[RustCompiler:${rustResult.code}] ${rustResult.message}`);
+  }
+  if (emitDebugIr && typeof rustResult.debug_ir === 'string') {
+    logger?.debugLogIRs?.({
+      kind: 'debug',
+      name: 'RustFrontendDebugIR',
+      value: rustResult.debug_ir,
+    });
   }
   maybeApplyStrictRustProgramReplacement(
     prog,

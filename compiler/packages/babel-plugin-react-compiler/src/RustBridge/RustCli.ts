@@ -25,6 +25,7 @@ export type RustCompileResponse =
       status: 'ok';
       protocol_version?: number;
       code: string;
+      debug_ir?: string;
     }
   | {
       status: 'error';
