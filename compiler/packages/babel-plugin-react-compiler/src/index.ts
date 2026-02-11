@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export {runBabelPluginReactCompiler} from './Babel/RunReactCompilerBabelPlugin';
 declare global {
   // @internal
   let __DEV__: boolean | null | undefined;
