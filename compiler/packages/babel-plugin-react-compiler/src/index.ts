@@ -12,3 +12,20 @@ declare global {
 
 import BabelPluginReactCompiler from './Babel/BabelPlugin';
 export default BabelPluginReactCompiler;
+
+export {
+  Effect,
+  ValueKind,
+  ValueReason,
+  parseConfigPragmaForTests,
+  printFunctionWithOutlined,
+  printReactiveFunction,
+} from './Compat/LegacyApi';
+export type {
+  CompilerPipelineValue,
+  CompilerReactTarget,
+  Logger,
+  LoggerEvent,
+  PluginOptions,
+  TypeConfig,
+} from './Compat/LegacyApi';

@@ -148,14 +148,15 @@ function assertRustCompileResponseShape(
     );
   }
   const payload = response as {[key: string]: unknown};
-  if (payload.status !== 'ok' && payload.status !== 'error') {
+  const status = payload['status'];
+  if (status !== 'ok' && status !== 'error') {
     throw new Error(
-      `Rust compiler CLI returned invalid status: ${String(payload.status)}`,
+      `Rust compiler CLI returned invalid status: ${String(status)}`,
     );
   }
 
-  if (payload.status === 'ok') {
-    if (typeof payload.code !== 'string') {
+  if (status === 'ok') {
+    if (typeof payload['code'] !== 'string') {
       throw new Error(
         'Rust compiler CLI returned invalid ok payload (missing code string)',
       );
@@ -164,11 +165,11 @@ function assertRustCompileResponseShape(
   }
 
   if (
-    typeof payload.code !== 'string' ||
-    typeof payload.category !== 'string' ||
-    typeof payload.reason !== 'string' ||
-    typeof payload.severity !== 'string' ||
-    typeof payload.message !== 'string'
+    typeof payload['code'] !== 'string' ||
+    typeof payload['category'] !== 'string' ||
+    typeof payload['reason'] !== 'string' ||
+    typeof payload['severity'] !== 'string' ||
+    typeof payload['message'] !== 'string'
   ) {
     throw new Error(
       'Rust compiler CLI returned invalid error payload (missing required string fields)',

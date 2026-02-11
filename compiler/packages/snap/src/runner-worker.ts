@@ -94,7 +94,7 @@ async function compile(
     let lastLogged: string | null = null;
     const debugIRLogger = shouldLog
       ? (value: CompilerPipelineValue) => {
-          let printed: string;
+          let printed = '(unrecognized)';
           switch (value.kind) {
             case 'hir':
               printed = printFunctionWithOutlined(value.value);

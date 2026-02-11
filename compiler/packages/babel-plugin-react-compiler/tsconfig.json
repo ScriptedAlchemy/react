@@ -25,6 +25,11 @@
   "include": [
     "src/index.ts",
     "src/Babel/**/*.ts",
-    "src/RustBridge/**/*.ts"
+    "src/Compat/**/*.ts",
+    "src/Entrypoint/**/*.ts",
+    "src/HIR/**/*.ts",
+    "src/ReactiveScopes/**/*.ts",
+    "src/RustBridge/**/*.ts",
+    "src/Utils/**/*.ts"
   ]
 }
