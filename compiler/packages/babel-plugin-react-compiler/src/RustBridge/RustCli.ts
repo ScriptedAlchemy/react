@@ -34,6 +34,12 @@ export type RustCompileResponse =
       reason: string;
       severity: string;
       message: string;
+      location?: {
+        start_line: number;
+        start_column: number;
+        end_line: number;
+        end_column: number;
+      } | null;
     };
 
 function resolveRustManifestPath(): string {

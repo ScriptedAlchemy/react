@@ -10,6 +10,12 @@ import * as BabelParser from '@babel/parser';
 import {NodePath} from '@babel/traverse';
 import type * as t from '@babel/types';
 import {
+  type CompilerErrorDetailOptions,
+  ErrorSeverity,
+  type Logger,
+  type SourceLocation,
+} from '../Compat/LegacyApi';
+import {
   runRustCompilerCli,
   type RustCompileRequest,
   type RustCompileResponse,
@@ -46,13 +52,83 @@ function parseProgramFromRustOutput(
   return BabelParser.parse(transformedCode, parserOptions);
 }
 
+function getRustFrontendLogger(pass: BabelCore.PluginPass): Logger | null {
+  const options = pass.opts as {logger?: unknown} | null | undefined;
+  if (options == null || options.logger == null) {
+    return null;
+  }
+  const candidate = options.logger as Partial<Logger>;
+  if (typeof candidate.logEvent !== 'function') {
+    return null;
+  }
+  if (typeof candidate.debugLogIRs === 'function') {
+    return {
+      logEvent: candidate.logEvent,
+      debugLogIRs: candidate.debugLogIRs,
+    };
+  }
+  return {
+    logEvent: candidate.logEvent,
+  };
+}
+
+function emitLoggerEvent(
+  logger: Logger | null,
+  filename: string | null,
+  event: unknown,
+): void {
+  logger?.logEvent(filename, event as Parameters<Logger['logEvent']>[1]);
+}
+
+function toLegacySourceLocation(
+  location: Extract<RustCompileResponse, {status: 'error'}>['location'],
+  filename: string | null,
+): SourceLocation | null {
+  if (location == null) {
+    return null;
+  }
+  return {
+    start: {
+      line: location.start_line,
+      column: location.start_column,
+    },
+    end: {
+      line: location.end_line,
+      column: location.end_column,
+    },
+    filename,
+  };
+}
+
+function createRustCompileErrorDetail(
+  result: Extract<RustCompileResponse, {status: 'error'}>,
+  filename: string | null,
+): CompilerErrorDetailOptions {
+  const loc = toLegacySourceLocation(result.location, filename);
+  return {
+    category: result.category,
+    reason: result.reason,
+    description: result.message,
+    severity: ErrorSeverity.InvalidJS,
+    loc,
+    suggestions: null,
+    options: {
+      suggestions: null,
+    },
+    primaryLocation: () => loc,
+    printErrorMessage: () => `[${result.category}] ${result.message}`,
+  };
+}
+
 export function maybeRunRustProgramCompiler(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
 ): void {
   const sourceCode = pass.file.code ?? '';
+  const filename = pass.filename ?? null;
+  const logger = getRustFrontendLogger(pass);
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
-  const dialect = detectRustDialect(pass.filename ?? null);
+  const dialect = detectRustDialect(filename);
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
@@ -60,19 +136,29 @@ export function maybeRunRustProgramCompiler(
     apply_placeholder_transforms: true,
     emit_debug_ir: false,
   };
-  if (pass.filename != null) {
-    rustRequest.filename = pass.filename;
+  if (filename != null) {
+    rustRequest.filename = filename;
   }
   let rustResult: ReturnType<typeof runRustCompilerCli>;
   try {
     rustResult = runRustCompilerCli(rustRequest);
   } catch {
+    emitLoggerEvent(logger, filename, {
+      kind: 'PipelineError',
+      fnLoc: null,
+      data: '[RustCompiler:rust_frontend_invocation_failure] failed to invoke rust compiler cli',
+    });
     throw new Error(
       '[RustCompiler:rust_frontend_invocation_failure] failed to invoke rust compiler cli',
     );
   }
 
   if (rustResult.status === 'error') {
+    emitLoggerEvent(logger, filename, {
+      kind: 'CompileError',
+      fnLoc: null,
+      detail: createRustCompileErrorDetail(rustResult, filename),
+    });
     throw new Error(`[RustCompiler:${rustResult.code}] ${rustResult.message}`);
   }
   maybeApplyStrictRustProgramReplacement(
@@ -83,6 +169,10 @@ export function maybeRunRustProgramCompiler(
     dialect,
     rustResult,
   );
+  emitLoggerEvent(logger, filename, {
+    kind: 'CompileSuccess',
+    fnLoc: null,
+  });
 }
 
 function maybeApplyStrictRustProgramReplacement(
@@ -106,6 +196,12 @@ function maybeApplyStrictRustProgramReplacement(
     );
   } catch {
     const reason = 'rust_frontend_parse_failure';
+    const logger = getRustFrontendLogger(pass);
+    emitLoggerEvent(logger, pass.filename ?? null, {
+      kind: 'PipelineError',
+      fnLoc: null,
+      data: `[RustCompiler:${reason}] failed to parse rust output for replacement`,
+    });
     throw new Error(
       `[RustCompiler:${reason}] failed to parse rust output for replacement`,
     );
