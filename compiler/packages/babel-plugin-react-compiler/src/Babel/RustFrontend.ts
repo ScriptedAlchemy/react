@@ -9,12 +9,22 @@ import type * as BabelCore from '@babel/core';
 import * as BabelParser from '@babel/parser';
 import traverse, {NodePath} from '@babel/traverse';
 import * as t from '@babel/types';
-import type {Logger} from '../Entrypoint/Options';
 import {
   runRustCompilerCli,
   type RustCompileRequest,
   type RustCompileResponse,
 } from '../RustBridge/RustCli';
+
+type RustFrontendDebugValue = {
+  kind?: string;
+  name?: string;
+  value?: string;
+};
+
+export type RustFrontendLogger = {
+  logEvent: (filename: string | null, event: unknown) => void;
+  debugLogIRs?: (value: RustFrontendDebugValue) => void;
+};
 
 function detectRustDialect(
   filename: string | null,
@@ -69,7 +79,7 @@ function stripTypeOnlyUnsupportedExpressions(
 export function maybeRunRustProgramCompiler(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
-  logger: Logger | null,
+  logger: RustFrontendLogger | null,
   filename: string | null,
 ): void {
   const sourceCode = pass.file.code ?? '';
@@ -120,7 +130,7 @@ export function maybeRunRustProgramCompiler(
 }
 
 function emitRustFrontendDebugTelemetry(
-  logger: Logger | null,
+  logger: RustFrontendLogger | null,
   rustResult: Extract<RustCompileResponse, {status: 'ok'}>,
 ): void {
   if (rustResult.debug_ir != null) {
@@ -316,7 +326,7 @@ function emitRustFrontendDebugTelemetry(
 function maybeApplyStrictRustProgramReplacement(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
-  logger: Logger | null,
+  logger: RustFrontendLogger | null,
   filename: string | null,
   sourceCode: string,
   sourceType: 'script' | 'module',

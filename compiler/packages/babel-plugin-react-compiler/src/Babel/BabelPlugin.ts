@@ -6,10 +6,10 @@
  */
 
 import type * as BabelCore from '@babel/core';
-import type {Logger} from '../Entrypoint/Options';
 import {CompilerError} from '..';
 import {
   maybeRunRustProgramCompiler,
+  type RustFrontendLogger,
 } from './RustFrontend';
 
 const ENABLE_REACT_COMPILER_TIMINGS =
@@ -48,9 +48,9 @@ export default function BabelPluginReactCompiler(
                 detail: 'BabelPlugin:Program:start',
               });
             }
-            const logger: Logger | null =
+            const logger: RustFrontendLogger | null =
               'logger' in pass.opts && pass.opts.logger != null
-                ? (pass.opts.logger as Logger)
+                ? (pass.opts.logger as RustFrontendLogger)
                 : null;
             maybeRunRustProgramCompiler(
               prog,
@@ -75,7 +75,8 @@ export default function BabelPluginReactCompiler(
               detail: 'BabelPlugin:Program',
             });
             if ('logger' in pass.opts && pass.opts.logger != null) {
-              const logger: Logger = pass.opts.logger as Logger;
+              const logger: RustFrontendLogger =
+                pass.opts.logger as RustFrontendLogger;
               logger.logEvent(filename, {
                 kind: 'Timing',
                 measurement,
