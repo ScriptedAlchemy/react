@@ -327,6 +327,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('resolves fixture entrypoint template-literal object keys', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function component() { return 1; } export const FIXTURE_ENTRYPOINT = { [`fn`]: component, params: [] };',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('component');
+    }
+  });
+
   it('resolves fixture entrypoint shorthand object keys', () => {
     const result = runRustCompilerCli({
       source:
@@ -367,6 +385,24 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     const result = runRustCompilerCli({
       source:
         "function component() { return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT['fn'] = component;",
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: true,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('component');
+    }
+  });
+
+  it('resolves fixture entrypoint template-literal member assignments', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function component() { return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[`fn`] = component;',
       dialect: 'javascript',
       filename: 'fixture.js',
       is_module: true,

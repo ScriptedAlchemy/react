@@ -256,14 +256,36 @@ fn is_fn_property_name(name: &PropName) -> bool {
     is_prop_name_with(name, "fn")
 }
 
+fn computed_prop_name_matches_expected(expr: &Expr, expected: &str) -> bool {
+    match unwrap_expression(expr) {
+        Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *expected,
+        Expr::Tpl(template_literal)
+            if template_literal.exprs.is_empty() && template_literal.quasis.len() == 1 =>
+        {
+            template_literal
+                .quasis
+                .first()
+                .and_then(|quasi| {
+                    quasi
+                        .cooked
+                        .as_ref()
+                        .map(|value| value.as_ref())
+                        .or_else(|| Some(quasi.raw.as_ref()))
+                })
+                .map(|value| value == expected)
+                .unwrap_or(false)
+        }
+        _ => false,
+    }
+}
+
 pub(crate) fn is_prop_name_with(name: &PropName, expected: &str) -> bool {
     match name {
         PropName::Ident(ident) => ident.sym == *expected,
         PropName::Str(str_lit) => str_lit.value == *expected,
-        PropName::Computed(computed) => match unwrap_expression(computed.expr.as_ref()) {
-            Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *expected,
-            _ => false,
-        },
+        PropName::Computed(computed) => {
+            computed_prop_name_matches_expected(computed.expr.as_ref(), expected)
+        }
         _ => false,
     }
 }
@@ -271,11 +293,9 @@ pub(crate) fn is_prop_name_with(name: &PropName, expected: &str) -> bool {
 pub(crate) fn is_member_prop_with(prop: &MemberProp, expected: &str) -> bool {
     match prop {
         MemberProp::Ident(ident_name) => ident_name.sym == *expected,
-        MemberProp::Computed(computed_prop) => match unwrap_expression(computed_prop.expr.as_ref())
-        {
-            Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *expected,
-            _ => false,
-        },
+        MemberProp::Computed(computed_prop) => {
+            computed_prop_name_matches_expected(computed_prop.expr.as_ref(), expected)
+        }
         _ => false,
     }
 }
