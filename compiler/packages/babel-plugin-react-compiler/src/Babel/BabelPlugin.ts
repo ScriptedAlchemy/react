@@ -14,7 +14,6 @@ import {
 import validateNoUntransformedReferences from '../Entrypoint/ValidateNoUntransformedReferences';
 import {CompilerError} from '..';
 import {
-  isStrictRustEngineEnabled,
   maybeRunRustProgramCompiler,
 } from './RustFrontend';
 
@@ -76,17 +75,14 @@ export default function BabelPluginReactCompiler(
                 },
               };
             }
-            if (opts.compilerEngine === 'rust') {
-              const strictRustEngine =
-                isStrictRustEngineEnabled() || opts.compilerEngine === 'rust';
-              maybeRunRustProgramCompiler(
-                prog,
-                pass,
-                opts.logger,
-                pass.filename ?? null,
-                strictRustEngine,
-              );
-            }
+            const strictRustEngine = true;
+            maybeRunRustProgramCompiler(
+              prog,
+              pass,
+              opts.logger,
+              pass.filename ?? null,
+              strictRustEngine,
+            );
             const result = compileProgram(prog, {
               opts,
               filename: pass.filename ?? null,

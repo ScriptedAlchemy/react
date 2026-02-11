@@ -241,7 +241,7 @@ const CompilerOutputModeSchema = z.enum([
 
 export type CompilerOutputMode = z.infer<typeof CompilerOutputModeSchema>;
 
-const CompilerEngineSchema = z.enum(['babel', 'rust']);
+const CompilerEngineSchema = z.literal('rust');
 export type CompilerEngine = z.infer<typeof CompilerEngineSchema>;
 
 /**
