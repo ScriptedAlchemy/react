@@ -11,7 +11,6 @@ import * as BabelParser from '@babel/parser';
 import invariant from 'invariant';
 import BabelPluginReactCompiler from './BabelPlugin';
 
-export const DEFAULT_PLUGINS = ['babel-plugin-fbt', 'babel-plugin-fbt-runtime'];
 export function runBabelPluginReactCompiler(
   text: string,
   file: string,
@@ -31,8 +30,6 @@ export function runBabelPluginReactCompiler(
     retainLines: true,
     plugins: [
       [BabelPluginReactCompiler, options],
-      'babel-plugin-fbt',
-      'babel-plugin-fbt-runtime',
     ],
     sourceType: 'module',
     configFile: false,
