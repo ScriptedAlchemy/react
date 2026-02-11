@@ -19,8 +19,7 @@
     "declaration": true,
   },
   "exclude": [
-    "node_modules",
-    "src/__tests__/fixtures"
+    "node_modules"
   ],
   "include": [
     "src/index.ts",
