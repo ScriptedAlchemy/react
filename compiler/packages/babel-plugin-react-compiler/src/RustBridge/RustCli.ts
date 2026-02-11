@@ -452,6 +452,8 @@ function assertRustCompileResponseShape(
     const transformCandidateSet = new Set(typedTransformCandidates);
     const transformedSet = new Set(typedTransformedFunctions);
     const skippedSet = new Set(typedTransformSkippedFunctions);
+    const detectedComponentSet = new Set(typedDetectedComponentFunctions);
+    const detectedHookSet = new Set(typedDetectedHookFunctions);
     const hasValidDetectedComponentNames =
       typedDetectedComponentFunctions.every(
         name => detectedKindByName.get(name) === 'Component',
@@ -526,6 +528,9 @@ function assertRustCompileResponseShape(
         !typedRuntimeCalleeCandidates.includes(typedRuntimeCalleeName)) ||
       !hasValidDetectedComponentNames ||
       !hasValidDetectedHookNames ||
+      detectedComponentSet.size !== typedDetectedComponentFunctions.length ||
+      detectedHookSet.size !== typedDetectedHookFunctions.length ||
+      typedDetectedComponentFunctions.some(name => detectedHookSet.has(name)) ||
       !transformedFunctionsAreCandidates ||
       !skippedFunctionsAreCandidates ||
       !transformedAndSkippedAreDisjoint ||
