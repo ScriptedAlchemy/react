@@ -29,20 +29,16 @@ export default function BabelPluginReactCompiler(
        */
       Program: {
         enter(prog, pass): void {
-          try {
-            const logger: RustFrontendLogger | null =
-              'logger' in pass.opts && pass.opts.logger != null
-                ? (pass.opts.logger as RustFrontendLogger)
-                : null;
-            maybeRunRustProgramCompiler(
-              prog,
-              pass,
-              logger,
-              pass.filename ?? null,
-            );
-          } catch (e) {
-            throw e;
-          }
+          const logger: RustFrontendLogger | null =
+            'logger' in pass.opts && pass.opts.logger != null
+              ? (pass.opts.logger as RustFrontendLogger)
+              : null;
+          maybeRunRustProgramCompiler(
+            prog,
+            pass,
+            logger,
+            pass.filename ?? null,
+          );
         },
       },
     },
