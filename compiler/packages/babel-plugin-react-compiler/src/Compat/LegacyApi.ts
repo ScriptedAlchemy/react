@@ -199,104 +199,194 @@ export enum LintRulePreset {
   Off = 'Off',
 }
 
+export enum ErrorCategory {
+  CapitalizedCalls = 'CapitalizedCalls',
+  EffectSetState = 'EffectSetState',
+  ErrorBoundaries = 'ErrorBoundaries',
+  Gating = 'Gating',
+  Globals = 'Globals',
+  Hooks = 'Hooks',
+  Immutability = 'Immutability',
+  IncompatibleLibrary = 'IncompatibleLibrary',
+  Invariant = 'Invariant',
+  PreserveManualMemo = 'PreserveManualMemo',
+  Purity = 'Purity',
+  Refs = 'Refs',
+  RenderSetState = 'RenderSetState',
+  StaticComponents = 'StaticComponents',
+  Syntax = 'Syntax',
+  Todo = 'Todo',
+  UnsupportedSyntax = 'UnsupportedSyntax',
+  VoidUseMemo = 'VoidUseMemo',
+}
+
 export type LintRule = {
   name: string;
-  category: string;
+  category: ErrorCategory;
   description: string;
   severity: ErrorSeverity;
   preset: LintRulePreset;
 };
 
-export const LintRules: Array<LintRule> = [
-  {
-    name: 'gating',
-    category: 'Gating',
-    description: 'Validates React Compiler gating configuration',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'globals',
-    category: 'Globals',
-    description: 'Validates against mutating globals during render',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'hooks',
-    category: 'Hooks',
-    description: 'Validates Rules of Hooks constraints',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Off,
-  },
-  {
-    name: 'immutability',
-    category: 'Immutability',
-    description: 'Validates immutability of props/state values',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'incompatible-library',
-    category: 'IncompatibleLibrary',
-    description: 'Validates incompatible library usage for memoization',
-    severity: ErrorSeverity.Warning,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'preserve-manual-memoization',
-    category: 'PreserveManualMemo',
-    description: 'Validates preserving manual memoization guarantees',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'purity',
-    category: 'Purity',
-    description: 'Validates render-time purity',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'refs',
-    category: 'Refs',
-    description: 'Validates correct ref access patterns',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'set-state-in-effect',
-    category: 'EffectSetState',
-    description: 'Validates against synchronous setState in effects',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'set-state-in-render',
-    category: 'RenderSetState',
-    description: 'Validates against setState during render',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'static-components',
-    category: 'StaticComponents',
-    description: 'Validates components are static across renders',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'unsupported-syntax',
-    category: 'UnsupportedSyntax',
-    description: 'Validates syntax unsupported by React Compiler',
-    severity: ErrorSeverity.Warning,
-    preset: LintRulePreset.Recommended,
-  },
-  {
-    name: 'void-use-memo',
-    category: 'VoidUseMemo',
-    description: 'Validates useMemo return value usage',
-    severity: ErrorSeverity.Error,
-    preset: LintRulePreset.RecommendedLatest,
-  },
-];
+export function getRuleForCategory(category: ErrorCategory): LintRule {
+  switch (category) {
+    case ErrorCategory.CapitalizedCalls:
+      return {
+        name: 'capitalized-calls',
+        category,
+        description: 'Validates against invalid capitalized function calls',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Off,
+      };
+    case ErrorCategory.EffectSetState:
+      return {
+        name: 'set-state-in-effect',
+        category,
+        description: 'Validates against synchronous setState in effects',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.ErrorBoundaries:
+      return {
+        name: 'error-boundaries',
+        category,
+        description:
+          'Validates usage of error boundaries instead of try/catch in child components',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.Gating:
+      return {
+        name: 'gating',
+        category,
+        description: 'Validates React Compiler gating configuration',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.Globals:
+      return {
+        name: 'globals',
+        category,
+        description: 'Validates against mutating globals during render',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.Hooks:
+      return {
+        name: 'hooks',
+        category,
+        description: 'Validates Rules of Hooks constraints',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Off,
+      };
+    case ErrorCategory.Immutability:
+      return {
+        name: 'immutability',
+        category,
+        description: 'Validates immutability of props/state values',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.IncompatibleLibrary:
+      return {
+        name: 'incompatible-library',
+        category,
+        description: 'Validates incompatible library usage for memoization',
+        severity: ErrorSeverity.Warning,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.Invariant:
+      return {
+        name: 'invariant',
+        category,
+        description: 'Internal invariants',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Off,
+      };
+    case ErrorCategory.PreserveManualMemo:
+      return {
+        name: 'preserve-manual-memoization',
+        category,
+        description: 'Validates preserving manual memoization guarantees',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.Purity:
+      return {
+        name: 'purity',
+        category,
+        description: 'Validates render-time purity',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.Refs:
+      return {
+        name: 'refs',
+        category,
+        description: 'Validates correct ref access patterns',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.RenderSetState:
+      return {
+        name: 'set-state-in-render',
+        category,
+        description: 'Validates against setState during render',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.StaticComponents:
+      return {
+        name: 'static-components',
+        category,
+        description: 'Validates components are static across renders',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.Syntax:
+      return {
+        name: 'syntax',
+        category,
+        description: 'Validates syntax errors',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.Off,
+      };
+    case ErrorCategory.Todo:
+      return {
+        name: 'todo',
+        category,
+        description: 'Tracks unimplemented compiler work items',
+        severity: ErrorSeverity.Hint,
+        preset: LintRulePreset.Off,
+      };
+    case ErrorCategory.UnsupportedSyntax:
+      return {
+        name: 'unsupported-syntax',
+        category,
+        description: 'Validates syntax unsupported by React Compiler',
+        severity: ErrorSeverity.Warning,
+        preset: LintRulePreset.Recommended,
+      };
+    case ErrorCategory.VoidUseMemo:
+      return {
+        name: 'void-use-memo',
+        category,
+        description: 'Validates useMemo return value usage',
+        severity: ErrorSeverity.Error,
+        preset: LintRulePreset.RecommendedLatest,
+      };
+    default: {
+      return {
+        name: String(category).toLowerCase(),
+        category,
+        description: 'Unknown lint rule category',
+        severity: ErrorSeverity.Warning,
+        preset: LintRulePreset.Off,
+      };
+    }
+  }
+}
+
+export const LintRules: Array<LintRule> = Object.values(ErrorCategory).map(
+  category => getRuleForCategory(category),
+);

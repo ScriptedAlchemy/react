@@ -15,6 +15,7 @@ export default BabelPluginReactCompiler;
 
 export {
   CompilerSuggestionOperation,
+  ErrorCategory,
   ErrorSeverity,
   Effect,
   LintRulePreset,
@@ -26,6 +27,7 @@ export {
   printFunctionWithOutlined,
   printReactiveFunctionWithOutlined,
   printReactiveFunction,
+  getRuleForCategory,
   validateEnvironmentConfig,
 } from './Compat/LegacyApi';
 export type {

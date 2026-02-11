@@ -6,8 +6,10 @@
  */
 
 export {
+  ErrorCategory,
   ErrorSeverity,
   LintRulePreset,
   LintRules,
+  getRuleForCategory,
 } from './Compat/LegacyApi';
 export type {LintRule} from './Compat/LegacyApi';
