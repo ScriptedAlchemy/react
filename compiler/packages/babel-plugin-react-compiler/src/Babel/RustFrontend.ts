@@ -28,13 +28,9 @@ export type RustFrontendLogger = {
 
 function detectRustDialect(
   filename: string | null,
-  sourceCode: string | null,
-): 'javascript' | 'typescript' | 'flow' {
+): 'javascript' | 'typescript' {
   if (filename != null && /\.(cts|mts|tsx|ts)$/i.test(filename)) {
     return 'typescript';
-  }
-  if (sourceCode != null && sourceCode.indexOf('@flow') !== -1) {
-    return 'flow';
   }
   return 'javascript';
 }
@@ -42,14 +38,12 @@ function detectRustDialect(
 function parseProgramFromRustOutput(
   transformedCode: string,
   filename: string | null,
-  dialect: 'javascript' | 'typescript' | 'flow',
+  dialect: 'javascript' | 'typescript',
   sourceType: 'script' | 'module',
 ): BabelParser.ParseResult<t.File> {
   const plugins: Array<BabelParser.ParserPlugin> = ['jsx'];
   if (dialect === 'typescript') {
     plugins.unshift('typescript');
-  } else if (dialect === 'flow') {
-    plugins.unshift('flow');
   }
 
   const parserOptions: BabelParser.ParserOptions = {
@@ -84,7 +78,7 @@ export function maybeRunRustProgramCompiler(
 ): void {
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
-  const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
+  const dialect = detectRustDialect(pass.filename ?? null);
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
@@ -330,7 +324,7 @@ function maybeApplyStrictRustProgramReplacement(
   filename: string | null,
   sourceCode: string,
   sourceType: 'script' | 'module',
-  dialect: 'javascript' | 'typescript' | 'flow',
+  dialect: 'javascript' | 'typescript',
   rustResult: Extract<RustCompileResponse, {status: 'ok'}>,
 ): void {
   if (rustResult.code === sourceCode) {
