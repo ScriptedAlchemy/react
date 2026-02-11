@@ -15,10 +15,6 @@ import {
   type RustCompileResponse,
 } from '../RustBridge/RustCli';
 
-export type RustFrontendLogger = {
-  logEvent: (filename: string | null, event: unknown) => void;
-};
-
 function detectRustDialect(
   filename: string | null,
 ): 'javascript' | 'typescript' {
@@ -53,8 +49,6 @@ function parseProgramFromRustOutput(
 export function maybeRunRustProgramCompiler(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
-  logger: RustFrontendLogger | null,
-  filename: string | null,
 ): void {
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
@@ -73,21 +67,12 @@ export function maybeRunRustProgramCompiler(
   try {
     rustResult = runRustCompilerCli(rustRequest);
   } catch {
-    const reason = 'rust_frontend_invocation_failure';
-    logger?.logEvent(filename, {
-      kind: 'PipelineError',
-      fnLoc: null,
-      data: `[RustCompiler:${reason}] failed to invoke rust compiler cli`,
-    });
-    throw new Error(`[RustCompiler:${reason}] failed to invoke rust compiler cli`);
+    throw new Error(
+      '[RustCompiler:rust_frontend_invocation_failure] failed to invoke rust compiler cli',
+    );
   }
 
   if (rustResult.status === 'error') {
-    logger?.logEvent(filename, {
-      kind: 'PipelineError',
-      fnLoc: null,
-      data: `[RustCompiler:${rustResult.code}] ${rustResult.message}`,
-    });
     throw new Error(`[RustCompiler:${rustResult.code}] ${rustResult.message}`);
   }
   maybeApplyStrictRustProgramReplacement(

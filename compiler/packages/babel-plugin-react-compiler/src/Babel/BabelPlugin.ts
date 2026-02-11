@@ -6,10 +6,7 @@
  */
 
 import type * as BabelCore from '@babel/core';
-import {
-  maybeRunRustProgramCompiler,
-  type RustFrontendLogger,
-} from './RustFrontend';
+import {maybeRunRustProgramCompiler} from './RustFrontend';
 
 /*
  * The React Forget Babel Plugin
@@ -29,16 +26,7 @@ export default function BabelPluginReactCompiler(
        */
       Program: {
         enter(prog, pass): void {
-          const logger: RustFrontendLogger | null =
-            'logger' in pass.opts && pass.opts.logger != null
-              ? (pass.opts.logger as RustFrontendLogger)
-              : null;
-          maybeRunRustProgramCompiler(
-            prog,
-            pass,
-            logger,
-            pass.filename ?? null,
-          );
+          maybeRunRustProgramCompiler(prog, pass);
         },
       },
     },
