@@ -143,15 +143,18 @@ export function maybeRunRustProgramCompiler(
   let rustResult: ReturnType<typeof runRustCompilerCli>;
   try {
     rustResult = runRustCompilerCli(rustRequest);
-  } catch {
+  } catch (error) {
+    const causeMessage =
+      error instanceof Error ? error.message : String(error);
+    const message =
+      '[RustCompiler:rust_frontend_invocation_failure] failed to invoke rust compiler cli: ' +
+      causeMessage;
     emitLoggerEvent(logger, filename, {
       kind: 'PipelineError',
       fnLoc: null,
-      data: '[RustCompiler:rust_frontend_invocation_failure] failed to invoke rust compiler cli',
+      data: message,
     });
-    throw new Error(
-      '[RustCompiler:rust_frontend_invocation_failure] failed to invoke rust compiler cli',
-    );
+    throw new Error(message);
   }
 
   if (rustResult.status === 'error') {
