@@ -1349,10 +1349,10 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
-  it('reuses module runtime require escaped string namespace escaped string member aliases for placeholder transforms', () => {
+  it('reuses module runtime require unicode escaped string namespace escaped string member aliases for placeholder transforms', () => {
     const result = runRustCompilerCli({
       source:
-        "const runtime = require('react/compiler-\\x72untime'); const cache = runtime['\\x63']; export function Component() { return <div />; }",
+        "const runtime = require('react/compiler-\\u0072untime'); const cache = runtime['\\x63']; export function Component() { return <div />; }",
       dialect: 'javascript',
       filename: 'fixture.js',
       is_module: true,
@@ -7234,10 +7234,10 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
-  it('transforms script components with runtime require escaped string namespace escaped string member aliases', () => {
+  it('transforms script components with runtime require unicode escaped string namespace escaped string member aliases', () => {
     const result = runRustCompilerCli({
       source:
-        "const runtime = require('react/compiler-\\x72untime'); const cache = runtime['\\x63']; function Component() { return <div />; }",
+        "const runtime = require('react/compiler-\\u0072untime'); const cache = runtime['\\x63']; function Component() { return <div />; }",
       dialect: 'javascript',
       filename: 'fixture.js',
       is_module: false,
