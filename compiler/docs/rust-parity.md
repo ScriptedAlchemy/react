@@ -5,6 +5,7 @@ This document describes the current `snap parity` behavior in the Rust-first com
 ## What parity checks now
 
 `snap parity` now compares two Rust-backed compilation runs (instead of Babel-vs-Rust).
+The two runs execute across compiler reload boundaries to help detect stateful nondeterminism.
 This acts as a deterministic consistency check and report generator for fixture processing.
 
 > Note: the JSON report still uses legacy field names like `babel` / `rust` for historical
