@@ -155,10 +155,13 @@ export function maybeRunRustProgramCompiler(
   }
 
   if (rustResult.status === 'error') {
+    const detail = createRustCompileErrorDetail(rustResult, filename);
     emitLoggerEvent(logger, filename, {
       kind: 'CompileError',
-      fnLoc: null,
-      detail: createRustCompileErrorDetail(rustResult, filename),
+      fnLoc:
+        detail.primaryLocation?.() ??
+        (detail.loc != null ? detail.loc : null),
+      detail,
     });
     throw new Error(`[RustCompiler:${rustResult.code}] ${rustResult.message}`);
   }
