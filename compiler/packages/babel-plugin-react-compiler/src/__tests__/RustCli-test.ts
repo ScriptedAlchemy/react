@@ -7462,6 +7462,37 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('throws when rust cli returns malformed react function locations', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    withTempRustCliScript(
+      `process.stdout.write(JSON.stringify({
+        status: "ok",
+        code: "const value = 1;",
+        statement_count: 1,
+        statement_count_after_transform: 1,
+        detected_react_functions: 1,
+        placeholder_transforms_applied: 0,
+        placeholder_transform_candidates: [],
+        placeholder_transformed_functions: [],
+        react_functions: [{name: "Component", kind: "Component", loc: "invalid"}]
+      }));`,
+      scriptPath => {
+        withEnvVar('REACT_COMPILER_RUST_CLI_BIN', scriptPath, () => {
+          expect(() =>
+            runRustCompilerCli({
+              source: 'const value = 1;',
+              dialect: 'javascript',
+              filename: 'fixture.js',
+              is_module: false,
+            }),
+          ).toThrow('invalid ok payload');
+        });
+      },
+    );
+  });
+
   it('can be selected as compiler engine in Babel plugin options', () => {
     const rustResult = runBabelPluginReactCompiler(
       'export function Component() { return <div />; }',

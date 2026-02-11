@@ -231,6 +231,31 @@ function assertRustCompileResponseShape(
     };
     const hasStringArray = (value: unknown): boolean =>
       Array.isArray(value) && value.every(entry => typeof entry === 'string');
+    const hasValidSourceLocation = (value: unknown): boolean => {
+      if (value == null) {
+        return true;
+      }
+      if (typeof value !== 'object') {
+        return false;
+      }
+      const {
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+      } = value as {
+        start_line?: unknown;
+        start_column?: unknown;
+        end_line?: unknown;
+        end_column?: unknown;
+      };
+      return (
+        typeof start_line === 'number' &&
+        typeof start_column === 'number' &&
+        typeof end_line === 'number' &&
+        typeof end_column === 'number'
+      );
+    };
     const hasValidReactFunctions = (value: unknown): boolean =>
       Array.isArray(value) &&
       value.every(
@@ -239,7 +264,8 @@ function assertRustCompileResponseShape(
           typeof item === 'object' &&
           typeof (item as {name?: unknown}).name === 'string' &&
           ((item as {kind?: unknown}).kind === 'Component' ||
-            (item as {kind?: unknown}).kind === 'Hook'),
+            (item as {kind?: unknown}).kind === 'Hook') &&
+          hasValidSourceLocation((item as {loc?: unknown}).loc),
       );
     if (
       typeof code !== 'string' ||
