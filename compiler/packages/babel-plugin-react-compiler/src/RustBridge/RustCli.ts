@@ -454,6 +454,16 @@ function assertRustCompileResponseShape(
     const skippedSet = new Set(typedTransformSkippedFunctions);
     const detectedComponentSet = new Set(typedDetectedComponentFunctions);
     const detectedHookSet = new Set(typedDetectedHookFunctions);
+    const runtimeCalleeCandidatesBeforeTransformSet = new Set(
+      typedRuntimeCalleeCandidatesBeforeTransform,
+    );
+    const runtimeNamespaceCandidatesBeforeTransformSet = new Set(
+      typedRuntimeNamespaceCandidatesBeforeTransform,
+    );
+    const runtimeCalleeCandidatesSet = new Set(typedRuntimeCalleeCandidates);
+    const runtimeNamespaceCandidatesSet = new Set(
+      typedRuntimeNamespaceCandidates,
+    );
     const hasValidDetectedComponentNames =
       typedDetectedComponentFunctions.every(
         name => detectedKindByName.get(name) === 'Component',
@@ -531,6 +541,19 @@ function assertRustCompileResponseShape(
       detectedComponentSet.size !== typedDetectedComponentFunctions.length ||
       detectedHookSet.size !== typedDetectedHookFunctions.length ||
       typedDetectedComponentFunctions.some(name => detectedHookSet.has(name)) ||
+      runtimeCalleeCandidatesBeforeTransformSet.size !==
+        typedRuntimeCalleeCandidatesBeforeTransform.length ||
+      runtimeNamespaceCandidatesBeforeTransformSet.size !==
+        typedRuntimeNamespaceCandidatesBeforeTransform.length ||
+      runtimeCalleeCandidatesSet.size !== typedRuntimeCalleeCandidates.length ||
+      runtimeNamespaceCandidatesSet.size !==
+        typedRuntimeNamespaceCandidates.length ||
+      typedRuntimeCalleeCandidatesBeforeTransform.some(name =>
+        runtimeNamespaceCandidatesBeforeTransformSet.has(name),
+      ) ||
+      typedRuntimeCalleeCandidates.some(name =>
+        runtimeNamespaceCandidatesSet.has(name),
+      ) ||
       !transformedFunctionsAreCandidates ||
       !skippedFunctionsAreCandidates ||
       !transformedAndSkippedAreDisjoint ||
