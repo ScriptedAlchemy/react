@@ -8,7 +8,7 @@
 import type * as BabelCore from '@babel/core';
 import * as BabelParser from '@babel/parser';
 import {NodePath} from '@babel/traverse';
-import * as t from '@babel/types';
+import type * as t from '@babel/types';
 import {
   runRustCompilerCli,
   type RustCompileRequest,
