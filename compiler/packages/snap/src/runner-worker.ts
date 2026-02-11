@@ -203,12 +203,12 @@ export async function transformFixture(
     }
   }
 
-  const snapOutput: string | null = compileResult?.forgetOutput ?? null;
+  const snapOutput: string | null = compileResult?.compiledOutput ?? null;
   let sproutOutput: string | null = null;
   if (compileResult?.evaluatorCode != null) {
     const sproutResult = runSprout(
       compileResult.evaluatorCode.original,
-      compileResult.evaluatorCode.forget,
+      compileResult.evaluatorCode.compiled,
     );
     if (sproutResult.kind === 'invalid') {
       unexpectedError ??= '';

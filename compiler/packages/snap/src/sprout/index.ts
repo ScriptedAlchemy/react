@@ -30,19 +30,19 @@ function logsEqual(a: Array<string>, b: Array<string>) {
 }
 export function runSprout(
   originalCode: string,
-  forgetCode: string,
+  compiledCode: string,
 ): SproutResult {
-  let forgetResult;
+  let compiledResult;
   try {
     (globalThis as any).__SNAP_EVALUATOR_MODE = 'forget';
-    forgetResult = doEval(forgetCode);
+    compiledResult = doEval(compiledCode);
   } catch (e) {
     throw e;
   } finally {
     (globalThis as any).__SNAP_EVALUATOR_MODE = undefined;
   }
-  if (forgetResult.kind === 'UnexpectedError') {
-    return makeError('Unexpected error in compiler runner', forgetResult.value);
+  if (compiledResult.kind === 'UnexpectedError') {
+    return makeError('Unexpected error in compiler runner', compiledResult.value);
   }
   if (originalCode.indexOf('@disableNonForgetInSprout') === -1) {
     const nonForgetResult = doEval(originalCode);
@@ -53,22 +53,22 @@ export function runSprout(
         nonForgetResult.value,
       );
     } else if (
-      forgetResult.kind !== nonForgetResult.kind ||
-      forgetResult.value !== nonForgetResult.value ||
-      !logsEqual(forgetResult.logs, nonForgetResult.logs)
+      compiledResult.kind !== nonForgetResult.kind ||
+      compiledResult.value !== nonForgetResult.value ||
+      !logsEqual(compiledResult.logs, nonForgetResult.logs)
     ) {
       return makeError(
         'Found differences in evaluator results',
         `Uncompiled (expected):
 ${stringify(nonForgetResult)}
 Compiled:
-${stringify(forgetResult)}
+${stringify(compiledResult)}
 `,
       );
     }
   }
   return {
     kind: 'success',
-    value: stringify(forgetResult),
+    value: stringify(compiledResult),
   };
 }

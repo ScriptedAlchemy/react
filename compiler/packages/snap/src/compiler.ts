@@ -205,11 +205,11 @@ const TypescriptEvaluatorPresets = getEvaluatorPresets('typescript');
 const FlowEvaluatorPresets = getEvaluatorPresets('flow');
 
 export type TransformResult = {
-  forgetOutput: string;
+  compiledOutput: string;
   logs: string | null;
   evaluatorCode: {
     original: string;
-    forget: string;
+    compiled: string;
   } | null;
 };
 
@@ -254,7 +254,7 @@ export async function transformFixtureInput(
     ValueKindEnum,
     ValueReasonEnum,
   );
-  const forgetResult = transformFromAstSync(inputAst, input, {
+  const compiledResult = transformFromAstSync(inputAst, input, {
     filename: virtualFilepath,
     highlightCode: false,
     retainLines: true,
@@ -272,10 +272,10 @@ export async function transformFixtureInput(
     babelrc: false,
   });
   invariant(
-    forgetResult?.code != null,
+    compiledResult?.code != null,
     'Expected BabelPluginReactCompiler to codegen successfully.',
   );
-  const forgetCode = forgetResult.code;
+  const compiledCode = compiledResult.code;
   let evaluatorCode = null;
 
   if (
@@ -283,13 +283,13 @@ export async function transformFixtureInput(
     !SproutTodoFilter.has(fixturePath) &&
     !isExpectError(filename)
   ) {
-    let forgetEval: string;
+    let compiledEval: string;
     try {
       invariant(
-        forgetResult?.ast != null,
+        compiledResult?.ast != null,
         'Expected BabelPluginReactCompiler ast.',
       );
-      const result = transformFromAstSync(forgetResult.ast, forgetCode, {
+      const result = transformFromAstSync(compiledResult.ast, compiledCode, {
         presets,
         filename: virtualFilepath,
         configFile: false,
@@ -301,7 +301,7 @@ export async function transformFixtureInput(
           msg: 'Unexpected error in compiler transform pipeline - no code emitted',
         };
       } else {
-        forgetEval = result.code;
+        compiledEval = result.code;
       }
     } catch (e) {
       return {
@@ -337,11 +337,11 @@ export async function transformFixtureInput(
       };
     }
     evaluatorCode = {
-      forget: forgetEval,
+      compiled: compiledEval,
       original: originalEval,
     };
   }
-  const forgetOutput = await format(forgetCode, language);
+  const compiledOutput = await format(compiledCode, language);
   let formattedLogs = null;
   if (loggerTestOnly && logs.length !== 0) {
     formattedLogs = logs
@@ -379,7 +379,7 @@ export async function transformFixtureInput(
   return {
     kind: 'ok',
     value: {
-      forgetOutput,
+      compiledOutput,
       logs: formattedLogs,
       evaluatorCode,
     },
