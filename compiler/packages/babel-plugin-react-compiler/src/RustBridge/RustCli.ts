@@ -210,10 +210,49 @@ function assertRustCompileResponseShape(
     );
   }
   if (status === 'ok') {
-    const code = (response as {code?: unknown}).code;
-    if (typeof code !== 'string') {
+    const {
+      code,
+      statement_count,
+      statement_count_after_transform,
+      detected_react_functions,
+      placeholder_transforms_applied,
+      placeholder_transform_candidates,
+      placeholder_transformed_functions,
+      react_functions,
+    } = response as {
+      code?: unknown;
+      statement_count?: unknown;
+      statement_count_after_transform?: unknown;
+      detected_react_functions?: unknown;
+      placeholder_transforms_applied?: unknown;
+      placeholder_transform_candidates?: unknown;
+      placeholder_transformed_functions?: unknown;
+      react_functions?: unknown;
+    };
+    const hasStringArray = (value: unknown): boolean =>
+      Array.isArray(value) && value.every(entry => typeof entry === 'string');
+    const hasValidReactFunctions = (value: unknown): boolean =>
+      Array.isArray(value) &&
+      value.every(
+        item =>
+          item != null &&
+          typeof item === 'object' &&
+          typeof (item as {name?: unknown}).name === 'string' &&
+          ((item as {kind?: unknown}).kind === 'Component' ||
+            (item as {kind?: unknown}).kind === 'Hook'),
+      );
+    if (
+      typeof code !== 'string' ||
+      typeof statement_count !== 'number' ||
+      typeof statement_count_after_transform !== 'number' ||
+      typeof detected_react_functions !== 'number' ||
+      typeof placeholder_transforms_applied !== 'number' ||
+      !hasStringArray(placeholder_transform_candidates) ||
+      !hasStringArray(placeholder_transformed_functions) ||
+      !hasValidReactFunctions(react_functions)
+    ) {
       throw new Error(
-        'Rust compiler CLI returned invalid ok payload (missing string code field)',
+        'Rust compiler CLI returned invalid ok payload (missing required typed fields)',
       );
     }
     return;

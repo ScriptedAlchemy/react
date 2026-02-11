@@ -7441,6 +7441,27 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('throws when rust cli returns malformed ok payload', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    withTempRustCliScript(
+      `process.stdout.write(JSON.stringify({status: "ok", code: "const value = 1;"}));`,
+      scriptPath => {
+        withEnvVar('REACT_COMPILER_RUST_CLI_BIN', scriptPath, () => {
+          expect(() =>
+            runRustCompilerCli({
+              source: 'const value = 1;',
+              dialect: 'javascript',
+              filename: 'fixture.js',
+              is_module: false,
+            }),
+          ).toThrow('invalid ok payload');
+        });
+      },
+    );
+  });
+
   it('can be selected as compiler engine in Babel plugin options', () => {
     const rustResult = runBabelPluginReactCompiler(
       'export function Component() { return <div />; }',
