@@ -84,7 +84,9 @@ Bridge response-shape guardrails:
   - count fields matching corresponding array lengths,
   - component/hook subtotal counts matching their totals,
   - candidate count = transformed + skipped,
-  - runtime helper import `after >= before` and `*_added` matching count delta.
+  - runtime helper import `after >= before` and `*_added` matching count delta,
+  - runtime callee/namespace candidate arrays must be duplicate-free and
+    disjoint (both before and after transform).
 - `placeholder_transform_status` is validated against the known status set:
   `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`.
 - `error` responses must include string fields:
