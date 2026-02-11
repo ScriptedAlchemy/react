@@ -20,7 +20,7 @@ yarn rust:fmt
 To execute compiler fixture runs through the Rust engine path:
 
 ```sh
-REACT_COMPILER_ENGINE=rust yarn snap -p simple
+yarn snap -p simple
 ```
 
 ## Notes
