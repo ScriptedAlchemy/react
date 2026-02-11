@@ -13,7 +13,6 @@ import {
 import {
   RUST_FRONTEND_INVOCATION_FAILURE_REASON,
   RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
-  RUST_FRONTEND_PLACEHOLDER_TRANSFORM_STAGING_ONLY_REASON,
   RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
   rustFrontendErrorReason,
 } from '../Babel/RustFrontendContract';
@@ -10446,7 +10445,7 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(debugEntry?.value).toBe('apply_placeholder=true');
   });
 
-  it('strict rust mode keeps babel parity when staged placeholder transforms are applied', () => {
+  it('strict rust mode applies rust placeholder transforms without staging fallback', () => {
     const source = [
       'export default function Component() {',
       '  return <div />;',
@@ -10482,13 +10481,10 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     expect(canonicalizeCode(rustResult.code)).toBe(
       canonicalizeCode(babelResult.code),
     );
-    const stagingEvent = loggedEvents.find(
-      event =>
-        event.kind === 'CompileSkip' &&
-        event.reason === RUST_FRONTEND_PLACEHOLDER_TRANSFORM_STAGING_ONLY_REASON,
+    const compileSkipEvent = loggedEvents.find(
+      event => event.kind === 'CompileSkip',
     );
-    expect(stagingEvent).toBeDefined();
-    expect(stagingEvent?.loc).toBeNull();
+    expect(compileSkipEvent).toBeUndefined();
   });
 
   it('strict rust mode falls back when rust output cannot be parsed', () => {
