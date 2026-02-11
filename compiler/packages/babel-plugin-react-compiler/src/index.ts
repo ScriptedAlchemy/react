@@ -20,23 +20,6 @@ export {
   type CompilerDiagnosticDetail,
   type LintRule,
 } from './CompilerError';
-export {
-  Effect,
-  ValueKind,
-  ValueReason,
-  printHIR,
-  printFunctionWithOutlined,
-  validateEnvironmentConfig,
-  type EnvironmentConfig,
-  type ExternalFunction,
-  type Hook,
-  type SourceLocation,
-} from './HIR';
-export {
-  printReactiveFunction,
-  printReactiveFunctionWithOutlined,
-} from './ReactiveScopes';
-export {parseConfigPragmaForTests} from './Utils/TestUtils';
 declare global {
   // @internal
   let __DEV__: boolean | null | undefined;
