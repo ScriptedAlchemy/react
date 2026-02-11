@@ -9,9 +9,7 @@ import type * as BabelCore from '@babel/core';
 import {maybeRunRustProgramCompiler} from './RustFrontend';
 
 /*
- * The React Forget Babel Plugin
- * @param {*} _babel
- * @returns
+ * Rust-backed React Compiler Babel plugin.
  */
 export default function BabelPluginReactCompiler(
   _babel: typeof BabelCore,
@@ -21,8 +19,8 @@ export default function BabelPluginReactCompiler(
     visitor: {
       /*
        * Note: Babel does some "smart" merging of visitors across plugins, so even if A is inserted
-       * prior to B, if A does not have a Program visitor and B does, B will run first. We always
-       * want Forget to run true to source as possible.
+       * prior to B, if A does not have a Program visitor and B does, B will run first. Keep the
+       * Rust compiler pass as close to source as possible.
        */
       Program: {
         enter(prog, pass): void {
