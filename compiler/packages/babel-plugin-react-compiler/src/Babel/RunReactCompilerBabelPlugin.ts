@@ -14,13 +14,17 @@ import BabelPluginReactCompiler from './BabelPlugin';
 export function runBabelPluginReactCompiler(
   text: string,
   file: string,
-  language: 'flow' | 'typescript',
+  language: 'javascript' | 'typescript',
   options: Record<string, unknown> | null,
   includeAst: boolean = false,
 ): BabelCore.BabelFileResult {
+  const parserPlugins: Array<BabelParser.ParserPlugin> = ['jsx'];
+  if (language === 'typescript') {
+    parserPlugins.unshift('typescript');
+  }
   const ast = BabelParser.parse(text, {
     sourceFilename: file,
-    plugins: [language, 'jsx'],
+    plugins: parserPlugins,
     sourceType: 'module',
   });
   const result = transformFromAstSync(ast, text, {

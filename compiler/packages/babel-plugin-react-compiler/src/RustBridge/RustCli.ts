@@ -64,7 +64,7 @@ function hasValidSourceLocation(value: unknown): boolean {
 export type RustCompileRequest = {
   source: string;
   filename?: string;
-  dialect?: 'javascript' | 'typescript' | 'flow';
+  dialect?: 'javascript' | 'typescript';
   is_module?: boolean;
   apply_placeholder_transforms?: boolean;
   emit_debug_ir?: boolean;
