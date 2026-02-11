@@ -10,13 +10,21 @@ import path from 'path';
 import {spawnSync} from 'child_process';
 import {RUST_CLI_PROTOCOL_VERSION} from './RustCliProtocol';
 
-const VALID_PLACEHOLDER_TRANSFORM_STATUSES = new Set([
-  'disabled',
-  'no_candidates',
-  'transformed',
-  'blocked_missing_runtime_callee',
-  'no_op',
-]);
+export type PlaceholderTransformStatus =
+  | 'disabled'
+  | 'no_candidates'
+  | 'transformed'
+  | 'blocked_missing_runtime_callee'
+  | 'no_op';
+
+const VALID_PLACEHOLDER_TRANSFORM_STATUSES: ReadonlySet<PlaceholderTransformStatus> =
+  new Set<PlaceholderTransformStatus>([
+    'disabled',
+    'no_candidates',
+    'transformed',
+    'blocked_missing_runtime_callee',
+    'no_op',
+  ]);
 
 function isNonNegativeInteger(value: unknown): value is number {
   return (
@@ -82,7 +90,7 @@ export type RustCompileResponse =
       placeholder_runtime_helper_import_added: boolean;
       placeholder_runtime_callee_reused: boolean;
       placeholder_runtime_callee_generated: boolean;
-      placeholder_transform_status: string;
+      placeholder_transform_status: PlaceholderTransformStatus;
       placeholder_transform_candidates: Array<string>;
       placeholder_transform_skipped_functions: Array<string>;
       placeholder_transform_candidate_count: number;
@@ -413,7 +421,8 @@ function assertRustCompileResponseShape(
       placeholder_runtime_callee_candidates as Array<string>;
     const typedRuntimeNamespaceCandidates =
       placeholder_runtime_namespace_candidates as Array<string>;
-    const typedPlaceholderTransformStatus = placeholder_transform_status as string;
+    const typedPlaceholderTransformStatus =
+      placeholder_transform_status as PlaceholderTransformStatus;
     const typedRuntimeCalleeNameBeforeTransform =
       placeholder_runtime_callee_name_before_transform as string | null | undefined;
     const typedRuntimeCalleeName =
