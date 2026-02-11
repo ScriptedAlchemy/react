@@ -17,109 +17,14 @@ import {
   type RustCompileResponse,
 } from '../RustBridge/RustCli';
 import {
-  RUST_FRONTEND_INVOCATION_FAILURE_REASON,
-  RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
   RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
-  rustFrontendErrorReason,
 } from './RustFrontendContract';
-
-function isRecoverableRustFrontendErrorCode(code: string): boolean {
-  return (
-    code === 'unsupported_flow_syntax' ||
-    code === 'parse_failure' ||
-    code === 'codegen_failure' ||
-    code === 'unsupported_dialect'
-  );
-}
 
 function isRustFrontendPlaceholderTransformsEnabled(): boolean {
   return (
     process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === '1' ||
     process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === 'true'
   );
-}
-
-function toBabelSourceLocation(
-  location:
-    | {
-        start_line: number;
-        start_column: number;
-        end_line: number;
-        end_column: number;
-      }
-    | null
-    | undefined,
-  sourceCode: string,
-  filename: string | null,
-): t.SourceLocation | null {
-  if (location == null) {
-    return null;
-  }
-  const startIndex = lineColumnToIndex(
-    sourceCode,
-    location.start_line,
-    location.start_column,
-  );
-  const endIndex = lineColumnToIndex(
-    sourceCode,
-    location.end_line,
-    location.end_column,
-  );
-  return {
-    filename: filename ?? '',
-    identifierName: '',
-    start: {
-      line: location.start_line,
-      column: location.start_column,
-      index: startIndex ?? 0,
-    },
-    end: {
-      line: location.end_line,
-      column: location.end_column,
-      index: endIndex ?? startIndex ?? 0,
-    },
-  };
-}
-
-function lineColumnToIndex(
-  sourceCode: string,
-  line: number,
-  column: number,
-): number | null {
-  if (line < 1 || column < 0) {
-    return null;
-  }
-  let currentLine = 1;
-  let offset = 0;
-  while (currentLine < line) {
-    const nextLineBreak = sourceCode.indexOf('\n', offset);
-    if (nextLineBreak === -1) {
-      return null;
-    }
-    offset = nextLineBreak + 1;
-    currentLine += 1;
-  }
-  const lineEnd = sourceCode.indexOf('\n', offset);
-  const effectiveLineEnd = lineEnd === -1 ? sourceCode.length : lineEnd;
-  const maxColumn = effectiveLineEnd - offset;
-  if (column > maxColumn) {
-    return null;
-  }
-  return offset + column;
-}
-
-function logStrictRustFrontendFallback(
-  logger: Logger | null,
-  filename: string | null,
-  reason: string,
-  loc: t.SourceLocation | null = null,
-): void {
-  logger?.logEvent(filename, {
-    kind: 'CompileSkip',
-    fnLoc: null,
-    reason,
-    loc,
-  });
 }
 
 function detectRustDialect(
@@ -215,28 +120,16 @@ export function maybeRunRustProgramCompiler(
   try {
     rustResult = runRustCompilerCli(rustRequest);
   } catch {
-    logStrictRustFrontendFallback(
-      logger,
-      filename,
-      RUST_FRONTEND_INVOCATION_FAILURE_REASON,
-    );
-    return;
+    const reason = 'rust_frontend_invocation_failure';
+    logger?.logEvent(filename, {
+      kind: 'PipelineError',
+      fnLoc: null,
+      data: `[RustCompiler:${reason}] failed to invoke rust compiler cli`,
+    });
+    throw new Error(`[RustCompiler:${reason}] failed to invoke rust compiler cli`);
   }
 
   if (rustResult.status === 'error') {
-    if (isRecoverableRustFrontendErrorCode(rustResult.code)) {
-      logStrictRustFrontendFallback(
-        logger,
-        filename,
-        rustFrontendErrorReason(rustResult.code, rustResult.reason),
-        toBabelSourceLocation(
-          rustResult.location,
-          sourceCode,
-          pass.filename ?? null,
-        ),
-      );
-      return;
-    }
     logger?.logEvent(filename, {
       kind: 'PipelineError',
       fnLoc: null,
@@ -488,12 +381,15 @@ function maybeApplyStrictRustProgramReplacement(
       sourceType,
     );
   } catch {
-    logStrictRustFrontendFallback(
-      logger,
-      filename,
-      RUST_FRONTEND_PARSE_OR_CANONICALIZATION_FAILURE_REASON,
+    const reason = 'rust_frontend_parse_or_canonicalization_failure';
+    logger?.logEvent(filename, {
+      kind: 'PipelineError',
+      fnLoc: null,
+      data: `[RustCompiler:${reason}] failed to parse rust output for replacement`,
+    });
+    throw new Error(
+      `[RustCompiler:${reason}] failed to parse rust output for replacement`,
     );
-    return;
   }
   if (canonicalSource === canonicalRustOutput) {
     return;
