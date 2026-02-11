@@ -7,7 +7,7 @@
 
 import type * as BabelCore from '@babel/core';
 import * as BabelParser from '@babel/parser';
-import traverse, {NodePath} from '@babel/traverse';
+import {NodePath} from '@babel/traverse';
 import * as t from '@babel/types';
 import {
   runRustCompilerCli,
@@ -48,19 +48,6 @@ function parseProgramFromRustOutput(
   }
 
   return BabelParser.parse(transformedCode, parserOptions);
-}
-
-function stripTypeOnlyUnsupportedExpressions(
-  ast: BabelParser.ParseResult<t.File>,
-): void {
-  traverse(ast, {
-    TSInstantiationExpression(path) {
-      path.replaceWith(path.node.expression);
-    },
-    TSSatisfiesExpression(path) {
-      path.replaceWith(path.node.expression);
-    },
-  });
 }
 
 export function maybeRunRustProgramCompiler(
@@ -132,7 +119,6 @@ function maybeApplyStrictRustProgramReplacement(
       dialect,
       sourceType,
     );
-    stripTypeOnlyUnsupportedExpressions(parsed);
   } catch {
     const reason = 'rust_frontend_parse_failure';
     throw new Error(
