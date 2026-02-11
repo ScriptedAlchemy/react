@@ -6,9 +6,11 @@
  */
 
 export enum MessageSource {
-  Babel,
-  Forget,
-  Playground,
+  Babel = 0,
+  Compiler = 1,
+  // Legacy alias retained for existing callsites.
+  Forget = Compiler,
+  Playground = 2,
 }
 
 export enum MessageLevel {
