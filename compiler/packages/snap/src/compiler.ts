@@ -244,7 +244,7 @@ export async function transformFixtureInput(
       : FlowEvaluatorPresets;
 
   /**
-   * Get Forget compiled code
+   * Get compiler-transformed code
    */
   const {options, loggerTestOnly, logs} = makePluginOptions(
     firstLine,
@@ -273,7 +273,7 @@ export async function transformFixtureInput(
   });
   invariant(
     forgetResult?.code != null,
-    'Expected BabelPluginReactForget to codegen successfully.',
+    'Expected BabelPluginReactCompiler to codegen successfully.',
   );
   const forgetCode = forgetResult.code;
   let evaluatorCode = null;
@@ -287,7 +287,7 @@ export async function transformFixtureInput(
     try {
       invariant(
         forgetResult?.ast != null,
-        'Expected BabelPluginReactForget ast.',
+        'Expected BabelPluginReactCompiler ast.',
       );
       const result = transformFromAstSync(forgetResult.ast, forgetCode, {
         presets,
@@ -298,7 +298,7 @@ export async function transformFixtureInput(
       if (result?.code == null) {
         return {
           kind: 'err',
-          msg: 'Unexpected error in forget transform pipeline - no code emitted',
+          msg: 'Unexpected error in compiler transform pipeline - no code emitted',
         };
       } else {
         forgetEval = result.code;
@@ -306,12 +306,12 @@ export async function transformFixtureInput(
     } catch (e) {
       return {
         kind: 'err',
-        msg: 'Unexpected error in Forget transform pipeline: ' + e.message,
+        msg: 'Unexpected error in compiler transform pipeline: ' + e.message,
       };
     }
 
     /**
-     * Get evaluator code for source (no Forget)
+     * Get evaluator code for source (no compiler transform)
      */
     let originalEval: string;
     try {
@@ -325,7 +325,7 @@ export async function transformFixtureInput(
       if (result?.code == null) {
         return {
           kind: 'err',
-          msg: 'Unexpected error in non-forget transform pipeline - no code emitted',
+          msg: 'Unexpected error in non-compiler transform pipeline - no code emitted',
         };
       } else {
         originalEval = result.code;
@@ -333,7 +333,7 @@ export async function transformFixtureInput(
     } catch (e) {
       return {
         kind: 'err',
-        msg: 'Unexpected error in non-forget transform pipeline: ' + e.message,
+        msg: 'Unexpected error in non-compiler transform pipeline: ' + e.message,
       };
     }
     evaluatorCode = {

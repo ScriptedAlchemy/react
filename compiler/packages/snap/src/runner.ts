@@ -93,8 +93,8 @@ async function runTestCommand(opts: TestOptions): Promise<void> {
     );
     if (opts.pattern) {
       /**
-       * Warm up wormers when in watch mode. Loading the Forget babel plugin
-       * and all of its transitive dependencies takes 1-3s (per worker) on a M1.
+       * Warm up workers when in watch mode. Loading the compiler plugin and
+       * all of its transitive dependencies takes 1-3s (per worker) on an M1.
        * As jest-worker dispatches tasks using a round-robin strategy, we can
        * avoid an additional 1-3s wait on the first num_workers runs by warming
        * up workers eagerly.
@@ -128,7 +128,7 @@ async function runTestCommand(opts: TestOptions): Promise<void> {
           let isSuccess = false;
           if (!isTypecheckSuccess) {
             console.error(
-              'Found typescript errors in Forget source code, skipping test fixtures.',
+              'Found typescript errors in compiler source code, skipping test fixtures.',
             );
           } else {
             try {
@@ -611,10 +611,14 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       console.log(chalk.yellow(message));
       if (hasUnexpectedErrorMismatch) {
         console.log(
-          chalk.red(`  babel error: ${mismatch.babelUnexpectedError ?? '<none>'}`),
+          chalk.red(
+            `  first run error: ${mismatch.babelUnexpectedError ?? '<none>'}`,
+          ),
         );
         console.log(
-          chalk.red(`  rust error: ${mismatch.rustUnexpectedError ?? '<none>'}`),
+          chalk.red(
+            `  second run error: ${mismatch.rustUnexpectedError ?? '<none>'}`,
+          ),
         );
       }
     }
@@ -926,7 +930,7 @@ async function onChange(
     console.log(`Completed in ${Math.floor(end - start)} ms`);
   } else {
     console.error(
-      `${mode}: Found errors in Forget source code, skipping test fixtures.`,
+      `${mode}: Found errors in compiler source code, skipping test fixtures.`,
     );
   }
   console.log(

@@ -1,7 +1,7 @@
 ## Sprout 🌱
-React Forget test framework that executes compiler fixtures.
+React Compiler test framework that executes compiler fixtures.
 
-Currently, Sprout runs each fixture with a known set of inputs and annotations. Sprout compares execution outputs (i.e. return values and console logs) of original source code and the corresponding Forget-transformed version.
+Currently, Sprout runs each fixture with a known set of inputs and annotations. Sprout compares execution outputs (i.e. return values and console logs) of original source code and the corresponding compiler-transformed version.
 We hope to add fuzzing capabilities to Sprout, synthesizing sets of program inputs based on type and/or effect annotations.
 
 Sprout is now enabled for all fixtures! If Sprout cannot execute your fixture due to some technical limitations, add your fixture to [`SproutTodoFilter.ts`](./src/SproutTodoFilter.ts) with a comment explaining why.

@@ -42,14 +42,14 @@ export function runSprout(
     (globalThis as any).__SNAP_EVALUATOR_MODE = undefined;
   }
   if (forgetResult.kind === 'UnexpectedError') {
-    return makeError('Unexpected error in Forget runner', forgetResult.value);
+    return makeError('Unexpected error in compiler runner', forgetResult.value);
   }
   if (originalCode.indexOf('@disableNonForgetInSprout') === -1) {
     const nonForgetResult = doEval(originalCode);
 
     if (nonForgetResult.kind === 'UnexpectedError') {
       return makeError(
-        'Unexpected error in non-forget runner',
+        'Unexpected error in uncompiled runner',
         nonForgetResult.value,
       );
     } else if (
@@ -59,9 +59,9 @@ export function runSprout(
     ) {
       return makeError(
         'Found differences in evaluator results',
-        `Non-forget (expected):
+        `Uncompiled (expected):
 ${stringify(nonForgetResult)}
-Forget:
+Compiled:
 ${stringify(forgetResult)}
 `,
       );
