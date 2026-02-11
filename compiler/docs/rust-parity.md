@@ -99,17 +99,12 @@ Bridge response-shape guardrails:
 For Rust-frontend debugging, `BabelPlugin` emits
 `RustFrontendProtocolVersion` via `logger.debugLogIRs`.
 
-## Rust frontend transform toggle
+## Rust frontend transform behavior
 
-Strict rust mode keeps frontend placeholder transforms disabled by default.
-To enable Rust frontend placeholder transforms in strict mode, set:
-
-- `REACT_COMPILER_RUST_PLACEHOLDER_TRANSFORMS=1`
-
-When enabled, the Babel bridge sends `apply_placeholder_transforms: true`
-to the Rust CLI request payload and accepts Rust frontend output as the
-program replacement input. This allows Rust-side placeholder transform
-behavior to execute end-to-end.
+Rust frontend placeholder transforms are always enabled. The Babel bridge
+sends `apply_placeholder_transforms: true` to the Rust CLI request payload
+and accepts Rust frontend output as the program replacement input. This
+executes Rust-side placeholder transform behavior end-to-end by default.
 
 ## Report shape
 

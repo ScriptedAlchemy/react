@@ -15,16 +15,6 @@ import {
   type RustCompileRequest,
   type RustCompileResponse,
 } from '../RustBridge/RustCli';
-import {
-  RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR,
-} from './RustFrontendContract';
-
-function isRustFrontendPlaceholderTransformsEnabled(): boolean {
-  return (
-    process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === '1' ||
-    process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === 'true'
-  );
-}
 
 function detectRustDialect(
   filename: string | null,
@@ -85,13 +75,11 @@ export function maybeRunRustProgramCompiler(
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
-  const enableRustFrontendPlaceholderTransforms =
-    isRustFrontendPlaceholderTransformsEnabled();
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
     is_module: prog.node.sourceType === 'module',
-    apply_placeholder_transforms: enableRustFrontendPlaceholderTransforms,
+    apply_placeholder_transforms: true,
     emit_debug_ir: logger?.debugLogIRs != null,
   };
   if (pass.filename != null) {
