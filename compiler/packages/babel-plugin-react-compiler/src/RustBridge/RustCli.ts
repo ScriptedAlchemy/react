@@ -18,6 +18,41 @@ const VALID_PLACEHOLDER_TRANSFORM_STATUSES = new Set([
   'no_op',
 ]);
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    Number.isFinite(value) &&
+    value >= 0
+  );
+}
+
+function hasValidSourceLocation(value: unknown): boolean {
+  if (value == null) {
+    return true;
+  }
+  if (typeof value !== 'object') {
+    return false;
+  }
+  const {
+    start_line,
+    start_column,
+    end_line,
+    end_column,
+  } = value as {
+    start_line?: unknown;
+    start_column?: unknown;
+    end_line?: unknown;
+    end_column?: unknown;
+  };
+  return (
+    isNonNegativeInteger(start_line) &&
+    isNonNegativeInteger(start_column) &&
+    isNonNegativeInteger(end_line) &&
+    isNonNegativeInteger(end_column)
+  );
+}
+
 export type RustCompileRequest = {
   source: string;
   filename?: string;
@@ -299,38 +334,8 @@ function assertRustCompileResponseShape(
     };
     const hasStringArray = (value: unknown): boolean =>
       Array.isArray(value) && value.every(entry => typeof entry === 'string');
-    const hasNonNegativeInteger = (value: unknown): boolean =>
-      typeof value === 'number' &&
-      Number.isInteger(value) &&
-      Number.isFinite(value) &&
-      value >= 0;
     const hasOptionalString = (value: unknown): boolean =>
       value == null || typeof value === 'string';
-    const hasValidSourceLocation = (value: unknown): boolean => {
-      if (value == null) {
-        return true;
-      }
-      if (typeof value !== 'object') {
-        return false;
-      }
-      const {
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-      } = value as {
-        start_line?: unknown;
-        start_column?: unknown;
-        end_line?: unknown;
-        end_column?: unknown;
-      };
-      return (
-        typeof start_line === 'number' &&
-        typeof start_column === 'number' &&
-        typeof end_line === 'number' &&
-        typeof end_column === 'number'
-      );
-    };
     const hasValidReactFunctions = (value: unknown): boolean =>
       Array.isArray(value) &&
       value.every(
@@ -344,30 +349,30 @@ function assertRustCompileResponseShape(
       );
     if (
       typeof code !== 'string' ||
-      !hasNonNegativeInteger(statement_count) ||
-      !hasNonNegativeInteger(statement_count_after_transform) ||
-      !hasNonNegativeInteger(placeholder_runtime_helper_import_count_before_transform) ||
-      !hasNonNegativeInteger(placeholder_runtime_helper_import_count_after_transform) ||
+      !isNonNegativeInteger(statement_count) ||
+      !isNonNegativeInteger(statement_count_after_transform) ||
+      !isNonNegativeInteger(placeholder_runtime_helper_import_count_before_transform) ||
+      !isNonNegativeInteger(placeholder_runtime_helper_import_count_after_transform) ||
       typeof placeholder_runtime_helper_import_added !== 'boolean' ||
       typeof placeholder_runtime_callee_reused !== 'boolean' ||
       typeof placeholder_runtime_callee_generated !== 'boolean' ||
       typeof placeholder_transform_status !== 'string' ||
-      !hasNonNegativeInteger(detected_react_functions) ||
-      !hasNonNegativeInteger(detected_component_function_count) ||
-      !hasNonNegativeInteger(detected_hook_function_count) ||
-      !hasNonNegativeInteger(placeholder_transforms_applied) ||
-      !hasNonNegativeInteger(placeholder_transform_candidate_count) ||
-      !hasNonNegativeInteger(placeholder_transform_skipped_count) ||
-      !hasNonNegativeInteger(placeholder_transform_candidate_component_count) ||
-      !hasNonNegativeInteger(placeholder_transform_candidate_hook_count) ||
-      !hasNonNegativeInteger(placeholder_transform_transformed_component_count) ||
-      !hasNonNegativeInteger(placeholder_transform_transformed_hook_count) ||
-      !hasNonNegativeInteger(placeholder_transform_skipped_component_count) ||
-      !hasNonNegativeInteger(placeholder_transform_skipped_hook_count) ||
-      !hasNonNegativeInteger(placeholder_runtime_callee_candidate_count_before_transform) ||
-      !hasNonNegativeInteger(placeholder_runtime_namespace_candidate_count_before_transform) ||
-      !hasNonNegativeInteger(placeholder_runtime_callee_candidate_count) ||
-      !hasNonNegativeInteger(placeholder_runtime_namespace_candidate_count) ||
+      !isNonNegativeInteger(detected_react_functions) ||
+      !isNonNegativeInteger(detected_component_function_count) ||
+      !isNonNegativeInteger(detected_hook_function_count) ||
+      !isNonNegativeInteger(placeholder_transforms_applied) ||
+      !isNonNegativeInteger(placeholder_transform_candidate_count) ||
+      !isNonNegativeInteger(placeholder_transform_skipped_count) ||
+      !isNonNegativeInteger(placeholder_transform_candidate_component_count) ||
+      !isNonNegativeInteger(placeholder_transform_candidate_hook_count) ||
+      !isNonNegativeInteger(placeholder_transform_transformed_component_count) ||
+      !isNonNegativeInteger(placeholder_transform_transformed_hook_count) ||
+      !isNonNegativeInteger(placeholder_transform_skipped_component_count) ||
+      !isNonNegativeInteger(placeholder_transform_skipped_hook_count) ||
+      !isNonNegativeInteger(placeholder_runtime_callee_candidate_count_before_transform) ||
+      !isNonNegativeInteger(placeholder_runtime_namespace_candidate_count_before_transform) ||
+      !isNonNegativeInteger(placeholder_runtime_callee_candidate_count) ||
+      !isNonNegativeInteger(placeholder_runtime_namespace_candidate_count) ||
       !hasOptionalString(placeholder_runtime_callee_name_before_transform) ||
       !hasOptionalString(placeholder_runtime_callee_name) ||
       !hasOptionalString(debug_ir) ||
@@ -520,31 +525,6 @@ function assertRustCompileResponseShape(
     severity?: unknown;
     message?: unknown;
     location?: unknown;
-  };
-  const hasValidSourceLocation = (value: unknown): boolean => {
-    if (value == null) {
-      return true;
-    }
-    if (typeof value !== 'object') {
-      return false;
-    }
-    const {
-      start_line,
-      start_column,
-      end_line,
-      end_column,
-    } = value as {
-      start_line?: unknown;
-      start_column?: unknown;
-      end_line?: unknown;
-      end_column?: unknown;
-    };
-    return (
-      typeof start_line === 'number' &&
-      typeof start_column === 'number' &&
-      typeof end_line === 'number' &&
-      typeof end_column === 'number'
-    );
   };
   if (
     typeof code !== 'string' ||
