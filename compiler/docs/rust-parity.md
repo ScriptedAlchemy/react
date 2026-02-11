@@ -3,7 +3,7 @@
 This document describes how to compare compiler output between:
 
 - the current Babel pipeline baseline, and
-- strict Rust frontend mode (`compilerEngine: 'rust'` + `REACT_COMPILER_RUST_STRICT=1`),
+- strict Rust frontend mode (`compilerEngine: 'rust'`; `REACT_COMPILER_RUST_STRICT=1` remains supported),
 
 using the `snap parity` command.
 

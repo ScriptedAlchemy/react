@@ -336,7 +336,7 @@ export const defaultOptions: ParsedPluginOptions = {
   enableReanimatedCheck: true,
   customOptOutDirectives: null,
   target: '19',
-  compilerEngine: 'babel',
+  compilerEngine: 'rust',
 };
 
 export function parsePluginOptions(obj: unknown): ParsedPluginOptions {

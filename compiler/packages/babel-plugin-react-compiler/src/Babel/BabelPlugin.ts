@@ -77,7 +77,8 @@ export default function BabelPluginReactCompiler(
               };
             }
             if (opts.compilerEngine === 'rust') {
-              const strictRustEngine = isStrictRustEngineEnabled();
+              const strictRustEngine =
+                isStrictRustEngineEnabled() || opts.compilerEngine === 'rust';
               maybeRunRustProgramCompiler(
                 prog,
                 pass,
