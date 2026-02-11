@@ -15,7 +15,7 @@ export default function BabelPluginReactCompiler(
   _babel: typeof BabelCore,
 ): BabelCore.PluginObj {
   return {
-    name: 'react-forget',
+    name: 'react-compiler',
     visitor: {
       /*
        * Note: Babel does some "smart" merging of visitors across plugins, so even if A is inserted
