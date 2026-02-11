@@ -21,20 +21,6 @@ export {
   type LintRule,
 } from './CompilerError';
 export {
-  parsePluginOptions,
-  OPT_OUT_DIRECTIVES,
-  OPT_IN_DIRECTIVES,
-  tryFindDirectiveEnablingMemoization as findDirectiveEnablingMemoization,
-  findDirectiveDisablingMemoization,
-  defaultOptions,
-  type CompilerPipelineValue,
-  type Logger,
-  type LoggerEvent,
-  type PluginOptions,
-  type AutoDepsDecorationsEvent,
-  type CompileSuccessEvent,
-} from './Entrypoint';
-export {
   Effect,
   ValueKind,
   ValueReason,

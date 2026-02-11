@@ -9,7 +9,6 @@ import type * as BabelCore from '@babel/core';
 import {transformFromAstSync} from '@babel/core';
 import * as BabelParser from '@babel/parser';
 import invariant from 'invariant';
-import type {PluginOptions} from '../Entrypoint';
 import BabelPluginReactCompiler from './BabelPlugin';
 
 export const DEFAULT_PLUGINS = ['babel-plugin-fbt', 'babel-plugin-fbt-runtime'];
@@ -17,7 +16,7 @@ export function runBabelPluginReactCompiler(
   text: string,
   file: string,
   language: 'flow' | 'typescript',
-  options: PluginOptions | null,
+  options: Record<string, unknown> | null,
   includeAst: boolean = false,
 ): BabelCore.BabelFileResult {
   const ast = BabelParser.parse(text, {
