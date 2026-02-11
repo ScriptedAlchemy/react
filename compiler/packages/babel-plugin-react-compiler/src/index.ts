@@ -21,12 +21,9 @@ export {
   type LintRule,
 } from './CompilerError';
 export {
-  compileFn as compile,
-  compileProgram,
   parsePluginOptions,
   OPT_OUT_DIRECTIVES,
   OPT_IN_DIRECTIVES,
-  ProgramContext,
   tryFindDirectiveEnablingMemoization as findDirectiveEnablingMemoization,
   findDirectiveDisablingMemoization,
   defaultOptions,
