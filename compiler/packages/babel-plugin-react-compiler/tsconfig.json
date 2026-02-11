@@ -23,6 +23,7 @@
     "src/__tests__/fixtures"
   ],
   "include": [
+    "src/CompilerError.ts",
     "src/index.ts",
     "src/Babel/**/*.ts",
     "src/Compat/**/*.ts",

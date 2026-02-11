@@ -14,14 +14,19 @@ import BabelPluginReactCompiler from './Babel/BabelPlugin';
 export default BabelPluginReactCompiler;
 
 export {
+  CompilerSuggestionOperation,
   Effect,
   ValueKind,
   ValueReason,
+  parsePluginOptions,
   parseConfigPragmaForTests,
   printFunctionWithOutlined,
   printReactiveFunction,
+  validateEnvironmentConfig,
 } from './Compat/LegacyApi';
 export type {
+  CompilerDiagnosticOptions,
+  CompilerErrorDetailOptions,
   CompilerPipelineValue,
   CompilerReactTarget,
   Logger,
