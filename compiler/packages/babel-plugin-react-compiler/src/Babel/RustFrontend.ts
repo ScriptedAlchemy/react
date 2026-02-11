@@ -15,15 +15,8 @@ import {
   type RustCompileResponse,
 } from '../RustBridge/RustCli';
 
-type RustFrontendDebugValue = {
-  kind?: string;
-  name?: string;
-  value?: string;
-};
-
 export type RustFrontendLogger = {
   logEvent: (filename: string | null, event: unknown) => void;
-  debugLogIRs?: (value: RustFrontendDebugValue) => void;
 };
 
 function detectRustDialect(
@@ -84,7 +77,7 @@ export function maybeRunRustProgramCompiler(
     dialect,
     is_module: prog.node.sourceType === 'module',
     apply_placeholder_transforms: true,
-    emit_debug_ir: logger?.debugLogIRs != null,
+    emit_debug_ir: false,
   };
   if (pass.filename != null) {
     rustRequest.filename = pass.filename;
