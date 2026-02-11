@@ -3,7 +3,7 @@
 This document describes how to compare compiler output between:
 
 - the current Babel pipeline baseline, and
-- strict Rust frontend mode (`REACT_COMPILER_RUST_STRICT=1` remains supported),
+- Rust frontend mode (default compiler backend),
 
 using the `snap parity` command.
 
@@ -96,21 +96,20 @@ Bridge response-shape guardrails:
   (`location`) payloads must be either null/omitted or objects with
   non-negative integer `start_line`, `start_column`, `end_line`, `end_column`.
 
-For strict-rust debugging, `BabelPlugin` emits
+For Rust-frontend debugging, `BabelPlugin` emits
 `RustFrontendProtocolVersion` via `logger.debugLogIRs`.
 
-## Strict-rust frontend transform toggle
+## Rust frontend transform toggle
 
 Strict rust mode keeps frontend placeholder transforms disabled by default.
 To enable Rust frontend placeholder transforms in strict mode, set:
 
 - `REACT_COMPILER_RUST_PLACEHOLDER_TRANSFORMS=1`
 
-When enabled (and only when `REACT_COMPILER_RUST_STRICT=1`), the Babel bridge
-sends `apply_placeholder_transforms: true` to the Rust CLI request payload and
-accepts Rust frontend output as the strict-rust program replacement input.
-This allows strict mode to execute Rust-side placeholder transform behavior
-end-to-end.
+When enabled, the Babel bridge sends `apply_placeholder_transforms: true`
+to the Rust CLI request payload and accepts Rust frontend output as the
+program replacement input. This allows Rust-side placeholder transform
+behavior to execute end-to-end.
 
 ## Report shape
 
