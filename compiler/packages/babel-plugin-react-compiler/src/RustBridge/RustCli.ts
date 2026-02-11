@@ -20,13 +20,6 @@ export type RustCompileRequest = {
   protocol_version?: number;
 };
 
-type RustSourceLocation = {
-  start_line: number;
-  start_column: number;
-  end_line: number;
-  end_column: number;
-};
-
 export type RustCompileResponse =
   | {
       status: 'ok';
@@ -41,7 +34,6 @@ export type RustCompileResponse =
       reason: string;
       severity: string;
       message: string;
-      location?: RustSourceLocation | null;
     };
 
 function resolveRustManifestPath(): string {
