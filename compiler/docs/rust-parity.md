@@ -74,9 +74,24 @@ Bridge compatibility behavior:
 Bridge response-shape guardrails:
 
 - Response must be a JSON object with `status: "ok" | "error"`.
-- `ok` responses must include a string `code`.
+- `ok` responses must include required typed metadata fields:
+  - string `code`,
+  - non-negative integer count fields (statement counts, detected counts,
+    transform counts, runtime candidate counts),
+  - required string arrays for detected/transform/runtime-candidate names,
+  - boolean runtime helper/runtime callee flags.
+- `ok` responses additionally enforce derived consistency invariants, including:
+  - count fields matching corresponding array lengths,
+  - component/hook subtotal counts matching their totals,
+  - candidate count = transformed + skipped,
+  - runtime helper import `after >= before` and `*_added` matching count delta.
+- `placeholder_transform_status` is validated against the known status set:
+  `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`.
 - `error` responses must include string fields:
   `code`, `category`, `reason`, `severity`, `message`.
+- Source locations in both `ok` (`react_functions[*].loc`) and `error`
+  (`location`) payloads must be either null/omitted or objects with
+  non-negative integer `start_line`, `start_column`, `end_line`, `end_column`.
 
 For strict-rust debugging, `BabelPlugin` emits
 `RustFrontendProtocolVersion` via `logger.debugLogIRs`.
