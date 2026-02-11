@@ -765,7 +765,7 @@ cli
   )
   .command(
     'parity',
-    'Compare Babel vs strict Rust fixture outputs',
+    'Compare repeated Rust fixture outputs for consistency',
     (yargs: any) => {
       return yargs
         .string('pattern')
@@ -805,7 +805,7 @@ cli
         .boolean('include-output')
         .describe(
           'include-output',
-          'Include full Babel/Rust output strings in JSON report (default false)',
+          'Include full comparison output strings in JSON report (default false)',
         )
         .default('include-output', false)
         .boolean('ignore-formatting')
