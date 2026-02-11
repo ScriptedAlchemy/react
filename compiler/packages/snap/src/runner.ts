@@ -298,16 +298,8 @@ async function runCompileCommand(opts: CompileOptions): Promise<void> {
 
   // Build plugin options
   const config = parseConfigPragmaForTests(firstLine, {compilationMode: 'all'});
-  const compilerEngine = process.env['REACT_COMPILER_ENGINE'];
-  const engineConfig =
-    compilerEngine === 'rust'
-      ? ({
-          compilerEngine: 'rust',
-        } as const)
-      : {};
   const options = {
     ...config,
-    ...engineConfig,
     environment: {
       ...config.environment,
     },
@@ -500,18 +492,11 @@ async function transformFixtureWithEnv(
   compilerVersion: number,
   includeEvaluator: boolean,
   env: {
-    compilerEngine: 'babel' | 'rust';
     strictRust: boolean;
   },
 ): Promise<TestResult> {
-  const previousCompilerEngine = process.env['REACT_COMPILER_ENGINE'];
   const previousRustStrict = process.env['REACT_COMPILER_RUST_STRICT'];
 
-  if (env.compilerEngine === 'rust') {
-    process.env['REACT_COMPILER_ENGINE'] = 'rust';
-  } else {
-    delete process.env['REACT_COMPILER_ENGINE'];
-  }
   if (env.strictRust) {
     process.env['REACT_COMPILER_RUST_STRICT'] = '1';
   } else {
@@ -526,11 +511,6 @@ async function transformFixtureWithEnv(
       includeEvaluator,
     );
   } finally {
-    if (previousCompilerEngine == null) {
-      delete process.env['REACT_COMPILER_ENGINE'];
-    } else {
-      process.env['REACT_COMPILER_ENGINE'] = previousCompilerEngine;
-    }
     if (previousRustStrict == null) {
       delete process.env['REACT_COMPILER_RUST_STRICT'];
     } else {
@@ -563,7 +543,6 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       0,
       opts.evaluator,
       {
-        compilerEngine: 'babel',
         strictRust: false,
       },
     );
@@ -572,7 +551,6 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       0,
       opts.evaluator,
       {
-        compilerEngine: 'rust',
         strictRust: true,
       },
     );
