@@ -6,7 +6,6 @@
  */
 
 import type * as BabelCore from '@babel/core';
-import {CompilerError} from '..';
 import {
   maybeRunRustProgramCompiler,
   type RustFrontendLogger,
@@ -60,9 +59,6 @@ export default function BabelPluginReactCompiler(
             );
             markCompilationEnd(filename);
           } catch (e) {
-            if (e instanceof CompilerError) {
-              throw e.withPrintedMessage(pass.file.code, {eslint: false});
-            }
             throw e;
           }
         },
