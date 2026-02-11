@@ -176,8 +176,11 @@ function getEvaluatorPresets(
                     // sprout/evaluator.ts
                     if (arg.value === 'shared-runtime') {
                       arg.value = './shared-runtime';
-                    } else if (arg.value === 'ReactForgetFeatureFlag') {
-                      arg.value = './ReactForgetFeatureFlag';
+                    } else if (
+                      arg.value === 'ReactForgetFeatureFlag' ||
+                      arg.value === 'ReactCompilerFeatureFlag'
+                    ) {
+                      arg.value = './ReactCompilerFeatureFlag';
                     } else if (arg.value === 'useEffectWrapper') {
                       arg.value = './useEffectWrapper';
                     }
