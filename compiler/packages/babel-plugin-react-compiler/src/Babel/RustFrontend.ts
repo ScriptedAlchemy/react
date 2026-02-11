@@ -9,7 +9,7 @@ import type * as BabelCore from '@babel/core';
 import * as BabelParser from '@babel/parser';
 import traverse, {NodePath} from '@babel/traverse';
 import * as t from '@babel/types';
-import {Logger} from '../Entrypoint';
+import type {Logger} from '../Entrypoint/Options';
 import {
   runRustCompilerCli,
   type RustCompileRequest,

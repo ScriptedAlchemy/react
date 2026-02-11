@@ -6,7 +6,7 @@
  */
 
 import type * as BabelCore from '@babel/core';
-import {Logger} from '../Entrypoint';
+import type {Logger} from '../Entrypoint/Options';
 import {CompilerError} from '..';
 import {
   maybeRunRustProgramCompiler,
