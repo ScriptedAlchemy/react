@@ -491,32 +491,13 @@ async function transformFixtureWithEnv(
   fixture: TestFixture,
   compilerVersion: number,
   includeEvaluator: boolean,
-  env: {
-    strictRust: boolean;
-  },
 ): Promise<TestResult> {
-  const previousRustStrict = process.env['REACT_COMPILER_RUST_STRICT'];
-
-  if (env.strictRust) {
-    process.env['REACT_COMPILER_RUST_STRICT'] = '1';
-  } else {
-    delete process.env['REACT_COMPILER_RUST_STRICT'];
-  }
-
-  try {
-    return await runnerWorker.transformFixture(
-      fixture,
-      compilerVersion,
-      false,
-      includeEvaluator,
-    );
-  } finally {
-    if (previousRustStrict == null) {
-      delete process.env['REACT_COMPILER_RUST_STRICT'];
-    } else {
-      process.env['REACT_COMPILER_RUST_STRICT'] = previousRustStrict;
-    }
-  }
+  return await runnerWorker.transformFixture(
+    fixture,
+    compilerVersion,
+    false,
+    includeEvaluator,
+  );
 }
 
 async function runParityCommand(opts: ParityOptions): Promise<void> {
@@ -542,17 +523,11 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       fixture,
       0,
       opts.evaluator,
-      {
-        strictRust: false,
-      },
     );
     const strictRustResult = await transformFixtureWithEnv(
       fixture,
       0,
       opts.evaluator,
-      {
-        strictRust: true,
-      },
     );
 
     const hasUnexpectedErrorMismatch =
