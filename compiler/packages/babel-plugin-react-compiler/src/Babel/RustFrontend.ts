@@ -23,13 +23,6 @@ import {
   rustFrontendErrorReason,
 } from './RustFrontendContract';
 
-export function isStrictRustEngineEnabled(): boolean {
-  return (
-    process.env['REACT_COMPILER_RUST_STRICT'] === '1' ||
-    process.env['REACT_COMPILER_RUST_STRICT'] === 'true'
-  );
-}
-
 function isRecoverableRustFrontendErrorCode(code: string): boolean {
   return (
     code === 'unsupported_flow_syntax' ||
@@ -39,12 +32,7 @@ function isRecoverableRustFrontendErrorCode(code: string): boolean {
   );
 }
 
-function isRustFrontendPlaceholderTransformsEnabled(
-  strictRustEngine: boolean,
-): boolean {
-  if (!strictRustEngine) {
-    return false;
-  }
+function isRustFrontendPlaceholderTransformsEnabled(): boolean {
   return (
     process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === '1' ||
     process.env[RUST_FRONTEND_PLACEHOLDER_TRANSFORMS_ENV_VAR] === 'true'
@@ -207,13 +195,12 @@ export function maybeRunRustProgramCompiler(
   pass: BabelCore.PluginPass,
   logger: Logger | null,
   filename: string | null,
-  strictRustEngine: boolean,
 ): void {
   const sourceCode = pass.file.code ?? '';
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
   const dialect = detectRustDialect(pass.filename ?? null, sourceCode);
   const enableRustFrontendPlaceholderTransforms =
-    isRustFrontendPlaceholderTransformsEnabled(strictRustEngine);
+    isRustFrontendPlaceholderTransformsEnabled();
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
@@ -228,33 +215,26 @@ export function maybeRunRustProgramCompiler(
   try {
     rustResult = runRustCompilerCli(rustRequest);
   } catch {
-    if (strictRustEngine) {
-      logStrictRustFrontendFallback(
-        logger,
-        filename,
-        RUST_FRONTEND_INVOCATION_FAILURE_REASON,
-      );
-    }
+    logStrictRustFrontendFallback(
+      logger,
+      filename,
+      RUST_FRONTEND_INVOCATION_FAILURE_REASON,
+    );
     return;
   }
 
   if (rustResult.status === 'error') {
-    if (
-      !strictRustEngine ||
-      isRecoverableRustFrontendErrorCode(rustResult.code)
-    ) {
-      if (strictRustEngine) {
-        logStrictRustFrontendFallback(
-          logger,
-          filename,
-          rustFrontendErrorReason(rustResult.code, rustResult.reason),
-          toBabelSourceLocation(
-            rustResult.location,
-            sourceCode,
-            pass.filename ?? null,
-          ),
-        );
-      }
+    if (isRecoverableRustFrontendErrorCode(rustResult.code)) {
+      logStrictRustFrontendFallback(
+        logger,
+        filename,
+        rustFrontendErrorReason(rustResult.code, rustResult.reason),
+        toBabelSourceLocation(
+          rustResult.location,
+          sourceCode,
+          pass.filename ?? null,
+        ),
+      );
       return;
     }
     logger?.logEvent(filename, {
@@ -270,7 +250,6 @@ export function maybeRunRustProgramCompiler(
     pass,
     logger,
     filename,
-    strictRustEngine,
     sourceCode,
     sourceType,
     dialect,
@@ -477,13 +456,12 @@ function maybeApplyStrictRustProgramReplacement(
   pass: BabelCore.PluginPass,
   logger: Logger | null,
   filename: string | null,
-  strictRustEngine: boolean,
   sourceCode: string,
   sourceType: 'script' | 'module',
   dialect: 'javascript' | 'typescript' | 'flow',
   rustResult: Extract<RustCompileResponse, {status: 'ok'}>,
 ): void {
-  if (!strictRustEngine || rustResult.code === sourceCode) {
+  if (rustResult.code === sourceCode) {
     return;
   }
   let parsed: BabelParser.ParseResult<t.File>;

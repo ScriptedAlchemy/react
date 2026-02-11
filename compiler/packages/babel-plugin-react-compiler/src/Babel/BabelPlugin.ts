@@ -74,13 +74,11 @@ export default function BabelPluginReactCompiler(
                 },
               };
             }
-            const strictRustEngine = true;
             maybeRunRustProgramCompiler(
               prog,
               pass,
               opts.logger,
               pass.filename ?? null,
-              strictRustEngine,
             );
             markCompilationEnd(filename);
           } catch (e) {
