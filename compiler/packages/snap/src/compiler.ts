@@ -81,16 +81,8 @@ function makePluginOptions(
   };
 
   const config = parseConfigPragmaFn(firstLine, {compilationMode: 'all'});
-  const compilerEngine = process.env['REACT_COMPILER_ENGINE'];
-  const engineConfig =
-    compilerEngine === 'rust'
-      ? ({
-          compilerEngine: 'rust',
-        } as const)
-      : {};
   const options = {
     ...config,
-    ...engineConfig,
     environment: {
       ...config.environment,
       moduleTypeProvider: makeSharedRuntimeTypeProvider({
