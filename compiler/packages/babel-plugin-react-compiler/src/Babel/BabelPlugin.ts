@@ -6,11 +6,7 @@
  */
 
 import type * as BabelCore from '@babel/core';
-import {Logger, parsePluginOptions} from '../Entrypoint';
-import {
-  injectReanimatedFlag,
-  pipelineUsesReanimatedPlugin,
-} from '../Entrypoint/Reanimated';
+import {Logger} from '../Entrypoint';
 import {CompilerError} from '..';
 import {
   maybeRunRustProgramCompiler,
@@ -52,32 +48,14 @@ export default function BabelPluginReactCompiler(
                 detail: 'BabelPlugin:Program:start',
               });
             }
-            let opts = parsePluginOptions(pass.opts);
-            const isDev =
-              (typeof __DEV__ !== 'undefined' && __DEV__ === true) ||
-              process.env['NODE_ENV'] === 'development';
-            if (
-              opts.enableReanimatedCheck === true &&
-              pipelineUsesReanimatedPlugin(pass.file.opts.plugins)
-            ) {
-              opts = injectReanimatedFlag(opts);
-            }
-            if (
-              opts.environment.enableResetCacheOnSourceFileChanges !== false &&
-              isDev
-            ) {
-              opts = {
-                ...opts,
-                environment: {
-                  ...opts.environment,
-                  enableResetCacheOnSourceFileChanges: true,
-                },
-              };
-            }
+            const logger: Logger | null =
+              'logger' in pass.opts && pass.opts.logger != null
+                ? (pass.opts.logger as Logger)
+                : null;
             maybeRunRustProgramCompiler(
               prog,
               pass,
-              opts.logger,
+              logger,
               pass.filename ?? null,
             );
             markCompilationEnd(filename);
