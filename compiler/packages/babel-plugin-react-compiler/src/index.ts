@@ -15,12 +15,16 @@ export default BabelPluginReactCompiler;
 
 export {
   CompilerSuggestionOperation,
+  ErrorSeverity,
   Effect,
+  LintRulePreset,
+  LintRules,
   ValueKind,
   ValueReason,
   parsePluginOptions,
   parseConfigPragmaForTests,
   printFunctionWithOutlined,
+  printReactiveFunctionWithOutlined,
   printReactiveFunction,
   validateEnvironmentConfig,
 } from './Compat/LegacyApi';
@@ -29,8 +33,10 @@ export type {
   CompilerErrorDetailOptions,
   CompilerPipelineValue,
   CompilerReactTarget,
+  LintRule,
   Logger,
   LoggerEvent,
   PluginOptions,
+  SourceLocation,
   TypeConfig,
 } from './Compat/LegacyApi';

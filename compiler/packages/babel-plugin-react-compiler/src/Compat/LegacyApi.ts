@@ -5,10 +5,28 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export type LoggerEvent = {
-  kind: string;
-  [key: string]: unknown;
-};
+export type LoggerEvent =
+  | {
+      kind: 'CompileSuccess';
+      fnLoc?: SourceLocation | null;
+      [key: string]: unknown;
+    }
+  | {
+      kind: 'CompileError';
+      detail: CompilerErrorDetailOptions;
+      fnLoc?: SourceLocation | null;
+      [key: string]: unknown;
+    }
+  | {
+      kind: 'CompileDiagnostic' | 'PipelineError';
+      detail?: CompilerErrorDetailOptions;
+      fnLoc?: SourceLocation | null;
+      [key: string]: unknown;
+    }
+  | {
+      kind: string;
+      [key: string]: unknown;
+    };
 
 export type CompilerPipelineValue =
   | {kind: 'hir'; name: string; value: unknown}
@@ -54,10 +72,29 @@ export type CompilerSuggestion =
       description: string;
     };
 
+export type SourceLocation =
+  | {
+      start: {line: number; column: number};
+      end: {line: number; column: number};
+      filename?: string | null;
+    }
+  | symbol;
+
+export type PrintErrorMessageOptions = {
+  eslint: boolean;
+};
+
 export type CompilerDiagnosticOptions = {
   category: string;
   reason: string;
   description: string | null;
+  loc?: SourceLocation | null;
+  severity?: string;
+  primaryLocation?: () => SourceLocation | null;
+  printErrorMessage?: (
+    source: string,
+    options: PrintErrorMessageOptions,
+  ) => string;
   suggestions?: Array<CompilerSuggestion> | null | undefined;
   [key: string]: unknown;
 };
@@ -148,6 +185,12 @@ export enum ErrorSeverity {
   Warning = 'Warning',
   Hint = 'Hint',
   Off = 'Off',
+  InvalidReact = 'InvalidReact',
+  InvalidJS = 'InvalidJS',
+  InvalidConfig = 'InvalidConfig',
+  Invariant = 'Invariant',
+  CannotPreserveMemoization = 'CannotPreserveMemoization',
+  Todo = 'Todo',
 }
 
 export enum LintRulePreset {
