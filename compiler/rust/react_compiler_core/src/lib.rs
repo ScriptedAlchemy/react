@@ -476,6 +476,48 @@ mod tests {
     }
 
     #[test]
+    fn detects_script_fixture_entrypoint_function_from_template_literal_object_key() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [`fn`]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                is_module: false,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_template_literal_member_assignment() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[`fn`] = render;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                is_module: false,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_script_fixture_entrypoint_from_parenthesized_object_literal_var_initializer() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = ({ fn: render, params: [] });",

@@ -525,6 +525,42 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     }
   });
 
+  it('resolves script fixture entrypoint template-literal object keys', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function render() { return 1; } const FIXTURE_ENTRYPOINT = { [`fn`]: render, params: [] };',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('render');
+    }
+  });
+
+  it('resolves script fixture entrypoint template-literal member assignments', () => {
+    const result = runRustCompilerCli({
+      source:
+        'function render() { return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[`fn`] = render;',
+      dialect: 'javascript',
+      filename: 'fixture.js',
+      is_module: false,
+      apply_placeholder_transforms: false,
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.detected_react_functions).toBe(1);
+      expect(result.placeholder_transforms_applied).toBe(0);
+      expect(result.react_functions[0]?.name).toBe('render');
+    }
+  });
+
   it('can request placeholder transforms explicitly from Rust CLI', () => {
     const result = runRustCompilerCli({
       source: 'export function Component() { return <div />; }',
