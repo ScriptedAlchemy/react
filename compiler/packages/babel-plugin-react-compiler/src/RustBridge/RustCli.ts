@@ -10,6 +10,14 @@ import path from 'path';
 import {spawnSync} from 'child_process';
 import {RUST_CLI_PROTOCOL_VERSION} from './RustCliProtocol';
 
+const VALID_PLACEHOLDER_TRANSFORM_STATUSES = new Set([
+  'disabled',
+  'no_candidates',
+  'transformed',
+  'blocked_missing_runtime_callee',
+  'no_op',
+]);
+
 export type RustCompileRequest = {
   source: string;
   filename?: string;
@@ -400,6 +408,11 @@ function assertRustCompileResponseShape(
       placeholder_runtime_callee_candidates as Array<string>;
     const typedRuntimeNamespaceCandidates =
       placeholder_runtime_namespace_candidates as Array<string>;
+    const typedPlaceholderTransformStatus = placeholder_transform_status as string;
+    const typedRuntimeCalleeNameBeforeTransform =
+      placeholder_runtime_callee_name_before_transform as string | null | undefined;
+    const typedRuntimeCalleeName =
+      placeholder_runtime_callee_name as string | null | undefined;
     const typedPlaceholderTransformCandidateComponentCount =
       placeholder_transform_candidate_component_count as number;
     const typedPlaceholderTransformCandidateHookCount =
@@ -452,7 +465,40 @@ function assertRustCompileResponseShape(
       placeholder_runtime_helper_import_added !==
         (typedRuntimeHelperImportCountAfterTransform >
           typedRuntimeHelperImportCountBeforeTransform) ||
-      (placeholder_runtime_callee_reused && placeholder_runtime_callee_generated)
+      (placeholder_runtime_callee_reused && placeholder_runtime_callee_generated) ||
+      !VALID_PLACEHOLDER_TRANSFORM_STATUSES.has(typedPlaceholderTransformStatus) ||
+      (typedPlaceholderTransformStatus === 'disabled' &&
+        placeholder_transforms_applied !== 0) ||
+      (typedPlaceholderTransformStatus === 'no_candidates' &&
+        placeholder_transform_candidate_count !== 0) ||
+      (typedPlaceholderTransformStatus === 'transformed' &&
+        placeholder_transforms_applied === 0) ||
+      (typedPlaceholderTransformStatus === 'blocked_missing_runtime_callee' &&
+        (placeholder_transform_candidate_count === 0 ||
+          typedRuntimeCalleeNameBeforeTransform != null)) ||
+      (typedPlaceholderTransformStatus === 'no_op' &&
+        (placeholder_transform_candidate_count === 0 ||
+          placeholder_transforms_applied !== 0)) ||
+      (typedRuntimeCalleeNameBeforeTransform != null &&
+        !typedRuntimeCalleeCandidatesBeforeTransform.includes(
+          typedRuntimeCalleeNameBeforeTransform,
+        )) ||
+      (typedRuntimeCalleeName != null &&
+        !typedRuntimeCalleeCandidates.includes(typedRuntimeCalleeName)) ||
+      (placeholder_runtime_callee_reused &&
+        !(
+          placeholder_transforms_applied > 0 &&
+          typedRuntimeCalleeNameBeforeTransform != null &&
+          typedRuntimeCalleeName != null &&
+          typedRuntimeCalleeNameBeforeTransform === typedRuntimeCalleeName
+        )) ||
+      (placeholder_runtime_callee_generated &&
+        !(
+          placeholder_transforms_applied > 0 &&
+          typedRuntimeCalleeNameBeforeTransform == null &&
+          typedRuntimeCalleeName != null &&
+          placeholder_runtime_helper_import_added
+        ))
     ) {
       throw new Error(
         'Rust compiler CLI returned invalid ok payload (inconsistent count fields)',
