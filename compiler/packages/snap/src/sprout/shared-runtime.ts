@@ -282,7 +282,8 @@ export function ValidateMemoization({
   if (
     !onlyCheckCompiled ||
     (onlyCheckCompiled &&
-      (globalThis as any).__SNAP_EVALUATOR_MODE === 'forget')
+      ((globalThis as any).__SNAP_EVALUATOR_MODE === 'compiled' ||
+        (globalThis as any).__SNAP_EVALUATOR_MODE === 'forget'))
   ) {
     if (
       inputs.length !== previousInputs.length ||

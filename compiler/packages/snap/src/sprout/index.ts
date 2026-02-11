@@ -34,7 +34,7 @@ export function runSprout(
 ): SproutResult {
   let compiledResult;
   try {
-    (globalThis as any).__SNAP_EVALUATOR_MODE = 'forget';
+    (globalThis as any).__SNAP_EVALUATOR_MODE = 'compiled';
     compiledResult = doEval(compiledCode);
   } catch (e) {
     throw e;
