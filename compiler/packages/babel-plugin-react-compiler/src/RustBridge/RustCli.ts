@@ -181,6 +181,27 @@ function assertRustCompileResponseShape(
       'Rust compiler CLI returned invalid error payload (missing required string fields)',
     );
   }
+
+  const location = payload['location'];
+  if (location == null) {
+    return;
+  }
+  if (typeof location !== 'object') {
+    throw new Error(
+      'Rust compiler CLI returned invalid error payload (location must be an object when present)',
+    );
+  }
+  const locationRecord = location as {[key: string]: unknown};
+  if (
+    typeof locationRecord['start_line'] !== 'number' ||
+    typeof locationRecord['start_column'] !== 'number' ||
+    typeof locationRecord['end_line'] !== 'number' ||
+    typeof locationRecord['end_column'] !== 'number'
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid error payload (location must include numeric start/end fields)',
+    );
+  }
 }
 
 function assertCompatibleRustCliProtocolVersion(
