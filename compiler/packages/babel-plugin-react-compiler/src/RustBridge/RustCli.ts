@@ -194,13 +194,17 @@ function assertRustCompileResponseShape(
   }
   const locationRecord = location as {[key: string]: unknown};
   if (
-    typeof locationRecord['start_line'] !== 'number' ||
-    typeof locationRecord['start_column'] !== 'number' ||
-    typeof locationRecord['end_line'] !== 'number' ||
-    typeof locationRecord['end_column'] !== 'number'
+    !Number.isInteger(locationRecord['start_line']) ||
+    !Number.isInteger(locationRecord['start_column']) ||
+    !Number.isInteger(locationRecord['end_line']) ||
+    !Number.isInteger(locationRecord['end_column']) ||
+    (locationRecord['start_line'] as number) < 0 ||
+    (locationRecord['start_column'] as number) < 0 ||
+    (locationRecord['end_line'] as number) < 0 ||
+    (locationRecord['end_column'] as number) < 0
   ) {
     throw new Error(
-      'Rust compiler CLI returned invalid error payload (location must include numeric start/end fields)',
+      'Rust compiler CLI returned invalid error payload (location must include non-negative integer start/end fields)',
     );
   }
 }
