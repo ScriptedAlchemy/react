@@ -521,12 +521,12 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
     comparedFixtures += 1;
     const babelResult = await transformFixtureWithEnv(
       fixture,
-      0,
+      1,
       opts.evaluator,
     );
     const strictRustResult = await transformFixtureWithEnv(
       fixture,
-      0,
+      2,
       opts.evaluator,
     );
 
