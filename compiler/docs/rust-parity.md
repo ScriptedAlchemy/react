@@ -1,11 +1,14 @@
-# Strict Rust Parity Workflow
+# Rust Compiler Consistency Workflow
 
-This document describes how to compare compiler output between:
+This document describes the current `snap parity` behavior in the Rust-first compiler.
 
-- the current Babel pipeline baseline, and
-- Rust frontend mode (default compiler backend),
+## What parity checks now
 
-using the `snap parity` command.
+`snap parity` now compares two Rust-backed compilation runs (instead of Babel-vs-Rust).
+This acts as a deterministic consistency check and report generator for fixture processing.
+
+> Note: the JSON report still uses legacy field names like `babel` / `rust` for historical
+> compatibility, even though both sides are Rust-backed executions.
 
 ## Commands
 
@@ -22,7 +25,7 @@ yarn snap:parity:full
 yarn snap:parity:canary
 ```
 
-You can also call `snap parity` directly:
+Direct invocation:
 
 ```bash
 yarn workspace snap run snap parity \
@@ -36,96 +39,59 @@ yarn workspace snap run snap parity \
 - `--pattern/-p <glob>`: compare a fixture subset
 - `--output/-o <path>`: write JSON report
 - `--max-mismatches <n>`: stop after `n` mismatches (`0` = no limit)
-- `--include-output`: include full Babel/Rust snapshot payloads in JSON
+- `--include-output`: include full snapshot payloads in JSON
 - `--ignore-formatting` (default: `true`): normalize code section formatting
 - `--ignore-logs` (default: `true`): ignore logger output differences
 - `--skip-build` (default: `false`): reuse existing build outputs
 
-## Rust CLI bridge execution
+## Rust CLI bridge behavior
 
-The Babel plugin Rust bridge resolves the compiler CLI command in this order:
+The Babel bridge resolves the Rust CLI command in this order:
 
-1. `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path),
-2. existing debug binary (`compiler/rust/target/debug/react_compiler_cli`) **only when**
-   `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1`,
-3. otherwise `cargo +stable run --manifest-path ... -p react_compiler_cli`.
+1. `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path)
+2. existing debug binary (`compiler/rust/target/debug/react_compiler_cli`) when
+   `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1`
+3. fallback to `cargo +stable run --manifest-path ... -p react_compiler_cli`
 
-For repeated local parity runs, setting `REACT_COMPILER_RUST_CLI_BIN` to a prebuilt
-binary avoids repeated Cargo invocation overhead while avoiding stale binary ambiguity.
+For repeated local runs, setting `REACT_COMPILER_RUST_CLI_BIN` to a prebuilt binary
+avoids repeated Cargo startup overhead.
 
-## Rust CLI protocol contract
+## Protocol contract (current)
 
-The JS bridge and Rust CLI communicate via a versioned JSON protocol.
-
-- Request field: `protocol_version` (current value: `1`).
-- Response field: `protocol_version` (returned on both `ok` and `error` responses).
-- Unsupported request versions are rejected by CLI with:
+- Request includes `protocol_version` (currently `1`)
+- Response may include `protocol_version` on `ok` and `error`
+- Unsupported request versions are rejected with:
   - `code: "unsupported_protocol_version"`
   - `category: "request"`
-  - `reason: "invalid_option"`.
+  - `reason: "invalid_option"`
 
-Bridge compatibility behavior:
+Bridge response validation currently enforces:
 
-- The JS bridge sends `protocol_version: 1` by default.
-- The bridge validates response protocol version when present.
-- For backward compatibility with older local binaries, a missing
-  `protocol_version` response field is tolerated.
+- `status: "ok" | "error"`
+- `ok` includes string `code`
+- `error` includes string fields:
+  `code`, `category`, `reason`, `severity`, `message`
+- optional `error.location`, when present, must include numeric:
+  `start_line`, `start_column`, `end_line`, `end_column`
 
-Bridge response-shape guardrails:
+## Rust frontend behavior
 
-- Response must be a JSON object with `status: "ok" | "error"`.
-- `ok` responses must include required typed metadata fields:
-  - string `code`,
-  - non-negative integer count fields (statement counts, detected counts,
-    transform counts, runtime candidate counts),
-  - required string arrays for detected/transform/runtime-candidate names,
-  - boolean runtime helper/runtime callee flags.
-- `ok` responses additionally enforce derived consistency invariants, including:
-  - count fields matching corresponding array lengths,
-  - component/hook subtotal counts matching their totals,
-  - candidate count = transformed + skipped,
-  - transform candidate/detected/runtime candidate name arrays are duplicate-free,
-  - runtime helper import `after >= before` and `*_added` matching count delta,
-  - runtime callee/namespace candidate arrays must be duplicate-free and
-    disjoint (both before and after transform).
-- `placeholder_transform_status` is validated against the known status set:
-  `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`.
-- `error` responses must include string fields:
-  `code`, `category`, `reason`, `severity`, `message`.
-- Source locations in both `ok` (`react_functions[*].loc`) and `error`
-  (`location`) payloads must be either null/omitted or objects with
-  non-negative integer `start_line`, `start_column`, `end_line`, `end_column`.
-
-For Rust-frontend debugging, `BabelPlugin` emits
-`RustFrontendProtocolVersion` via `logger.debugLogIRs`.
-
-## Rust frontend transform behavior
-
-Rust frontend placeholder transforms are always enabled. The Babel bridge
-sends `apply_placeholder_transforms: true` to the Rust CLI request payload
-and accepts Rust frontend output as the program replacement input. This
-executes Rust-side placeholder transform behavior end-to-end by default.
+- Placeholder transforms are always enabled (`apply_placeholder_transforms: true`)
+- Rust output is used directly for AST replacement
+- Compatibility logger events are emitted for:
+  - `CompileSuccess`
+  - `CompileError`
+  - `PipelineError`
+- When requested via logger, Rust debug IR is forwarded through `debugLogIRs`
 
 ## Report shape
 
-Parity JSON includes:
+Parity JSON reports include mismatch counts and section-level diffs:
 
-- fixture counts and mismatch counts,
-- per-mismatch booleans for:
-  - raw mismatch,
-  - normalized mismatch,
-  - code section mismatch,
-  - eval output mismatch,
-  - logs mismatch,
-  - error mismatch,
-- per-mismatch section diff payloads (when mismatched):
-  - `codeSectionDiff`
-  - `evalSectionDiff`
-  - `logsSectionDiff`
-  - `errorSectionDiff`
-  Each section payload includes raw Babel/Rust text plus normalized strings used for parity comparison.
-- aggregate `mismatchSummary` counts by category.
+- code
+- eval output
+- logs
+- error
 
-This allows faster triage by separating semantic differences from
-formatting/logging noise.
+This helps isolate semantic mismatches from formatting/logging noise.
 
