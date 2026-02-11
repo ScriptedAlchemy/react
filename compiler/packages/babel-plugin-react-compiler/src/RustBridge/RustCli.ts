@@ -289,19 +289,47 @@ function assertRustCompileResponseShape(
     reason,
     severity,
     message,
+    location,
   } = response as {
     code?: unknown;
     category?: unknown;
     reason?: unknown;
     severity?: unknown;
     message?: unknown;
+    location?: unknown;
+  };
+  const hasValidSourceLocation = (value: unknown): boolean => {
+    if (value == null) {
+      return true;
+    }
+    if (typeof value !== 'object') {
+      return false;
+    }
+    const {
+      start_line,
+      start_column,
+      end_line,
+      end_column,
+    } = value as {
+      start_line?: unknown;
+      start_column?: unknown;
+      end_line?: unknown;
+      end_column?: unknown;
+    };
+    return (
+      typeof start_line === 'number' &&
+      typeof start_column === 'number' &&
+      typeof end_line === 'number' &&
+      typeof end_column === 'number'
+    );
   };
   if (
     typeof code !== 'string' ||
     typeof category !== 'string' ||
     typeof reason !== 'string' ||
     typeof severity !== 'string' ||
-    typeof message !== 'string'
+    typeof message !== 'string' ||
+    !hasValidSourceLocation(location)
   ) {
     throw new Error(
       'Rust compiler CLI returned invalid error payload (missing required string fields)',

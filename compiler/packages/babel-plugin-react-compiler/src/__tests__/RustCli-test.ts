@@ -7441,6 +7441,35 @@ describeWithCargo('Rust compiler CLI bridge', () => {
     );
   });
 
+  it('throws when rust cli returns malformed error locations', () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+    withTempRustCliScript(
+      `process.stdout.write(JSON.stringify({
+        status: "error",
+        code: "parse_failure",
+        category: "syntax",
+        reason: "invalid_syntax",
+        severity: "error",
+        message: "boom",
+        location: "invalid"
+      }));`,
+      scriptPath => {
+        withEnvVar('REACT_COMPILER_RUST_CLI_BIN', scriptPath, () => {
+          expect(() =>
+            runRustCompilerCli({
+              source: 'const value = 1;',
+              dialect: 'javascript',
+              filename: 'fixture.js',
+              is_module: false,
+            }),
+          ).toThrow('invalid error payload');
+        });
+      },
+    );
+  });
+
   it('throws when rust cli returns malformed ok payload', () => {
     if (process.platform === 'win32') {
       return;
