@@ -140,7 +140,15 @@ export function runRustCompilerCli(
     throw new Error('Rust compiler CLI returned an empty response');
   }
 
-  const response = JSON.parse(result.stdout) as unknown;
+  let response: unknown;
+  try {
+    response = JSON.parse(result.stdout) as unknown;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Rust compiler CLI returned invalid JSON response: ${reason}\n${result.stdout}`,
+    );
+  }
   assertRustCompileResponseShape(response);
   assertCompatibleRustCliProtocolVersion(response);
   return response;
