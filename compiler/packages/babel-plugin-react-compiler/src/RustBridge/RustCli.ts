@@ -215,22 +215,57 @@ function assertRustCompileResponseShape(
       statement_count,
       statement_count_after_transform,
       detected_react_functions,
+      detected_component_function_count,
+      detected_hook_function_count,
+      detected_component_functions,
+      detected_hook_functions,
       placeholder_transforms_applied,
       placeholder_transform_candidates,
+      placeholder_transform_skipped_functions,
+      placeholder_transform_candidate_count,
+      placeholder_transform_skipped_count,
       placeholder_transformed_functions,
+      placeholder_runtime_callee_candidates_before_transform,
+      placeholder_runtime_callee_candidate_count_before_transform,
+      placeholder_runtime_namespace_candidates_before_transform,
+      placeholder_runtime_namespace_candidate_count_before_transform,
+      placeholder_runtime_callee_candidates,
+      placeholder_runtime_callee_candidate_count,
+      placeholder_runtime_namespace_candidates,
+      placeholder_runtime_namespace_candidate_count,
       react_functions,
     } = response as {
       code?: unknown;
       statement_count?: unknown;
       statement_count_after_transform?: unknown;
       detected_react_functions?: unknown;
+      detected_component_function_count?: unknown;
+      detected_hook_function_count?: unknown;
+      detected_component_functions?: unknown;
+      detected_hook_functions?: unknown;
       placeholder_transforms_applied?: unknown;
       placeholder_transform_candidates?: unknown;
+      placeholder_transform_skipped_functions?: unknown;
+      placeholder_transform_candidate_count?: unknown;
+      placeholder_transform_skipped_count?: unknown;
       placeholder_transformed_functions?: unknown;
+      placeholder_runtime_callee_candidates_before_transform?: unknown;
+      placeholder_runtime_callee_candidate_count_before_transform?: unknown;
+      placeholder_runtime_namespace_candidates_before_transform?: unknown;
+      placeholder_runtime_namespace_candidate_count_before_transform?: unknown;
+      placeholder_runtime_callee_candidates?: unknown;
+      placeholder_runtime_callee_candidate_count?: unknown;
+      placeholder_runtime_namespace_candidates?: unknown;
+      placeholder_runtime_namespace_candidate_count?: unknown;
       react_functions?: unknown;
     };
     const hasStringArray = (value: unknown): boolean =>
       Array.isArray(value) && value.every(entry => typeof entry === 'string');
+    const hasNonNegativeInteger = (value: unknown): boolean =>
+      typeof value === 'number' &&
+      Number.isInteger(value) &&
+      Number.isFinite(value) &&
+      value >= 0;
     const hasValidSourceLocation = (value: unknown): boolean => {
       if (value == null) {
         return true;
@@ -269,16 +304,76 @@ function assertRustCompileResponseShape(
       );
     if (
       typeof code !== 'string' ||
-      typeof statement_count !== 'number' ||
-      typeof statement_count_after_transform !== 'number' ||
-      typeof detected_react_functions !== 'number' ||
-      typeof placeholder_transforms_applied !== 'number' ||
+      !hasNonNegativeInteger(statement_count) ||
+      !hasNonNegativeInteger(statement_count_after_transform) ||
+      !hasNonNegativeInteger(detected_react_functions) ||
+      !hasNonNegativeInteger(detected_component_function_count) ||
+      !hasNonNegativeInteger(detected_hook_function_count) ||
+      !hasNonNegativeInteger(placeholder_transforms_applied) ||
+      !hasNonNegativeInteger(placeholder_transform_candidate_count) ||
+      !hasNonNegativeInteger(placeholder_transform_skipped_count) ||
+      !hasNonNegativeInteger(placeholder_runtime_callee_candidate_count_before_transform) ||
+      !hasNonNegativeInteger(placeholder_runtime_namespace_candidate_count_before_transform) ||
+      !hasNonNegativeInteger(placeholder_runtime_callee_candidate_count) ||
+      !hasNonNegativeInteger(placeholder_runtime_namespace_candidate_count) ||
       !hasStringArray(placeholder_transform_candidates) ||
+      !hasStringArray(placeholder_transform_skipped_functions) ||
       !hasStringArray(placeholder_transformed_functions) ||
+      !hasStringArray(placeholder_runtime_callee_candidates_before_transform) ||
+      !hasStringArray(placeholder_runtime_namespace_candidates_before_transform) ||
+      !hasStringArray(placeholder_runtime_callee_candidates) ||
+      !hasStringArray(placeholder_runtime_namespace_candidates) ||
+      !hasStringArray(detected_component_functions) ||
+      !hasStringArray(detected_hook_functions) ||
       !hasValidReactFunctions(react_functions)
     ) {
       throw new Error(
         'Rust compiler CLI returned invalid ok payload (missing required typed fields)',
+      );
+    }
+    const typedReactFunctions = react_functions as Array<{
+      name: string;
+      kind: 'Component' | 'Hook';
+      loc?: RustSourceLocation | null;
+    }>;
+    const typedDetectedComponentFunctions =
+      detected_component_functions as Array<string>;
+    const typedDetectedHookFunctions = detected_hook_functions as Array<string>;
+    const typedTransformedFunctions =
+      placeholder_transformed_functions as Array<string>;
+    const typedTransformCandidates =
+      placeholder_transform_candidates as Array<string>;
+    const typedTransformSkippedFunctions =
+      placeholder_transform_skipped_functions as Array<string>;
+    const typedRuntimeCalleeCandidatesBeforeTransform =
+      placeholder_runtime_callee_candidates_before_transform as Array<string>;
+    const typedRuntimeNamespaceCandidatesBeforeTransform =
+      placeholder_runtime_namespace_candidates_before_transform as Array<string>;
+    const typedRuntimeCalleeCandidates =
+      placeholder_runtime_callee_candidates as Array<string>;
+    const typedRuntimeNamespaceCandidates =
+      placeholder_runtime_namespace_candidates as Array<string>;
+    if (
+      detected_react_functions !== typedReactFunctions.length ||
+      detected_component_function_count !==
+        typedDetectedComponentFunctions.length ||
+      detected_hook_function_count !== typedDetectedHookFunctions.length ||
+      placeholder_transforms_applied !== typedTransformedFunctions.length ||
+      placeholder_transform_candidate_count !==
+        typedTransformCandidates.length ||
+      placeholder_transform_skipped_count !==
+        typedTransformSkippedFunctions.length ||
+      placeholder_runtime_callee_candidate_count_before_transform !==
+        typedRuntimeCalleeCandidatesBeforeTransform.length ||
+      placeholder_runtime_namespace_candidate_count_before_transform !==
+        typedRuntimeNamespaceCandidatesBeforeTransform.length ||
+      placeholder_runtime_callee_candidate_count !==
+        typedRuntimeCalleeCandidates.length ||
+      placeholder_runtime_namespace_candidate_count !==
+        typedRuntimeNamespaceCandidates.length
+    ) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (inconsistent count fields)',
       );
     }
     return;
