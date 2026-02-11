@@ -84,6 +84,7 @@ Bridge response-shape guardrails:
   - count fields matching corresponding array lengths,
   - component/hook subtotal counts matching their totals,
   - candidate count = transformed + skipped,
+  - transform candidate/detected/runtime candidate name arrays are duplicate-free,
   - runtime helper import `after >= before` and `*_added` matching count delta,
   - runtime callee/namespace candidate arrays must be duplicate-free and
     disjoint (both before and after transform).
