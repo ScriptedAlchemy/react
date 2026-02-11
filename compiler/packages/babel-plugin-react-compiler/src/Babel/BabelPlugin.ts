@@ -11,17 +11,6 @@ import {
   type RustFrontendLogger,
 } from './RustFrontend';
 
-const ENABLE_REACT_COMPILER_TIMINGS =
-  process.env['ENABLE_REACT_COMPILER_TIMINGS'] === '1';
-
-function markCompilationEnd(filename: string): void {
-  if (ENABLE_REACT_COMPILER_TIMINGS === true) {
-    performance.mark(`${filename}:end`, {
-      detail: 'BabelPlugin:Program:end',
-    });
-  }
-}
-
 /*
  * The React Forget Babel Plugin
  * @param {*} _babel
@@ -41,12 +30,6 @@ export default function BabelPluginReactCompiler(
       Program: {
         enter(prog, pass): void {
           try {
-            const filename = pass.filename ?? 'unknown';
-            if (ENABLE_REACT_COMPILER_TIMINGS === true) {
-              performance.mark(`${filename}:start`, {
-                detail: 'BabelPlugin:Program:start',
-              });
-            }
             const logger: RustFrontendLogger | null =
               'logger' in pass.opts && pass.opts.logger != null
                 ? (pass.opts.logger as RustFrontendLogger)
@@ -57,27 +40,8 @@ export default function BabelPluginReactCompiler(
               logger,
               pass.filename ?? null,
             );
-            markCompilationEnd(filename);
           } catch (e) {
             throw e;
-          }
-        },
-        exit(_, pass): void {
-          if (ENABLE_REACT_COMPILER_TIMINGS === true) {
-            const filename = pass.filename ?? 'unknown';
-            const measurement = performance.measure(filename, {
-              start: `${filename}:start`,
-              end: `${filename}:end`,
-              detail: 'BabelPlugin:Program',
-            });
-            if ('logger' in pass.opts && pass.opts.logger != null) {
-              const logger: RustFrontendLogger =
-                pass.opts.logger as RustFrontendLogger;
-              logger.logEvent(filename, {
-                kind: 'Timing',
-                measurement,
-              });
-            }
           }
         },
       },
