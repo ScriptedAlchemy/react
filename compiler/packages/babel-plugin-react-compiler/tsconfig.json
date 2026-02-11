@@ -23,14 +23,9 @@
     "src/__tests__/fixtures"
   ],
   "include": [
-    "src/CompilerError.ts",
     "src/index.ts",
     "src/Babel/**/*.ts",
     "src/Compat/**/*.ts",
-    "src/Entrypoint/**/*.ts",
-    "src/HIR/**/*.ts",
-    "src/ReactiveScopes/**/*.ts",
-    "src/RustBridge/**/*.ts",
-    "src/Utils/**/*.ts"
+    "src/RustBridge/**/*.ts"
   ]
 }
