@@ -6,12 +6,11 @@
  */
 
 import type * as BabelCore from '@babel/core';
-import {compileProgram, Logger, parsePluginOptions} from '../Entrypoint';
+import {Logger, parsePluginOptions} from '../Entrypoint';
 import {
   injectReanimatedFlag,
   pipelineUsesReanimatedPlugin,
 } from '../Entrypoint/Reanimated';
-import validateNoUntransformedReferences from '../Entrypoint/ValidateNoUntransformedReferences';
 import {CompilerError} from '..';
 import {
   maybeRunRustProgramCompiler,
@@ -82,19 +81,6 @@ export default function BabelPluginReactCompiler(
               opts.logger,
               pass.filename ?? null,
               strictRustEngine,
-            );
-            const result = compileProgram(prog, {
-              opts,
-              filename: pass.filename ?? null,
-              comments: pass.file.ast.comments ?? [],
-              code: pass.file.code,
-            });
-            validateNoUntransformedReferences(
-              prog,
-              pass.filename ?? null,
-              opts.logger,
-              opts.environment,
-              result,
             );
             markCompilationEnd(filename);
           } catch (e) {
