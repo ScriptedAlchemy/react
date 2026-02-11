@@ -6,7 +6,6 @@
  */
 
 import type * as BabelCore from '@babel/core';
-import generate from '@babel/generator';
 import * as BabelParser from '@babel/parser';
 import traverse, {NodePath} from '@babel/traverse';
 import * as t from '@babel/types';
@@ -75,24 +74,6 @@ function stripTypeOnlyUnsupportedExpressions(
       path.replaceWith(path.node.expression);
     },
   });
-}
-
-function canonicalizeProgramForComparison(
-  code: string,
-  filename: string | null,
-  dialect: 'javascript' | 'typescript' | 'flow',
-  sourceType: 'script' | 'module',
-): string {
-  const parsed = parseProgramFromRustOutput(code, filename, dialect, sourceType);
-  stripTypeOnlyUnsupportedExpressions(parsed);
-  return (
-    generate(parsed, {
-      comments: false,
-      compact: true,
-      minified: true,
-      retainLines: false,
-    }).code ?? ''
-  );
 }
 
 export function maybeRunRustProgramCompiler(
@@ -358,8 +339,6 @@ function maybeApplyStrictRustProgramReplacement(
     return;
   }
   let parsed: BabelParser.ParseResult<t.File>;
-  let canonicalSource: string;
-  let canonicalRustOutput: string;
   try {
     parsed = parseProgramFromRustOutput(
       rustResult.code,
@@ -368,20 +347,8 @@ function maybeApplyStrictRustProgramReplacement(
       sourceType,
     );
     stripTypeOnlyUnsupportedExpressions(parsed);
-    canonicalSource = canonicalizeProgramForComparison(
-      sourceCode,
-      pass.filename ?? null,
-      dialect,
-      sourceType,
-    );
-    canonicalRustOutput = canonicalizeProgramForComparison(
-      rustResult.code,
-      pass.filename ?? null,
-      dialect,
-      sourceType,
-    );
   } catch {
-    const reason = 'rust_frontend_parse_or_canonicalization_failure';
+    const reason = 'rust_frontend_parse_failure';
     logger?.logEvent(filename, {
       kind: 'PipelineError',
       fnLoc: null,
@@ -390,9 +357,6 @@ function maybeApplyStrictRustProgramReplacement(
     throw new Error(
       `[RustCompiler:${reason}] failed to parse rust output for replacement`,
     );
-  }
-  if (canonicalSource === canonicalRustOutput) {
-    return;
   }
 
   prog.node.body = parsed.program.body;
