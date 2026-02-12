@@ -398,19 +398,19 @@ function normalizeCodeSection(value: string | null): string {
 }
 
 function createSectionDiff(
-  babelValue: string | null,
-  rustValue: string | null,
+  firstRunValue: string | null,
+  secondRunValue: string | null,
   normalize: (value: string | null) => string,
 ): ParitySectionDiff {
-  const normalizedFirstRun = normalize(babelValue);
-  const normalizedSecondRun = normalize(rustValue);
+  const normalizedFirstRun = normalize(firstRunValue);
+  const normalizedSecondRun = normalize(secondRunValue);
   return {
-    firstRun: babelValue,
-    secondRun: rustValue,
+    firstRun: firstRunValue,
+    secondRun: secondRunValue,
     normalizedFirstRun,
     normalizedSecondRun,
-    babel: babelValue,
-    rust: rustValue,
+    babel: firstRunValue,
+    rust: secondRunValue,
     normalizedBabel: normalizedFirstRun,
     normalizedRust: normalizedSecondRun,
   };
@@ -545,49 +545,50 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
 
   for (const [fixtureName, fixture] of fixtures) {
     comparedFixtures += 1;
-    const babelResult = await transformFixtureWithEnv(
+    const firstRunResult = await transformFixtureWithEnv(
       fixture,
       1,
       opts.evaluator,
     );
-    const strictRustResult = await transformFixtureWithEnv(
+    const secondRunResult = await transformFixtureWithEnv(
       fixture,
       2,
       opts.evaluator,
     );
 
     const hasUnexpectedErrorMismatch =
-      babelResult.unexpectedError !== strictRustResult.unexpectedError;
-    const babelComparableActual = opts.ignoreLogs
-      ? stripLogsFromSnapshot(babelResult.actual)
-      : babelResult.actual;
-    const rustComparableActual = opts.ignoreLogs
-      ? stripLogsFromSnapshot(strictRustResult.actual)
-      : strictRustResult.actual;
-    const hasRawOutputMismatch = babelResult.actual !== strictRustResult.actual;
+      firstRunResult.unexpectedError !== secondRunResult.unexpectedError;
+    const firstRunComparableActual = opts.ignoreLogs
+      ? stripLogsFromSnapshot(firstRunResult.actual)
+      : firstRunResult.actual;
+    const secondRunComparableActual = opts.ignoreLogs
+      ? stripLogsFromSnapshot(secondRunResult.actual)
+      : secondRunResult.actual;
+    const hasRawOutputMismatch =
+      firstRunResult.actual !== secondRunResult.actual;
     const hasNormalizedOutputMismatch =
-      canonicalizeSnapshotForParity(babelComparableActual) !==
-      canonicalizeSnapshotForParity(rustComparableActual);
-    const rawBabelSections = extractSnapshotSections(babelResult.actual);
-    const rawRustSections = extractSnapshotSections(strictRustResult.actual);
+      canonicalizeSnapshotForParity(firstRunComparableActual) !==
+      canonicalizeSnapshotForParity(secondRunComparableActual);
+    const firstRunSections = extractSnapshotSections(firstRunResult.actual);
+    const secondRunSections = extractSnapshotSections(secondRunResult.actual);
     const codeSectionDiff = createSectionDiff(
-      rawBabelSections.code,
-      rawRustSections.code,
+      firstRunSections.code,
+      secondRunSections.code,
       normalizeCodeSection,
     );
     const evalSectionDiff = createSectionDiff(
-      rawBabelSections.evalOutput,
-      rawRustSections.evalOutput,
+      firstRunSections.evalOutput,
+      secondRunSections.evalOutput,
       normalizeSectionText,
     );
     const logsSectionDiff = createSectionDiff(
-      rawBabelSections.logs,
-      rawRustSections.logs,
+      firstRunSections.logs,
+      secondRunSections.logs,
       normalizeSectionText,
     );
     const errorSectionDiff = createSectionDiff(
-      rawBabelSections.error,
-      rawRustSections.error,
+      firstRunSections.error,
+      secondRunSections.error,
       normalizeSectionText,
     );
     const hasCodeSectionMismatch =
@@ -618,17 +619,17 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       hasEvalSectionMismatch,
       hasLogsSectionMismatch,
       hasErrorSectionMismatch,
-      firstRunUnexpectedError: babelResult.unexpectedError,
-      secondRunUnexpectedError: strictRustResult.unexpectedError,
-      babelUnexpectedError: babelResult.unexpectedError,
-      rustUnexpectedError: strictRustResult.unexpectedError,
-      outputPath: strictRustResult.outputPath,
+      firstRunUnexpectedError: firstRunResult.unexpectedError,
+      secondRunUnexpectedError: secondRunResult.unexpectedError,
+      babelUnexpectedError: firstRunResult.unexpectedError,
+      rustUnexpectedError: secondRunResult.unexpectedError,
+      outputPath: secondRunResult.outputPath,
     };
     if (opts.includeOutput) {
-      mismatch.firstRunActual = babelResult.actual;
-      mismatch.secondRunActual = strictRustResult.actual;
-      mismatch.babelActual = babelResult.actual;
-      mismatch.rustActual = strictRustResult.actual;
+      mismatch.firstRunActual = firstRunResult.actual;
+      mismatch.secondRunActual = secondRunResult.actual;
+      mismatch.babelActual = firstRunResult.actual;
+      mismatch.rustActual = secondRunResult.actual;
     }
     mismatch.codeSectionDiff = hasCodeSectionMismatch ? codeSectionDiff : null;
     mismatch.evalSectionDiff = hasEvalSectionMismatch ? evalSectionDiff : null;
