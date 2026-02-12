@@ -857,6 +857,53 @@ function assertConsistentOkCountRelationships(payload: {
       'Rust compiler CLI returned invalid ok payload (detected component/hook counts must sum to detected_react_functions)',
     );
   }
+
+  assertPlaceholderTransformStatusConsistency(payload);
+}
+
+function assertPlaceholderTransformStatusConsistency(payload: {
+  [key: string]: unknown;
+}): void {
+  const status = payload['placeholder_transform_status'] as string;
+  const candidateCount = payload['placeholder_transform_candidate_count'] as number;
+  const transformedCount = payload['placeholder_transforms_applied'] as number;
+  switch (status) {
+    case 'disabled':
+      if (transformedCount !== 0) {
+        throw new Error(
+          'Rust compiler CLI returned invalid ok payload (disabled status cannot report transformed functions)',
+        );
+      }
+      return;
+    case 'no_candidates':
+      if (candidateCount !== 0 || transformedCount !== 0) {
+        throw new Error(
+          'Rust compiler CLI returned invalid ok payload (no_candidates status requires zero candidates and transforms)',
+        );
+      }
+      return;
+    case 'transformed':
+      if (transformedCount === 0) {
+        throw new Error(
+          'Rust compiler CLI returned invalid ok payload (transformed status requires placeholder_transforms_applied > 0)',
+        );
+      }
+      return;
+    case 'blocked_missing_runtime_callee':
+    case 'no_op':
+      if (candidateCount === 0 || transformedCount !== 0) {
+        throw new Error(
+          `Rust compiler CLI returned invalid ok payload (${status} status requires candidates with zero transforms)`,
+        );
+      }
+      return;
+    default:
+      throw new Error(
+        `Rust compiler CLI returned invalid ok payload (unsupported placeholder_transform_status: ${String(
+          status,
+        )})`,
+      );
+  }
 }
 
 function assertArrayCountMatchesField(

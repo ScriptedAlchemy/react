@@ -36,6 +36,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - telemetry count fields must match their corresponding list lengths
   - telemetry aggregate relationships must hold (candidate = transformed + skipped,
     component/hook splits sum correctly, detected component + hook = detected total)
+  - `placeholder_transform_status` must be one of
+    `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`,
+    with status/count consistency checks
   - `error.category` in `{request, syntax, internal}`
   - `error.severity` in `{error, warning, hint, off}`
   - required response string fields must be present and non-empty

@@ -126,6 +126,9 @@ Bridge response validation currently enforces:
     - candidate count = transformed + skipped counts
     - component/hook subtype counts sum to their parent totals
     - detected component + detected hook counts = detected total
+  - `placeholder_transform_status` enum validation:
+    `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`
+    with count/status coherence checks
 - optional `ok.debug_ir`, when present, must be a string
 - `error` includes string fields:
   `code`, `category`, `reason`, `severity`, `message`
