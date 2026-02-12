@@ -695,6 +695,10 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
     pattern: opts.pattern ?? null,
     mismatchSummary,
     mismatches,
+    notes: {
+      comparisonMode: 'rust_consistency',
+      legacyAliasFieldsRetained: true,
+    },
   };
 
   if (opts.output != null) {
