@@ -60,8 +60,13 @@ function resolveRustManifestPath(): string {
   const candidates = new Set<string>();
   const checkedCandidates = new Set<string>();
   if (explicitPath != null && explicitPath.length > 0) {
-    candidates.add(explicitPath);
-    candidates.add(path.resolve(explicitPath));
+    const resolvedExplicitPath = path.resolve(explicitPath);
+    if (fs.existsSync(resolvedExplicitPath)) {
+      return resolvedExplicitPath;
+    }
+    throw new Error(
+      `REACT_COMPILER_RUST_MANIFEST points to a missing manifest: ${resolvedExplicitPath}`,
+    );
   }
 
   let currentDir = process.cwd();
