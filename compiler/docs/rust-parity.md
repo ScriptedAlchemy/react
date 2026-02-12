@@ -196,6 +196,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((('b' > 'a') ? 'require' : 'nope'))]((((1 < 2) ? 'react/compiler-runtime' : 'nope')))` )
   - foldable `typeof` conditionals where operand type is statically known
     (e.g. `module[(((typeof (() => 1)) === 'function') ? 'require' : 'nope')]((((typeof 1) === 'number') ? 'react/compiler-runtime' : 'nope'))`)
+  - `typeof` folding also covers foldable sequence/logical/nullish operand wrappers
+    (e.g. `typeof ((0, 1))`, `typeof (false || (() => 1))`, `typeof (null ?? 1)`)
   - truthy array/object literal conditional aliases
     (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`)
   - truthy function/class literal conditional aliases

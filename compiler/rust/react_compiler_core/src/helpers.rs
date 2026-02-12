@@ -507,6 +507,41 @@ fn expression_static_typeof_value(expr: &Expr) -> Option<String> {
             expression_static_typeof_value(unary_expression.arg.as_ref())?;
             Some("string".to_string())
         }
+        Expr::Seq(sequence_expression) => {
+            if sequence_expression.exprs.is_empty() {
+                return None;
+            }
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+                expression_static_typeof_value(sequence_item.as_ref())?;
+            }
+            sequence_expression
+                .exprs
+                .last()
+                .and_then(|last_expr| expression_static_typeof_value(last_expr.as_ref()))
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_typeof_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_typeof_value(binary_expression.left.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalOr => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_typeof_value(binary_expression.left.as_ref())
+            } else {
+                expression_static_typeof_value(binary_expression.right.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NullishCoalescing => {
+            if expression_is_static_nullish(binary_expression.left.as_ref()) {
+                expression_static_typeof_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_typeof_value(binary_expression.left.as_ref())
+            }
+        }
         Expr::Cond(conditional_expression) => {
             let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
