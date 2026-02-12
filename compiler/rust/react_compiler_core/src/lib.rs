@@ -1911,6 +1911,40 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_sequence_global_escaped_computed_module_computed_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = (0, global['\\x6dodule']['require'])('react/compiler-runtime').c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_sequence_global_unicode_computed_module_unicode_computed_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = (0, global['\\u006dodule']['\\u0072equire'])('react/compiler-runtime').c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_sequence_global_this_module_escaped_computed_require_member_alias_in_module(
     ) {
         let output = compile(
@@ -9824,6 +9858,44 @@ mod tests {
     ) {
         let output = compile(
             "const cache = (0, global.module['\\u0072equire'])('react/compiler-runtime').c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_sequence_global_escaped_computed_module_computed_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = (0, global['\\x6dodule']['require'])('react/compiler-runtime').c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_sequence_global_unicode_computed_module_unicode_computed_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = (0, global['\\u006dodule']['\\u0072equire'])('react/compiler-runtime').c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
