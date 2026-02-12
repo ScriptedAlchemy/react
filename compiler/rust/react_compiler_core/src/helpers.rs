@@ -94,6 +94,29 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
             let right_value = expression_static_string_value(binary_expression.right.as_ref())?;
             Some(format!("{left_value}{right_value}"))
         }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
+            let left_truthy = expression_static_boolean_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_string_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_string_value(binary_expression.left.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalOr => {
+            let left_truthy = expression_static_boolean_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_string_value(binary_expression.left.as_ref())
+            } else {
+                expression_static_string_value(binary_expression.right.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NullishCoalescing => {
+            if expression_is_static_null(binary_expression.left.as_ref()) {
+                expression_static_string_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_string_value(binary_expression.left.as_ref())
+            }
+        }
         Expr::Cond(conditional_expression) => {
             let test_value = expression_static_boolean_value(conditional_expression.test.as_ref())?;
             if test_value {
@@ -109,6 +132,13 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
 fn expression_static_boolean_value(expr: &Expr) -> Option<bool> {
     match unwrap_expression(expr) {
         Expr::Lit(Lit::Bool(boolean_literal)) => Some(boolean_literal.value),
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
+            expression_static_boolean_value(unary_expression.arg.as_ref()).map(|value| !value)
+        }
         _ => None,
     }
+}
+
+fn expression_is_static_null(expr: &Expr) -> bool {
+    matches!(unwrap_expression(expr), Expr::Lit(Lit::Null(_)))
 }
