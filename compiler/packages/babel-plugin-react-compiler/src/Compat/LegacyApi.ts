@@ -28,6 +28,10 @@ export type LoggerEvent =
       [key: string]: unknown;
     };
 
+export type CompileSuccessEvent = Extract<LoggerEvent, {kind: 'CompileSuccess'}>;
+export type CompileErrorEvent = Extract<LoggerEvent, {kind: 'CompileError'}>;
+export type PipelineErrorEvent = Extract<LoggerEvent, {kind: 'PipelineError'}>;
+
 export type CompilerPipelineValue =
   | {kind: 'hir'; name: string; value: unknown}
   | {kind: 'reactive'; name: string; value: unknown}

@@ -31,6 +31,8 @@ export {
   validateEnvironmentConfig,
 } from './Compat/LegacyApi';
 export type {
+  CompileErrorEvent,
+  CompileSuccessEvent,
   CompilerDiagnosticOptions,
   CompilerErrorDetailOptions,
   CompilerPipelineValue,
@@ -38,6 +40,7 @@ export type {
   LintRule,
   Logger,
   LoggerEvent,
+  PipelineErrorEvent,
   PluginOptions,
   SourceLocation,
   TypeConfig,
