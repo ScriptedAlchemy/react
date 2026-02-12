@@ -134,6 +134,7 @@ Bridge response validation currently enforces:
   - sequence wrappers around intermediate module roots/chains (e.g. `(0, window.module).require(...)`, `(0, self['module'])['require'](...)`)
   - direct/chain variants on browser-like globals (`window.module.require(...)`, `window['module']['require'](...)`, `self.module.require(...)`, `self['module']['require'](...)`)
   - nested global-root chains before `module` (e.g. `globalThis.window.module.require(...)`, `global.self.module['require'](...)`)
+  - repeated global-root chains (e.g. `globalThis.globalThis.window.module.require(...)`, `global.global.self.module['require'](...)`)
   - sequence wrappers over nested global-root chains (e.g. `(0, globalThis.window.module.require)(...)`, `(0, global.self.module['require'])(...)`)
   - computed nested global-root chains (e.g. `globalThis['window'].module.require(...)`, `global['self'].module['require'](...)`)
   - sequence wrappers over computed nested global roots (e.g. `(0, globalThis['window'].module.require)(...)`, `(0, global['self'].module['require'])(...)`)
