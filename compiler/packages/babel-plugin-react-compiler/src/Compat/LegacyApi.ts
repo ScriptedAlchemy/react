@@ -30,6 +30,10 @@ export type LoggerEvent =
 
 export type CompileSuccessEvent = Extract<LoggerEvent, {kind: 'CompileSuccess'}>;
 export type CompileErrorEvent = Extract<LoggerEvent, {kind: 'CompileError'}>;
+export type CompileDiagnosticEvent = Extract<
+  LoggerEvent,
+  {kind: 'CompileDiagnostic'}
+>;
 export type PipelineErrorEvent = Extract<LoggerEvent, {kind: 'PipelineError'}>;
 
 export type CompilerPipelineValue =

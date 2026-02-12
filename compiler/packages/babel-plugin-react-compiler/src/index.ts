@@ -31,6 +31,7 @@ export {
   validateEnvironmentConfig,
 } from './Compat/LegacyApi';
 export type {
+  CompileDiagnosticEvent,
   CompileErrorEvent,
   CompileSuccessEvent,
   CompilerDiagnosticOptions,
