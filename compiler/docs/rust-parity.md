@@ -95,7 +95,7 @@ Bridge response validation currently enforces:
 - Placeholder transforms are always enabled (`apply_placeholder_transforms: true`)
 - Rust output is used directly for AST replacement
 - Compatibility logger events are emitted for:
-  - `CompileSuccess`
+  - `CompileSuccess` (per detected React function when locations are available)
   - `CompileError`
   - `PipelineError`
 - Rust error categories are normalized to legacy compiler categories for downstream

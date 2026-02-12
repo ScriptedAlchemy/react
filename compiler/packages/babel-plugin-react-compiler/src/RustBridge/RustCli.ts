@@ -23,12 +23,26 @@ export type RustCompileRequest = {
   protocol_version?: number;
 };
 
+export type RustSourceLocation = {
+  start_line: number;
+  start_column: number;
+  end_line: number;
+  end_column: number;
+};
+
+export type RustReactFunction = {
+  name: string;
+  kind: string;
+  loc?: RustSourceLocation | null;
+};
+
 export type RustCompileResponse =
   | {
       status: 'ok';
       protocol_version?: number;
       code: string;
       debug_ir?: string;
+      react_functions?: Array<RustReactFunction>;
     }
   | {
       status: 'error';
@@ -38,12 +52,7 @@ export type RustCompileResponse =
       reason: string;
       severity: string;
       message: string;
-      location?: {
-        start_line: number;
-        start_column: number;
-        end_line: number;
-        end_column: number;
-      } | null;
+      location?: RustSourceLocation | null;
     };
 
 function resolveRustManifestPath(): string {
@@ -225,6 +234,33 @@ function assertRustCompileResponseShape(
         'Rust compiler CLI returned invalid ok payload (missing code string)',
       );
     }
+    const reactFunctions = payload['react_functions'];
+    if (reactFunctions == null) {
+      return;
+    }
+    if (!Array.isArray(reactFunctions)) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (react_functions must be an array when present)',
+      );
+    }
+    for (const fnRecord of reactFunctions) {
+      if (fnRecord == null || typeof fnRecord !== 'object') {
+        throw new Error(
+          'Rust compiler CLI returned invalid ok payload (react_functions entries must be objects)',
+        );
+      }
+      const fnData = fnRecord as {[key: string]: unknown};
+      if (typeof fnData['name'] !== 'string' || typeof fnData['kind'] !== 'string') {
+        throw new Error(
+          'Rust compiler CLI returned invalid ok payload (react_functions entries require name/kind strings)',
+        );
+      }
+      const fnLoc = fnData['loc'];
+      if (fnLoc == null) {
+        continue;
+      }
+      assertRustLocationPayload(fnLoc, 'react_functions[].loc');
+    }
     return;
   }
 
@@ -244,9 +280,16 @@ function assertRustCompileResponseShape(
   if (location == null) {
     return;
   }
-  if (typeof location !== 'object') {
+  assertRustLocationPayload(location, 'location');
+}
+
+function assertRustLocationPayload(
+  location: unknown,
+  fieldName: string,
+): asserts location is RustSourceLocation {
+  if (location == null || typeof location !== 'object') {
     throw new Error(
-      'Rust compiler CLI returned invalid error payload (location must be an object when present)',
+      `Rust compiler CLI returned invalid payload (${fieldName} must be an object when present)`,
     );
   }
   const locationRecord = location as {[key: string]: unknown};
@@ -261,7 +304,7 @@ function assertRustCompileResponseShape(
     (locationRecord['end_column'] as number) < 0
   ) {
     throw new Error(
-      'Rust compiler CLI returned invalid error payload (location must include non-negative integer start/end fields)',
+      `Rust compiler CLI returned invalid payload (${fieldName} must include non-negative integer start/end fields)`,
     );
   }
 }

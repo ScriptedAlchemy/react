@@ -20,6 +20,7 @@ import {
   runRustCompilerCli,
   type RustCompileRequest,
   type RustCompileResponse,
+  type RustSourceLocation,
 } from '../RustBridge/RustCli';
 
 function detectRustDialect(
@@ -82,7 +83,7 @@ function emitLoggerEvent(
 }
 
 function toLegacySourceLocation(
-  location: Extract<RustCompileResponse, {status: 'error'}>['location'],
+  location: RustSourceLocation | null | undefined,
   filename: string | null,
 ): SourceLocation | null {
   if (location == null) {
@@ -99,6 +100,29 @@ function toLegacySourceLocation(
     },
     filename,
   };
+}
+
+function emitCompileSuccessEvents(
+  logger: Logger | null,
+  filename: string | null,
+  result: Extract<RustCompileResponse, {status: 'ok'}>,
+): void {
+  const reactFunctions = result.react_functions;
+  if (!Array.isArray(reactFunctions) || reactFunctions.length === 0) {
+    emitLoggerEvent(logger, filename, {
+      kind: 'CompileSuccess',
+      fnLoc: null,
+    });
+    return;
+  }
+  for (const reactFunction of reactFunctions) {
+    emitLoggerEvent(logger, filename, {
+      kind: 'CompileSuccess',
+      fnLoc: toLegacySourceLocation(reactFunction.loc, filename),
+      fnName: reactFunction.name,
+      fnKind: reactFunction.kind,
+    });
+  }
 }
 
 function mapRustCategoryToLegacyCategory(category: string): ErrorCategory {
@@ -209,10 +233,7 @@ export function maybeRunRustProgramCompiler(
     dialect,
     rustResult,
   );
-  emitLoggerEvent(logger, filename, {
-    kind: 'CompileSuccess',
-    fnLoc: null,
-  });
+  emitCompileSuccessEvents(logger, filename, rustResult);
 }
 
 function maybeApplyStrictRustProgramReplacement(
