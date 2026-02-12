@@ -10,7 +10,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
 - Import compiler types/helpers from `babel-plugin-react-compiler/src` (root export surface).
 - Avoid deep imports into internal source subpaths.
 - Rust CLI execution can be configured with:
-  - `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path), or
+  - `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path, or bare command name resolved via PATH), or
   - `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1` (use `compiler/rust/target/debug/react_compiler_cli` when present).
 - Optional Rust CLI timeout override:
   - `REACT_COMPILER_RUST_CLI_TIMEOUT_MS` (positive integer milliseconds, default `60000`).
