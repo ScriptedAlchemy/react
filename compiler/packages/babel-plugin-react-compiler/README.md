@@ -20,5 +20,6 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - bridge emits `CompileSuccess`, `CompileError`, and `PipelineError` events
   - `CompileSuccess` is emitted per detected React function with source location metadata when available
   - Rust error categories are normalized for downstream lint consumers (`syntax -> Syntax`, `internal/request -> Invariant`).
+  - explicit event type aliases are exported for consumers (`CompileSuccessEvent`, `CompileErrorEvent`, `CompileDiagnosticEvent`, `PipelineErrorEvent`).
 
 You can find usage documentation here: https://react.dev/learn/react-compiler
