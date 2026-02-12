@@ -104,6 +104,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(+'1' && 'require')]((+'not-a-number' || 'react/compiler-runtime'))`).
   Unary numeric coercions over foldable template-string literals are supported
   (e.g. `module[(+\`${'1'}\` && 'require')]((+\`${''}\` || 'react/compiler-runtime'))`).
+  Template-string numeric coercions also cover invalid/radix values
+  (e.g. `module[(+\`${'1'}\` && 'require')]((+\`${'not-a-number'}\` || 'react/compiler-runtime'))`).
   Radix and whitespace string-numeric coercions are folded too
   (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`).
   Hex/octal/infinity numeric-string coercions are folded too

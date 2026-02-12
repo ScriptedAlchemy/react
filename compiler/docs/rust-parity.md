@@ -207,6 +207,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(+'1' && 'require')]((+'not-a-number' || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over foldable template-string literals
     (e.g. `module[(+\`${'1'}\` && 'require')]((+\`${''}\` || 'react/compiler-runtime'))`)
+  - unary numeric coercion aliases over invalid/radix template-string values
+    (e.g. `module[(+\`${'1'}\` && 'require')]((+\`${'not-a-number'}\` || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over radix/whitespace numeric strings
     (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over hex/octal/infinity numeric strings
