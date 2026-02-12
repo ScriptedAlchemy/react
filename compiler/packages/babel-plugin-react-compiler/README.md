@@ -28,6 +28,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
 - Rust bridge response validation accepts:
   - `error.category` in `{request, syntax, internal}`
   - `error.severity` in `{error, warning, hint, off}`
+  - required response string fields must be present and non-empty
 - Dialect selection:
   - TypeScript extensions (`.ts`, `.tsx`, `.mts`, `.cts`) map to Rust TypeScript mode
   - Flow file hints (`.flow` extension or Babel `flow` parser plugin) map to Rust Flow mode
