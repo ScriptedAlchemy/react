@@ -554,6 +554,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_typeof_binary_conditional_object_key() {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((typeof (1 + 2)) === 'number') ? 'fn' : 'not-fn')]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_loose_equality_conditional_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((1 == '1') ? 'fn' : 'not-fn'))]: component, params: [] };",
@@ -1436,6 +1456,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_typeof_binary_conditional_member_assignment() {
+        let output = compile(
+            "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((typeof ('a' + 1)) === 'string') ? 'fn' : 'not-fn')] = component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_loose_equality_conditional_member_assignment() {
         let output = compile(
             "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((1 == '1') ? 'fn' : 'not-fn'))] = component;",
@@ -2102,6 +2142,27 @@ mod tests {
     fn detects_script_fixture_entrypoint_function_from_typeof_sequence_conditional_object_key() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((typeof ((0, (() => 1)))) === 'function') ? 'fn' : 'not-fn')]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_typeof_binary_conditional_object_key() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((typeof (1 + 2)) === 'number') ? 'fn' : 'not-fn')]: render, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -2895,6 +2956,28 @@ mod tests {
     ) {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((typeof ((null ?? 1))) === 'number') ? 'fn' : 'not-fn')] = render;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_typeof_binary_conditional_member_assignment(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((typeof ('a' + 1)) === 'string') ? 'fn' : 'not-fn')] = render;",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -4471,6 +4554,22 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_require_typeof_binary_conditional_member_alias_in_module() {
+        let output = compile(
+            "const cache = require((((typeof (1 < 2)) === 'boolean') ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_loose_equality_conditional_member_alias_in_module() {
         let output = compile(
             "const cache = require((((1 == '1') ? 'react/compiler-runtime' : 'nope'))).c; export function Component(){ return <div />; }",
@@ -5097,6 +5196,23 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(((typeof ((false || (() => 1)))) === 'function') ? 'require' : 'nope')]((((typeof ((null ?? 1))) === 'number') ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_typeof_binary_conditional_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(((typeof ('a' + 1)) === 'string') ? 'require' : 'nope')]((((typeof (1 + 2)) === 'number') ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -14579,6 +14695,24 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_require_typeof_binary_conditional_member_alias() {
+        let output = compile(
+            "const cache = require((((typeof (1 < 2)) === 'boolean') ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_loose_equality_conditional_member_alias() {
         let output = compile(
             "const cache = require((((1 == '1') ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
@@ -15280,6 +15414,24 @@ mod tests {
     fn transforms_script_component_with_module_typeof_logical_conditional_require_member_alias() {
         let output = compile(
             "const cache = module[(((typeof ((false || (() => 1)))) === 'function') ? 'require' : 'nope')]((((typeof ((null ?? 1))) === 'number') ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_module_typeof_binary_conditional_require_member_alias() {
+        let output = compile(
+            "const cache = module[(((typeof ('a' + 1)) === 'string') ? 'require' : 'nope')]((((typeof (1 + 2)) === 'number') ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),

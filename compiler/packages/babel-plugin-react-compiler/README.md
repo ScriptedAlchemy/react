@@ -97,6 +97,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   statically known (e.g. `module[(((typeof (() => 1)) === 'function') ? 'require' : 'nope')]((((typeof 1) === 'number') ? 'react/compiler-runtime' : 'nope'))`).
   This includes foldable sequence/logical/nullish wrappers inside `typeof`
   (e.g. `typeof ((0, 1))`, `typeof (false || (() => 1))`, `typeof (null ?? 1)`).
+  Foldable `typeof` checks over static binary expressions are also handled,
+  including arithmetic/string and comparison forms
+  (e.g. `typeof (1 + 2)`, `typeof ('a' + 1)`, `typeof (1 < 2)`).
   Truthy array/object literal conditions are folded as expected
   (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`).
   Truthy function/class literal conditions are folded as expected

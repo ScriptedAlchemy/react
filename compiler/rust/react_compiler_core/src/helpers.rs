@@ -547,6 +547,7 @@ fn expression_static_typeof_value(expr: &Expr) -> Option<String> {
                 expression_static_typeof_value(binary_expression.left.as_ref())
             }
         }
+        Expr::Bin(binary_expression) => static_binary_expression_typeof(binary_expression),
         Expr::Cond(conditional_expression) => {
             let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
@@ -555,6 +556,69 @@ fn expression_static_typeof_value(expr: &Expr) -> Option<String> {
                 expression_static_typeof_value(conditional_expression.alt.as_ref())
             }
         }
+        _ => None,
+    }
+}
+
+fn static_binary_expression_typeof(binary_expression: &swc_ecma_ast::BinExpr) -> Option<String> {
+    let left = expression_static_primitive_value(binary_expression.left.as_ref())?;
+    let right = expression_static_primitive_value(binary_expression.right.as_ref())?;
+    match binary_expression.op {
+        BinaryOp::Add => {
+            if matches!(left, StaticPrimitive::String(_)) || matches!(right, StaticPrimitive::String(_)) {
+                return Some("string".to_string());
+            }
+            if matches!(left, StaticPrimitive::BigInt(_)) || matches!(right, StaticPrimitive::BigInt(_)) {
+                if matches!((&left, &right), (StaticPrimitive::BigInt(_), StaticPrimitive::BigInt(_))) {
+                    return Some("bigint".to_string());
+                }
+                return None;
+            }
+            static_primitive_to_number(left)?;
+            static_primitive_to_number(right)?;
+            Some("number".to_string())
+        }
+        BinaryOp::Sub
+        | BinaryOp::Mul
+        | BinaryOp::Div
+        | BinaryOp::Mod
+        | BinaryOp::Exp
+        | BinaryOp::BitAnd
+        | BinaryOp::BitOr
+        | BinaryOp::BitXor
+        | BinaryOp::LShift
+        | BinaryOp::RShift => {
+            if matches!(left, StaticPrimitive::BigInt(_)) || matches!(right, StaticPrimitive::BigInt(_)) {
+                if matches!((&left, &right), (StaticPrimitive::BigInt(_), StaticPrimitive::BigInt(_))) {
+                    return Some("bigint".to_string());
+                }
+                return None;
+            }
+            static_primitive_to_number(left)?;
+            static_primitive_to_number(right)?;
+            Some("number".to_string())
+        }
+        BinaryOp::ZeroFillRShift => {
+            if matches!(left, StaticPrimitive::BigInt(_)) || matches!(right, StaticPrimitive::BigInt(_)) {
+                return None;
+            }
+            static_primitive_to_number(left)?;
+            static_primitive_to_number(right)?;
+            Some("number".to_string())
+        }
+        BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq => {
+            static_relational_comparison(left, right, binary_expression.op)?;
+            Some("boolean".to_string())
+        }
+        BinaryOp::EqEq => {
+            static_abstract_equality(left, right)?;
+            Some("boolean".to_string())
+        }
+        BinaryOp::NotEq => {
+            static_abstract_equality(left, right)?;
+            Some("boolean".to_string())
+        }
+        BinaryOp::EqEqEq | BinaryOp::NotEqEq => Some("boolean".to_string()),
         _ => None,
     }
 }
