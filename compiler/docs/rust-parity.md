@@ -100,7 +100,7 @@ Bridge response validation currently enforces:
 - `status: "ok" | "error"`
 - `ok` includes non-empty string `code`
 - optional `ok.react_functions` entries require:
-  - `name: string`
+  - `name: non-empty string`
   - `kind: "Component" | "Hook"`
   - optional `loc` with numeric source coordinates
 - optional `ok.debug_ir`, when present, must be a string
