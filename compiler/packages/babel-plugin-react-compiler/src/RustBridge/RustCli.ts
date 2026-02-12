@@ -1156,12 +1156,23 @@ function assertPlaceholderKindCountConsistency(
   const transformedCounts = countNamesByKind(transformedNames, reactFunctions);
   const skippedCounts = countNamesByKind(skippedNames, reactFunctions);
   const candidateNamesSet = new Set(candidateNames);
+  const transformedNamesSet = new Set(transformedNames);
+  const skippedNamesSet = new Set(skippedNames);
   for (const reactFunction of reactFunctions) {
     if (!candidateNamesSet.has(reactFunction.name)) {
       throw new Error(
         'Rust compiler CLI returned invalid ok payload (placeholder_transform_candidates must include all detected react_functions names)',
       );
     }
+    if (transformedNamesSet.has(reactFunction.name)) {
+      continue;
+    }
+    if (skippedNamesSet.has(reactFunction.name)) {
+      continue;
+    }
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (each detected react function name must be present in transformed or skipped placeholder partitions)',
+    );
   }
 
   if (
