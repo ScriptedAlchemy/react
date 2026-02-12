@@ -17,7 +17,7 @@
     "build": "yarn workspaces run build",
     "dev": "cd apps/playground && yarn dev",
     "test": "yarn workspaces run test",
-    "snap": "yarn workspace babel-plugin-react-compiler run snap",
+    "snap": "yarn workspace snap run snap",
     "snap:build": "yarn workspace snap run build",
     "snap:parity": "yarn workspace snap run snap parity",
     "snap:parity:canary": "yarn workspace snap run build && yarn workspace babel-plugin-react-compiler build && yarn workspace snap run snap parity --skip-build --max-mismatches=0",
