@@ -8,6 +8,8 @@ This document describes the current `snap parity` behavior in the Rust-first com
 The two runs execute across compiler reload boundaries to help detect stateful nondeterminism.
 This acts as a deterministic consistency check and report generator for fixture processing.
 
+If no fixture corpus is present, parity reports `0 fixtures matched` and exits successfully.
+
 > Note: the JSON report still uses legacy field names like `babel` / `rust` for historical
 > compatibility, even though both sides are Rust-backed executions.
 
