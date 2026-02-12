@@ -78,6 +78,7 @@ If manifest discovery fails, the bridge error message includes the candidate
 manifest paths that were checked.
 Non-zero Rust CLI exits surface whichever stdio stream contains output
 (stderr first, then stdout) to improve failure diagnostics.
+Bridge invocation errors include the full resolved command + arguments.
 
 ## Protocol contract (current)
 
