@@ -189,14 +189,39 @@ fn is_module_object_expr(expr: &Expr) -> bool {
             if !is_member_prop_with(&member_expr.prop, "module") {
                 return false;
             }
-            expression_ident(member_expr.obj.as_ref())
-                .map(|name| matches!(name.as_str(), "globalThis" | "global" | "self" | "window"))
-                .unwrap_or(false)
+            is_supported_global_module_root_expr(member_expr.obj.as_ref())
         }
         Expr::Seq(sequence_expr) => sequence_expr
             .exprs
             .last()
             .map(|last_expr| is_module_object_expr(last_expr.as_ref()))
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
+fn is_supported_global_module_root_expr(expr: &Expr) -> bool {
+    match unwrap_expression(expr) {
+        Expr::Ident(root_ident) => {
+            matches!(
+                root_ident.sym.as_ref(),
+                "globalThis" | "global" | "self" | "window"
+            )
+        }
+        Expr::Member(member_expr) => {
+            if !is_member_prop_with(&member_expr.prop, "globalThis")
+                && !is_member_prop_with(&member_expr.prop, "global")
+                && !is_member_prop_with(&member_expr.prop, "self")
+                && !is_member_prop_with(&member_expr.prop, "window")
+            {
+                return false;
+            }
+            is_supported_global_module_root_expr(member_expr.obj.as_ref())
+        }
+        Expr::Seq(sequence_expr) => sequence_expr
+            .exprs
+            .last()
+            .map(|last_expr| is_supported_global_module_root_expr(last_expr.as_ref()))
             .unwrap_or(false),
         _ => false,
     }
