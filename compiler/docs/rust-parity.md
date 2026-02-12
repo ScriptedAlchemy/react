@@ -62,6 +62,11 @@ The Babel bridge resolves the Rust CLI command in this order:
 For repeated local runs, setting `REACT_COMPILER_RUST_CLI_BIN` to a prebuilt binary
 avoids repeated Cargo startup overhead.
 
+Additional bridge execution knobs:
+
+- `REACT_COMPILER_RUST_CLI_TIMEOUT_MS` — positive integer timeout in milliseconds
+  for each CLI invocation (default: `60000`).
+
 ## Protocol contract (current)
 
 - Request includes `protocol_version` (currently `1`)
