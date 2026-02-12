@@ -858,7 +858,88 @@ function assertConsistentOkCountRelationships(payload: {
     );
   }
 
+  assertRuntimeImportAndCalleeFlagConsistency(payload);
   assertPlaceholderTransformStatusConsistency(payload);
+}
+
+function assertRuntimeImportAndCalleeFlagConsistency(payload: {
+  [key: string]: unknown;
+}): void {
+  const helperImportCountBefore = payload[
+    'placeholder_runtime_helper_import_count_before_transform'
+  ] as number;
+  const helperImportCountAfter = payload[
+    'placeholder_runtime_helper_import_count_after_transform'
+  ] as number;
+  const helperImportAdded = payload['placeholder_runtime_helper_import_added'] as boolean;
+  const transformedCount = payload['placeholder_transforms_applied'] as number;
+  const calleeReused = payload['placeholder_runtime_callee_reused'] as boolean;
+  const calleeGenerated = payload['placeholder_runtime_callee_generated'] as boolean;
+  const calleeNameBefore = payload['placeholder_runtime_callee_name_before_transform'];
+  const calleeNameAfter = payload['placeholder_runtime_callee_name'];
+
+  if (helperImportCountAfter < helperImportCountBefore) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (runtime helper import count cannot decrease across transform)',
+    );
+  }
+  if (helperImportAdded && helperImportCountAfter <= helperImportCountBefore) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_helper_import_added requires after count > before count)',
+    );
+  }
+  if (!helperImportAdded && helperImportCountAfter > helperImportCountBefore) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_helper_import_added=false cannot accompany helper import count increase)',
+    );
+  }
+  if (helperImportAdded && transformedCount === 0) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (helper import addition requires transformed functions)',
+    );
+  }
+
+  if (calleeGenerated && calleeReused) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_callee_generated and placeholder_runtime_callee_reused cannot both be true)',
+    );
+  }
+  if (transformedCount === 0 && (calleeGenerated || calleeReused)) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (runtime callee generated/reused flags require transformed functions)',
+    );
+  }
+
+  if (calleeGenerated) {
+    if (calleeNameBefore != null || typeof calleeNameAfter !== 'string') {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (generated runtime callee requires no pre-transform callee and a post-transform callee name)',
+      );
+    }
+    if (!helperImportAdded) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (generated runtime callee requires helper import addition)',
+      );
+    }
+  }
+
+  if (calleeReused) {
+    if (
+      typeof calleeNameBefore !== 'string' ||
+      typeof calleeNameAfter !== 'string' ||
+      calleeNameBefore !== calleeNameAfter
+    ) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (reused runtime callee requires matching pre/post callee names)',
+      );
+    }
+  }
+
+  if (transformedCount > 0 && calleeNameBefore == null && !calleeGenerated) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (transformed output without pre-transform callee must report generated runtime callee)',
+    );
+  }
 }
 
 function assertPlaceholderTransformStatusConsistency(payload: {
