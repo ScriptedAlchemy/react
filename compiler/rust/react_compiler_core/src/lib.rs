@@ -3769,6 +3769,24 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_direct_module_escaped_computed_require_destructure_assignment_alias_with_default_in_module(
+    ) {
+        let output = compile(
+            "let cache; ({ ['\\u0063']: cache = fallback } = module['\\x72equire']('react/compiler-runtime')); export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+        assert_eq!(output.code.matches("react/compiler-runtime").count(), 1);
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_computed_destructure_assignment_alias_with_default_in_module(
     ) {
         let output = compile(
@@ -11996,6 +12014,25 @@ mod tests {
     ) {
         let output = compile(
             "let cache; ({ ['\\u0063']: cache = fallback } = module.require('react/compiler-runtime')); function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_direct_module_escaped_computed_require_destructure_assignment_alias_with_default(
+    ) {
+        let output = compile(
+            "let cache; ({ ['\\u0063']: cache = fallback } = module['\\x72equire']('react/compiler-runtime')); function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
