@@ -156,11 +156,19 @@ function emitCompileSuccessEvents(
   filename: string | null,
   result: Extract<RustCompileResponse, {status: 'ok'}>,
 ): void {
+  const compileMetadata = {
+    statementCount: result.statement_count,
+    statementCountAfterTransform: result.statement_count_after_transform,
+    placeholderTransformsApplied: result.placeholder_transforms_applied,
+    placeholderTransformStatus: result.placeholder_transform_status,
+    detectedReactFunctions: result.detected_react_functions,
+  };
   const reactFunctions = result.react_functions;
   if (!Array.isArray(reactFunctions) || reactFunctions.length === 0) {
     emitLoggerEvent(logger, filename, {
       kind: 'CompileSuccess',
       fnLoc: null,
+      ...compileMetadata,
     });
     return;
   }
@@ -170,6 +178,7 @@ function emitCompileSuccessEvents(
       fnLoc: toLegacySourceLocation(reactFunction.loc, filename),
       fnName: reactFunction.name,
       fnKind: reactFunction.kind,
+      ...compileMetadata,
     });
   }
 }
