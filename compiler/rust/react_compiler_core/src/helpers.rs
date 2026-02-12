@@ -142,15 +142,71 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
 }
 
 fn expression_static_boolean_value(expr: &Expr) -> Option<bool> {
-    match unwrap_expression(expr) {
-        Expr::Lit(Lit::Bool(boolean_literal)) => Some(boolean_literal.value),
-        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
-            expression_static_boolean_value(unary_expression.arg.as_ref()).map(|value| !value)
-        }
-        _ => None,
-    }
+    expression_static_truthiness_value(expr)
 }
 
 fn expression_is_static_null(expr: &Expr) -> bool {
     matches!(unwrap_expression(expr), Expr::Lit(Lit::Null(_)))
+}
+
+fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
+    match unwrap_expression(expr) {
+        Expr::Lit(literal) => match literal {
+            Lit::Bool(boolean_literal) => Some(boolean_literal.value),
+            Lit::Null(_) => Some(false),
+            Lit::Str(string_literal) => Some(!string_literal.value.is_empty()),
+            Lit::Num(number_literal) => Some(number_literal.value != 0.0 && !number_literal.value.is_nan()),
+            Lit::BigInt(big_int_literal) => Some(big_int_literal.value.to_string() != "0"),
+            _ => None,
+        },
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
+            expression_static_truthiness_value(unary_expression.arg.as_ref()).map(|value| !value)
+        }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
+            expression_static_truthiness_value(unary_expression.arg.as_ref())?;
+            Some(false)
+        }
+        Expr::Seq(sequence_expression) => {
+            if sequence_expression.exprs.is_empty() {
+                return None;
+            }
+            let mut last_truthiness = None;
+            for sequence_item in &sequence_expression.exprs {
+                last_truthiness = Some(expression_static_truthiness_value(sequence_item.as_ref())?);
+            }
+            last_truthiness
+        }
+        Expr::Cond(conditional_expression) => {
+            let test_value = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            if test_value {
+                expression_static_truthiness_value(conditional_expression.cons.as_ref())
+            } else {
+                expression_static_truthiness_value(conditional_expression.alt.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_truthiness_value(binary_expression.right.as_ref())
+            } else {
+                Some(false)
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalOr => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                Some(true)
+            } else {
+                expression_static_truthiness_value(binary_expression.right.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NullishCoalescing => {
+            if expression_is_static_null(binary_expression.left.as_ref()) {
+                expression_static_truthiness_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_truthiness_value(binary_expression.left.as_ref())
+            }
+        }
+        _ => None,
+    }
 }
