@@ -104,6 +104,8 @@ Bridge response validation currently enforces:
 ## Rust frontend behavior
 
 - Placeholder transforms are always enabled (`apply_placeholder_transforms: true`)
+- Dialect detection prefers TS file extensions and falls back to Babel parser plugins
+  (e.g. `parserOpts.plugins` containing `typescript`) when extensions are unavailable.
 - Runtime helper alias detection recognizes:
   - direct `require(...)`
   - sequence wrappers like `(0, require)(...)`
