@@ -189,6 +189,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`)
   - truthy function/class literal conditional aliases
     (e.g. `module[((function(){}) ? 'require' : 'nope')](((class C {}) ? 'react/compiler-runtime' : 'nope'))`)
+  - truthy arrow-function/regex literal conditional aliases
+    (e.g. `module[((() => 1) ? 'require' : 'nope')](((/x/) ? 'react/compiler-runtime' : 'nope'))`)
   - template-literal conditional aliases with truthy/falsy branch folding
     (e.g. `module[(`${'x'}` ? 'require' : 'nope')]((`${''}` ? 'nope' : 'react/compiler-runtime'))`)
   - nullish aliases with foldable `void` literals treated as nullish
