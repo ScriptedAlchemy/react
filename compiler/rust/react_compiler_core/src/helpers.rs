@@ -117,6 +117,18 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
                 expression_static_string_value(binary_expression.left.as_ref())
             }
         }
+        Expr::Seq(sequence_expression) => {
+            if sequence_expression.exprs.is_empty() {
+                return None;
+            }
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+                expression_static_string_value(sequence_item.as_ref())?;
+            }
+            sequence_expression
+                .exprs
+                .last()
+                .and_then(|expression| expression_static_string_value(expression.as_ref()))
+        }
         Expr::Cond(conditional_expression) => {
             let test_value = expression_static_boolean_value(conditional_expression.test.as_ref())?;
             if test_value {
