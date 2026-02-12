@@ -239,6 +239,7 @@ fn expression_static_number_value(expr: &Expr) -> Option<f64> {
         Expr::Lit(Lit::Bool(boolean_literal)) => Some(if boolean_literal.value { 1.0 } else { 0.0 }),
         Expr::Lit(Lit::Null(_)) => Some(0.0),
         Expr::Lit(Lit::Str(string_literal)) => parse_js_numeric_string(string_literal.value.as_ref()),
+        Expr::Tpl(_) => parse_js_numeric_string(expression_static_string_value(expr)?.as_str()),
         Expr::Seq(sequence_expression) => {
             if sequence_expression.exprs.is_empty() {
                 return None;
@@ -317,23 +318,34 @@ fn parse_js_numeric_string(value: &str) -> Option<f64> {
         .strip_prefix("0x")
         .or_else(|| trimmed.strip_prefix("0X"))
     {
-        return u64::from_str_radix(hex, 16).ok().map(|parsed| parsed as f64);
+        return Some(
+            u64::from_str_radix(hex, 16)
+                .ok()
+                .map(|parsed| parsed as f64)
+                .unwrap_or(f64::NAN),
+        );
     }
     if let Some(octal) = trimmed
         .strip_prefix("0o")
         .or_else(|| trimmed.strip_prefix("0O"))
     {
-        return u64::from_str_radix(octal, 8)
-            .ok()
-            .map(|parsed| parsed as f64);
+        return Some(
+            u64::from_str_radix(octal, 8)
+                .ok()
+                .map(|parsed| parsed as f64)
+                .unwrap_or(f64::NAN),
+        );
     }
     if let Some(binary) = trimmed
         .strip_prefix("0b")
         .or_else(|| trimmed.strip_prefix("0B"))
     {
-        return u64::from_str_radix(binary, 2)
-            .ok()
-            .map(|parsed| parsed as f64);
+        return Some(
+            u64::from_str_radix(binary, 2)
+                .ok()
+                .map(|parsed| parsed as f64)
+                .unwrap_or(f64::NAN),
+        );
     }
-    trimmed.parse::<f64>().ok()
+    Some(trimmed.parse::<f64>().unwrap_or(f64::NAN))
 }
