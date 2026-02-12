@@ -49,6 +49,7 @@ export type RustCompileResponse =
 function resolveRustManifestPath(): string {
   const explicitPath = process.env['REACT_COMPILER_RUST_MANIFEST'];
   const candidates = new Set<string>();
+  const checkedCandidates = new Set<string>();
   if (explicitPath != null && explicitPath.length > 0) {
     candidates.add(explicitPath);
   }
@@ -68,13 +69,15 @@ function resolveRustManifestPath(): string {
   candidates.add(path.resolve(__dirname, '../../../rust/Cargo.toml'));
 
   for (const candidate of candidates) {
+    checkedCandidates.add(candidate);
     if (fs.existsSync(candidate)) {
       return candidate;
     }
   }
 
+  const checked = Array.from(checkedCandidates).map(item => `- ${item}`).join('\n');
   throw new Error(
-    'Could not resolve Rust workspace manifest. Set REACT_COMPILER_RUST_MANIFEST to compiler/rust/Cargo.toml',
+    `Could not resolve Rust workspace manifest. Set REACT_COMPILER_RUST_MANIFEST to compiler/rust/Cargo.toml.\nChecked:\n${checked}`,
   );
 }
 
