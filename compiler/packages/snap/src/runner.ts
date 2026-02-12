@@ -13,7 +13,7 @@ import ts from 'typescript';
 import * as BabelParser from '@babel/parser';
 import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
-import {BABEL_PLUGIN_ROOT, PROJECT_ROOT} from './constants';
+import {BABEL_PLUGIN_ROOT, FIXTURES_PATH, PROJECT_ROOT} from './constants';
 import {TestFilter, TestFixture, getFixtures} from './fixture-utils';
 import {TestResult, TestResults, report, update} from './reporter';
 import {
@@ -513,6 +513,15 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
   }
 
   const fixtures = await getFixtures(testFilter);
+  if (fixtures.size === 0) {
+    console.log(
+      chalk.yellow(
+        `No fixtures found under ${FIXTURES_PATH}${
+          opts.pattern != null ? ` for pattern "${opts.pattern}"` : ''
+        }.`,
+      ),
+    );
+  }
   const mismatches: Array<ParityMismatch> = [];
   let comparedFixtures = 0;
   let reachedMismatchLimit = false;
