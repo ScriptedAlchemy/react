@@ -97,6 +97,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   static string and numeric comparisons used in conditional alias selection.
   Static BigInt-to-BigInt relational comparisons are folded too
   (e.g. `(1n < 2n)`, `(2n > 1n)` in conditional alias selection).
+  Unary-minus BigInt truthiness in conditionals is folded too
+  (e.g. `((-1n) ? 'require' : 'nope')`).
   Foldable `typeof`-based conditionals are also supported when operand type is
   statically known (e.g. `module[(((typeof (() => 1)) === 'function') ? 'require' : 'nope')]((((typeof 1) === 'number') ? 'react/compiler-runtime' : 'nope'))`).
   This includes foldable sequence/logical/nullish wrappers inside `typeof`

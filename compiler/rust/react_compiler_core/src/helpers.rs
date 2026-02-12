@@ -184,9 +184,13 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             Some(number_value != 0.0 && !number_value.is_nan())
         }
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Minus => {
-            let number_value = expression_static_number_value(unary_expression.arg.as_ref())?;
-            let negated_value = -number_value;
-            Some(negated_value != 0.0 && !negated_value.is_nan())
+            if let Some(number_value) = expression_static_number_value(unary_expression.arg.as_ref()) {
+                let negated_value = -number_value;
+                Some(negated_value != 0.0 && !negated_value.is_nan())
+            } else {
+                let bigint_value = expression_static_bigint_value(expr)?;
+                Some(bigint_value != "0")
+            }
         }
         Expr::Seq(sequence_expression) => {
             if sequence_expression.exprs.is_empty() {
@@ -340,6 +344,62 @@ fn expression_static_number_value(expr: &Expr) -> Option<f64> {
     }
 }
 
+fn expression_static_bigint_value(expr: &Expr) -> Option<String> {
+    match unwrap_expression(expr) {
+        Expr::Lit(Lit::BigInt(big_int_literal)) => {
+            parse_js_bigint_string(big_int_literal.value.to_string().as_str())
+        }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Minus => {
+            let bigint_value = expression_static_bigint_value(unary_expression.arg.as_ref())?;
+            Some(negate_canonical_bigint(bigint_value))
+        }
+        Expr::Seq(sequence_expression) => {
+            if sequence_expression.exprs.is_empty() {
+                return None;
+            }
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+                expression_static_bigint_value(sequence_item.as_ref())?;
+            }
+            sequence_expression
+                .exprs
+                .last()
+                .and_then(|expression| expression_static_bigint_value(expression.as_ref()))
+        }
+        Expr::Cond(conditional_expression) => {
+            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            if test_truthy {
+                expression_static_bigint_value(conditional_expression.cons.as_ref())
+            } else {
+                expression_static_bigint_value(conditional_expression.alt.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_bigint_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_bigint_value(binary_expression.left.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalOr => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_bigint_value(binary_expression.left.as_ref())
+            } else {
+                expression_static_bigint_value(binary_expression.right.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NullishCoalescing => {
+            if expression_is_static_nullish(binary_expression.left.as_ref()) {
+                expression_static_bigint_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_bigint_value(binary_expression.left.as_ref())
+            }
+        }
+        _ => None,
+    }
+}
+
 fn parse_js_numeric_string(value: &str) -> Option<f64> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -424,6 +484,11 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
             if unary_expression.op == swc_ecma_ast::UnaryOp::Plus
                 || unary_expression.op == swc_ecma_ast::UnaryOp::Minus =>
         {
+            if unary_expression.op == swc_ecma_ast::UnaryOp::Minus {
+                if let Some(bigint_value) = expression_static_bigint_value(expr) {
+                    return Some(StaticPrimitive::BigInt(bigint_value));
+                }
+            }
             Some(StaticPrimitive::Number(expression_static_number_value(expr)?))
         }
         Expr::Seq(sequence_expression) => {
@@ -505,6 +570,11 @@ fn expression_static_typeof_value(expr: &Expr) -> Option<String> {
             if unary_expression.op == swc_ecma_ast::UnaryOp::Plus
                 || unary_expression.op == swc_ecma_ast::UnaryOp::Minus =>
         {
+            if unary_expression.op == swc_ecma_ast::UnaryOp::Minus {
+                if expression_static_bigint_value(unary_expression.arg.as_ref()).is_some() {
+                    return Some("bigint".to_string());
+                }
+            }
             expression_static_number_value(unary_expression.arg.as_ref())?;
             Some("number".to_string())
         }
@@ -825,4 +895,14 @@ fn static_number_bigint_equality(number: f64, bigint: &str) -> Option<bool> {
     let integer = number as i64;
     let bigint_from_number = integer.to_string();
     Some(static_canonical_bigint_equality(bigint, bigint_from_number))
+}
+
+fn negate_canonical_bigint(value: String) -> String {
+    if value == "0" {
+        return value;
+    }
+    if let Some(stripped) = value.strip_prefix('-') {
+        return stripped.to_string();
+    }
+    format!("-{value}")
 }
