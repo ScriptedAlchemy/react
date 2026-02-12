@@ -229,18 +229,11 @@ function resolveCommandFromPath(commandName: string): string | null {
     return null;
   }
   const pathEntries = envPath.split(path.delimiter).filter(entry => entry.length > 0);
-  const extensions =
-    process.platform === 'win32'
-      ? (process.env['PATHEXT'] ?? '.COM;.EXE;.BAT;.CMD')
-          .split(';')
-          .filter(extension => extension.length > 0)
-      : [''];
+  const commandCandidates = getPathCommandCandidates(commandName);
 
   for (const pathEntry of pathEntries) {
-    for (const extension of extensions) {
-      const normalizedExtension =
-        extension.length > 0 && !extension.startsWith('.') ? `.${extension}` : extension;
-      const candidate = path.join(pathEntry, `${commandName}${normalizedExtension}`);
+    for (const commandCandidate of commandCandidates) {
+      const candidate = path.join(pathEntry, commandCandidate);
       if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
         continue;
       }
@@ -256,6 +249,22 @@ function resolveCommandFromPath(commandName: string): string | null {
   }
 
   return null;
+}
+
+function getPathCommandCandidates(commandName: string): Array<string> {
+  if (process.platform !== 'win32') {
+    return [commandName];
+  }
+  if (path.extname(commandName).length > 0) {
+    return [commandName];
+  }
+  const windowsPathExtensions = (process.env['PATHEXT'] ?? '.COM;.EXE;.BAT;.CMD')
+    .split(';')
+    .filter(extension => extension.length > 0)
+    .map(extension =>
+      extension.length > 0 && !extension.startsWith('.') ? `.${extension}` : extension,
+    );
+  return [commandName, ...windowsPathExtensions.map(extension => `${commandName}${extension}`)];
 }
 
 function isEnabledEnvironmentVariable(name: string): boolean {
