@@ -709,18 +709,20 @@ function assertRustOkMetadataPayload(
 
   if (
     payload['placeholder_runtime_callee_name_before_transform'] != null &&
-    typeof payload['placeholder_runtime_callee_name_before_transform'] !== 'string'
+    (typeof payload['placeholder_runtime_callee_name_before_transform'] !== 'string' ||
+      payload['placeholder_runtime_callee_name_before_transform'].length === 0)
   ) {
     throw new Error(
-      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_callee_name_before_transform must be a string when present)',
+      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_callee_name_before_transform must be a non-empty string when present)',
     );
   }
   if (
     payload['placeholder_runtime_callee_name'] != null &&
-    typeof payload['placeholder_runtime_callee_name'] !== 'string'
+    (typeof payload['placeholder_runtime_callee_name'] !== 'string' ||
+      payload['placeholder_runtime_callee_name'].length === 0)
   ) {
     throw new Error(
-      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_callee_name must be a string when present)',
+      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_callee_name must be a non-empty string when present)',
     );
   }
 

@@ -41,6 +41,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
     (import count monotonicity, helper-added delta checks, generated vs reused exclusivity)
   - runtime callee names/candidates are cross-validated
     (selected callee names must appear in candidate lists; transformed output requires post-transform callee)
+  - optional selected runtime callee name fields must be non-empty when present
   - deterministic string-list telemetry fields are validated as non-empty entries, sorted, and duplicate-free
   - transformed/skipped function lists must form an exact disjoint partition of
     `placeholder_transform_candidates`
