@@ -111,20 +111,22 @@ function resolveRustManifestPath(): string {
   const checkedCandidates = new Set<string>();
   if (explicitPath != null && explicitPath.length > 0) {
     const resolvedExplicitPath = resolvePossiblyTildePath(explicitPath);
-    if (
-      fs.existsSync(resolvedExplicitPath) &&
-      fs.statSync(resolvedExplicitPath).isFile()
-    ) {
-      if (path.basename(resolvedExplicitPath) !== 'Cargo.toml') {
-        throw new Error(
-          `REACT_COMPILER_RUST_MANIFEST must point to a Cargo.toml file, got: ${resolvedExplicitPath}`,
-        );
-      }
-      return resolvedExplicitPath;
+    if (!fs.existsSync(resolvedExplicitPath)) {
+      throw new Error(
+        `REACT_COMPILER_RUST_MANIFEST points to a missing manifest: ${resolvedExplicitPath}`,
+      );
     }
-    throw new Error(
-      `REACT_COMPILER_RUST_MANIFEST points to a missing manifest: ${resolvedExplicitPath}`,
-    );
+    if (!fs.statSync(resolvedExplicitPath).isFile()) {
+      throw new Error(
+        `REACT_COMPILER_RUST_MANIFEST must point to a file, got: ${resolvedExplicitPath}`,
+      );
+    }
+    if (path.basename(resolvedExplicitPath) !== 'Cargo.toml') {
+      throw new Error(
+        `REACT_COMPILER_RUST_MANIFEST must point to a Cargo.toml file, got: ${resolvedExplicitPath}`,
+      );
+    }
+    return resolvedExplicitPath;
   }
 
   let currentDir = process.cwd();
