@@ -220,21 +220,24 @@ export function runRustCompilerCli(
 
   if (result.error != null) {
     const reason = result.error.message;
+    const invocationSummary = [invocation.command, ...invocation.args].join(' ');
     throw new Error(
-      `Rust compiler CLI (${invocation.command}) failed before completion: ${reason}`,
+      `Rust compiler CLI (${invocationSummary}) failed before completion: ${reason}`,
     );
   }
   if (result.signal != null) {
+    const invocationSummary = [invocation.command, ...invocation.args].join(' ');
     throw new Error(
-      `Rust compiler CLI (${invocation.command}) was terminated by signal ${result.signal}`,
+      `Rust compiler CLI (${invocationSummary}) was terminated by signal ${result.signal}`,
     );
   }
   if (result.status !== 0) {
+    const invocationSummary = [invocation.command, ...invocation.args].join(' ');
     const stderr = typeof result.stderr === 'string' ? result.stderr : '';
     const stdout = typeof result.stdout === 'string' ? result.stdout : '';
     const output = stderr.length > 0 ? stderr : stdout;
     throw new Error(
-      `Rust compiler CLI (${invocation.command}) exited with status ${result.status}\n${
+      `Rust compiler CLI (${invocationSummary}) exited with status ${result.status}\n${
         output.length > 0 ? output : '<no CLI output>'
       }`,
     );
