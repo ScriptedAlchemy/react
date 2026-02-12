@@ -93,6 +93,10 @@ Bridge response validation currently enforces:
 ## Rust frontend behavior
 
 - Placeholder transforms are always enabled (`apply_placeholder_transforms: true`)
+- Runtime helper alias detection recognizes:
+  - direct `require(...)`
+  - sequence wrappers like `(0, require)(...)`
+  - `module.require(...)` and global-module forms (`globalThis.module.require(...)`, `global.module['require'](...)`)
 - Rust output is used directly for AST replacement
 - Compatibility logger events are emitted for:
   - `CompileSuccess` (per detected React function when locations are available)
