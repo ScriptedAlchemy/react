@@ -86,6 +86,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(void false ?? 'require')]((void false ?? 'react/compiler-runtime'))`).
   Foldable numeric truthy/falsy conditions are also supported
   (e.g. `module[(1 && 'require')]((0 || 'react/compiler-runtime'))`).
+  Foldable bigint truthy/falsy conditions are supported as well
+  (e.g. `module[(1n && 'require')]((0n || 'react/compiler-runtime'))`).
   Destructured `c` aliases with default patterns are recognized too
   (e.g. `const {c: cache = fallback} = runtime`, `const {['\\x63']: c = fallback} = runtime`, `const {c = fallback} = require(...)`, `const {['\\x63']: c = fallback} = module['\\x72equire'](...)`).
   Assignment-destructure aliases are recognized too
