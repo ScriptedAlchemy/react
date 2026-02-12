@@ -95,6 +95,8 @@ Bridge response validation currently enforces:
   `code`, `category`, `reason`, `severity`, `message`
 - optional `error.location`, when present, must include numeric:
   `start_line`, `start_column`, `end_line`, `end_column`
+- all validated location payloads must have non-decreasing source ranges
+  (`end` cannot precede `start`)
 
 ## Rust frontend behavior
 
