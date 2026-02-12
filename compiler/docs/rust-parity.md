@@ -95,6 +95,8 @@ Bridge response validation currently enforces:
   - `CompileSuccess`
   - `CompileError`
   - `PipelineError`
+- Rust error categories are normalized to legacy compiler categories for downstream
+  lint consumer compatibility (`syntax -> Syntax`, `internal/request -> Invariant`).
 - When requested via logger, Rust debug IR is forwarded through `debugLogIRs`
 
 ## Report shape
