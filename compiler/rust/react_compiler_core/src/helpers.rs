@@ -84,8 +84,7 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
                     .unwrap_or_else(|| quasi.raw.as_ref());
                 result.push_str(quasi_segment);
                 if let Some(template_expr) = template_literal.exprs.get(index) {
-                    result
-                        .push_str(expression_static_string_value(template_expr.as_ref())?.as_str());
+                    result.push_str(expression_static_string_value(template_expr.as_ref())?.as_str());
                 }
             }
             Some(result)
@@ -122,8 +121,7 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
-            {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
                 expression_static_string_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -163,9 +161,7 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             Lit::Bool(boolean_literal) => Some(boolean_literal.value),
             Lit::Null(_) => Some(false),
             Lit::Str(string_literal) => Some(!string_literal.value.is_empty()),
-            Lit::Num(number_literal) => {
-                Some(number_literal.value != 0.0 && !number_literal.value.is_nan())
-            }
+            Lit::Num(number_literal) => Some(number_literal.value != 0.0 && !number_literal.value.is_nan()),
             Lit::BigInt(big_int_literal) => Some(big_int_literal.value.to_string() != "0"),
             Lit::Regex(_) => Some(true),
             _ => None,
@@ -203,8 +199,7 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             last_truthiness
         }
         Expr::Cond(conditional_expression) => {
-            let test_value =
-                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_value = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_value {
                 expression_static_truthiness_value(conditional_expression.cons.as_ref())
             } else {
@@ -253,20 +248,15 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
 fn expression_static_number_value(expr: &Expr) -> Option<f64> {
     match unwrap_expression(expr) {
         Expr::Lit(Lit::Num(number_literal)) => Some(number_literal.value),
-        Expr::Lit(Lit::Bool(boolean_literal)) => {
-            Some(if boolean_literal.value { 1.0 } else { 0.0 })
-        }
+        Expr::Lit(Lit::Bool(boolean_literal)) => Some(if boolean_literal.value { 1.0 } else { 0.0 }),
         Expr::Lit(Lit::Null(_)) => Some(0.0),
-        Expr::Lit(Lit::Str(string_literal)) => {
-            parse_js_numeric_string(string_literal.value.as_ref())
-        }
+        Expr::Lit(Lit::Str(string_literal)) => parse_js_numeric_string(string_literal.value.as_ref()),
         Expr::Tpl(_) => parse_js_numeric_string(expression_static_string_value(expr)?.as_str()),
         Expr::Seq(sequence_expression) => {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
-            {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
                 expression_static_number_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -275,8 +265,7 @@ fn expression_static_number_value(expr: &Expr) -> Option<f64> {
                 .and_then(|expression| expression_static_number_value(expression.as_ref()))
         }
         Expr::Cond(conditional_expression) => {
-            let test_truthy =
-                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
                 expression_static_number_value(conditional_expression.cons.as_ref())
             } else {
@@ -387,18 +376,12 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
         Expr::Lit(literal) => match literal {
             Lit::Bool(boolean_literal) => Some(StaticPrimitive::Bool(boolean_literal.value)),
             Lit::Num(number_literal) => Some(StaticPrimitive::Number(number_literal.value)),
-            Lit::Str(string_literal) => {
-                Some(StaticPrimitive::String(string_literal.value.to_string()))
-            }
+            Lit::Str(string_literal) => Some(StaticPrimitive::String(string_literal.value.to_string())),
             Lit::Null(_) => Some(StaticPrimitive::Null),
-            Lit::BigInt(big_int_literal) => {
-                Some(StaticPrimitive::BigInt(big_int_literal.value.to_string()))
-            }
+            Lit::BigInt(big_int_literal) => Some(StaticPrimitive::BigInt(big_int_literal.value.to_string())),
             _ => None,
         },
-        Expr::Tpl(_) => Some(StaticPrimitive::String(expression_static_string_value(
-            expr,
-        )?)),
+        Expr::Tpl(_) => Some(StaticPrimitive::String(expression_static_string_value(expr)?)),
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
             expression_static_truthiness_value(unary_expression.arg.as_ref())?;
             Some(StaticPrimitive::Undefined)
@@ -407,16 +390,13 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
             if unary_expression.op == swc_ecma_ast::UnaryOp::Plus
                 || unary_expression.op == swc_ecma_ast::UnaryOp::Minus =>
         {
-            Some(StaticPrimitive::Number(expression_static_number_value(
-                expr,
-            )?))
+            Some(StaticPrimitive::Number(expression_static_number_value(expr)?))
         }
         Expr::Seq(sequence_expression) => {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
-            {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
                 expression_static_primitive_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -425,8 +405,7 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
                 .and_then(|last_expr| expression_static_primitive_value(last_expr.as_ref()))
         }
         Expr::Cond(conditional_expression) => {
-            let test_truthy =
-                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
                 expression_static_primitive_value(conditional_expression.cons.as_ref())
             } else {

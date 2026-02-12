@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 
-use swc_ecma_ast::{
-    Decl, DefaultDecl, ImportDecl, ImportSpecifier, Module, ModuleDecl, ModuleItem, Script, Stmt,
-};
+use swc_ecma_ast::{Decl, DefaultDecl, ImportDecl, ImportSpecifier, Module, ModuleDecl, ModuleItem, Script, Stmt};
 
 #[derive(Debug, Default)]
 pub(crate) struct RuntimeMemoCalleeScan {
@@ -189,14 +187,12 @@ pub(crate) fn runtime_memo_callee_scan_for_module(module: &Module) -> RuntimeMem
                     &mut runtime_callee_bindings,
                 );
             }
-            ModuleItem::Stmt(stmt) => {
-                crate::runtime_stmt::collect_runtime_bindings_from_static_block_stmt(
-                    stmt,
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                    false,
-                )
-            }
+            ModuleItem::Stmt(stmt) => crate::runtime_stmt::collect_runtime_bindings_from_static_block_stmt(
+                stmt,
+                &mut runtime_namespace_bindings,
+                &mut runtime_callee_bindings,
+                false,
+            ),
             _ => {}
         }
     }
@@ -242,13 +238,11 @@ pub(crate) fn runtime_memo_callee_scan_for_script(script: &Script) -> RuntimeMem
                     );
                 }
             }
-            Stmt::Expr(expr_stmt) => {
-                crate::runtime_traversal::collect_runtime_bindings_from_script_assignment_expr(
-                    expr_stmt.expr.as_ref(),
-                    &mut runtime_namespace_bindings,
-                    &mut runtime_callee_bindings,
-                )
-            }
+            Stmt::Expr(expr_stmt) => crate::runtime_traversal::collect_runtime_bindings_from_script_assignment_expr(
+                expr_stmt.expr.as_ref(),
+                &mut runtime_namespace_bindings,
+                &mut runtime_callee_bindings,
+            ),
             stmt => crate::runtime_stmt::collect_runtime_bindings_from_static_block_stmt(
                 stmt,
                 &mut runtime_namespace_bindings,

@@ -9,14 +9,13 @@ use crate::{
         collect_placeholder_transform_candidate_names_for_module, collect_react_functions_in_module,
     },
     react_fn::{
-        collect_detected_react_function_names_by_kind,
-        compute_placeholder_transform_skipped_functions, count_detected_react_functions_by_kind,
-        count_placeholder_transform_names_by_kind, derive_placeholder_transform_status,
-        sort_and_dedup_names,
+        collect_detected_react_function_names_by_kind, compute_placeholder_transform_skipped_functions,
+        count_detected_react_functions_by_kind, count_placeholder_transform_names_by_kind,
+        derive_placeholder_transform_status, sort_and_dedup_names,
     },
     runtime_scan::{
-        runtime_memo_callee_scan_for_module, select_runtime_callee_name,
-        sorted_runtime_callee_candidates, sorted_runtime_namespace_candidates,
+        runtime_memo_callee_scan_for_module, select_runtime_callee_name, sorted_runtime_callee_candidates,
+        sorted_runtime_namespace_candidates,
     },
     CompilerError, CompilerOptions, ParseMetadata,
 };
@@ -95,18 +94,12 @@ pub(crate) fn compile_module_output(
         &placeholder_transform_candidates,
         &placeholder_transformed_functions,
     );
-    let candidate_kind_counts = count_placeholder_transform_names_by_kind(
-        &placeholder_transform_candidates,
-        &react_functions,
-    );
-    let transformed_kind_counts = count_placeholder_transform_names_by_kind(
-        &placeholder_transformed_functions,
-        &react_functions,
-    );
-    let skipped_kind_counts = count_placeholder_transform_names_by_kind(
-        &placeholder_transform_skipped_functions,
-        &react_functions,
-    );
+    let candidate_kind_counts =
+        count_placeholder_transform_names_by_kind(&placeholder_transform_candidates, &react_functions);
+    let transformed_kind_counts =
+        count_placeholder_transform_names_by_kind(&placeholder_transformed_functions, &react_functions);
+    let skipped_kind_counts =
+        count_placeholder_transform_names_by_kind(&placeholder_transform_skipped_functions, &react_functions);
     let placeholder_transform_status = derive_placeholder_transform_status(
         options.apply_placeholder_transforms,
         true,

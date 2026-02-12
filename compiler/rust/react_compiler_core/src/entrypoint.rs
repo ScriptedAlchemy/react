@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use swc_ecma_ast::{
-    AssignTarget, DefaultDecl, Expr, MemberExpr, MemberProp, Module, ModuleDecl, ModuleExportName,
-    ModuleItem, Pat, Prop, PropName, PropOrSpread, Script, SimpleAssignTarget, Stmt, VarDecl,
+    AssignTarget, DefaultDecl, Expr, MemberExpr, MemberProp, Module, ModuleDecl,
+    ModuleExportName, ModuleItem, Pat, Prop, PropName, PropOrSpread, Script, SimpleAssignTarget,
+    Stmt, VarDecl,
 };
 
 use crate::{
@@ -16,22 +17,18 @@ pub(crate) fn collect_fixture_entrypoint_function_names(module: &Module) -> Hash
         .iter()
         .flat_map(|item| match item {
             ModuleItem::Stmt(stmt) => collect_fixture_entrypoint_names_from_stmt(stmt),
-            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => {
-                match &export_decl.decl {
-                    swc_ecma_ast::Decl::Var(var_decl) => {
-                        collect_fixture_entrypoint_names_from_var_decl(var_decl)
-                    }
-                    _ => Vec::new(),
+            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => match &export_decl.decl {
+                swc_ecma_ast::Decl::Var(var_decl) => {
+                    collect_fixture_entrypoint_names_from_var_decl(var_decl)
                 }
-            }
+                _ => Vec::new(),
+            },
             _ => Vec::new(),
         })
         .collect()
 }
 
-pub(crate) fn collect_fixture_entrypoint_function_names_in_script(
-    script: &Script,
-) -> HashSet<String> {
+pub(crate) fn collect_fixture_entrypoint_function_names_in_script(script: &Script) -> HashSet<String> {
     script
         .body
         .iter()
@@ -41,9 +38,7 @@ pub(crate) fn collect_fixture_entrypoint_function_names_in_script(
 
 fn collect_fixture_entrypoint_names_from_stmt(stmt: &Stmt) -> Vec<String> {
     match stmt {
-        Stmt::Expr(expr_stmt) => {
-            collect_fixture_entrypoint_names_from_expr(expr_stmt.expr.as_ref())
-        }
+        Stmt::Expr(expr_stmt) => collect_fixture_entrypoint_names_from_expr(expr_stmt.expr.as_ref()),
         Stmt::Decl(swc_ecma_ast::Decl::Var(var_decl)) => {
             collect_fixture_entrypoint_names_from_var_decl(var_decl)
         }

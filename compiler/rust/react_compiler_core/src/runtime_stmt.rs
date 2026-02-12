@@ -57,22 +57,18 @@ pub(crate) fn collect_runtime_bindings_from_static_block_stmt(
                 }
             }
         }
-        Stmt::Decl(Decl::Class(class_decl)) => {
-            crate::runtime_class::collect_runtime_bindings_from_class(
-                &class_decl.class,
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-                may_be_conditional,
-            )
-        }
-        Stmt::Decl(Decl::TsEnum(ts_enum_decl)) => {
-            crate::runtime_traversal::collect_runtime_bindings_from_ts_enum_decl(
-                ts_enum_decl.as_ref(),
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-                may_be_conditional,
-            )
-        }
+        Stmt::Decl(Decl::Class(class_decl)) => crate::runtime_class::collect_runtime_bindings_from_class(
+            &class_decl.class,
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
+        Stmt::Decl(Decl::TsEnum(ts_enum_decl)) => crate::runtime_traversal::collect_runtime_bindings_from_ts_enum_decl(
+            ts_enum_decl.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+            may_be_conditional,
+        ),
         Stmt::Decl(Decl::TsModule(ts_module_decl)) => {
             crate::runtime_traversal::collect_runtime_bindings_from_ts_module_decl(
                 ts_module_decl.as_ref(),
@@ -279,8 +275,7 @@ fn collect_runtime_bindings_from_for_in_stmt(
     runtime_callee_bindings: &mut HashSet<String>,
     may_be_conditional: bool,
 ) {
-    let shadowed_bindings =
-        crate::runtime_scope::for_head_declared_binding_names(&for_in_stmt.left);
+    let shadowed_bindings = crate::runtime_scope::for_head_declared_binding_names(&for_in_stmt.left);
     crate::runtime_scope::with_shadowed_runtime_bindings(
         &shadowed_bindings,
         runtime_namespace_bindings,
@@ -313,8 +308,7 @@ fn collect_runtime_bindings_from_for_of_stmt(
     runtime_callee_bindings: &mut HashSet<String>,
     may_be_conditional: bool,
 ) {
-    let shadowed_bindings =
-        crate::runtime_scope::for_head_declared_binding_names(&for_of_stmt.left);
+    let shadowed_bindings = crate::runtime_scope::for_head_declared_binding_names(&for_of_stmt.left);
     crate::runtime_scope::with_shadowed_runtime_bindings(
         &shadowed_bindings,
         runtime_namespace_bindings,
@@ -395,10 +389,7 @@ fn collect_runtime_bindings_from_switch_stmt(
     let mut shadowed_bindings = Vec::new();
     for case in &switch_stmt.cases {
         for stmt in &case.cons {
-            crate::runtime_scope::collect_declared_binding_names_from_stmt(
-                stmt,
-                &mut shadowed_bindings,
-            );
+            crate::runtime_scope::collect_declared_binding_names_from_stmt(stmt, &mut shadowed_bindings);
         }
     }
     shadowed_bindings.sort();
@@ -437,13 +428,11 @@ fn clear_runtime_bindings_for_for_head(
     runtime_callee_bindings: &mut HashSet<String>,
 ) {
     match for_head {
-        swc_ecma_ast::ForHead::Pat(pattern) => {
-            crate::runtime_clear::clear_runtime_bindings_for_pat(
-                pattern.as_ref(),
-                runtime_namespace_bindings,
-                runtime_callee_bindings,
-            )
-        }
+        swc_ecma_ast::ForHead::Pat(pattern) => crate::runtime_clear::clear_runtime_bindings_for_pat(
+            pattern.as_ref(),
+            runtime_namespace_bindings,
+            runtime_callee_bindings,
+        ),
         swc_ecma_ast::ForHead::VarDecl(_) | swc_ecma_ast::ForHead::UsingDecl(_) => {}
     }
 }
