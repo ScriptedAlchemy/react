@@ -20,11 +20,18 @@ export const BABEL_PLUGIN_SRC = path.normalize(
 export const PRINT_HIR_IMPORT = 'printFunctionWithOutlined';
 export const PRINT_REACTIVE_IR_IMPORT = 'printReactiveFunction';
 export const PARSE_CONFIG_PRAGMA_IMPORT = 'parseConfigPragmaForTests';
-export const FIXTURES_PATH = path.join(
+const explicitFixturesPath = process.env['REACT_COMPILER_FIXTURES_PATH'];
+const defaultFixturesPath = path.join(
   BABEL_PLUGIN_ROOT,
   'src',
   '__tests__',
   'fixtures',
   'compiler',
 );
+export const FIXTURES_PATH =
+  explicitFixturesPath == null || explicitFixturesPath.length === 0
+    ? defaultFixturesPath
+    : path.isAbsolute(explicitFixturesPath)
+      ? explicitFixturesPath
+      : path.resolve(PROJECT_ROOT, explicitFixturesPath);
 export const SNAPSHOT_EXTENSION = '.expect.md';
