@@ -203,6 +203,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(+true && 'require')]((+false || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over foldable string literals
     (e.g. `module[(+'1' && 'require')]((+'' || 'react/compiler-runtime'))`)
+  - unary numeric coercion aliases over radix/whitespace numeric strings
+    (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over foldable conditional expressions
     (e.g. `module[((+(true ? true : false)) && 'require')](((+(true ? false : true)) || 'react/compiler-runtime'))`)
   - arithmetic numeric truthy/falsy logical aliases
