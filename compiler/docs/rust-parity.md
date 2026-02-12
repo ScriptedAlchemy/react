@@ -89,6 +89,8 @@ Bridge invocation errors include the full resolved command + arguments.
 ## Protocol contract (current)
 
 - Request includes `protocol_version` (currently `1`)
+- Request-side bridge validation requires non-negative integer `protocol_version`
+  when explicitly provided.
 - Response may include `protocol_version` on `ok` and `error`
 - `protocol_version` values in responses must be integers and non-negative
 - Unsupported request versions are rejected with:
