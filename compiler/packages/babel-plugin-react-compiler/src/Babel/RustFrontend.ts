@@ -11,6 +11,7 @@ import {NodePath} from '@babel/traverse';
 import type * as t from '@babel/types';
 import {
   type CompilerErrorDetailOptions,
+  ErrorCategory,
   ErrorSeverity,
   type Logger,
   type SourceLocation,
@@ -104,6 +105,12 @@ function createRustCompileErrorDetail(
   result: Extract<RustCompileResponse, {status: 'error'}>,
   filename: string | null,
 ): CompilerErrorDetailOptions {
+  const legacyCategory =
+    result.category === 'syntax'
+      ? ErrorCategory.Syntax
+      : result.category === 'internal'
+        ? ErrorCategory.Invariant
+        : ErrorCategory.Invariant;
   const severity =
     result.category === 'request'
       ? ErrorSeverity.InvalidConfig
@@ -112,11 +119,12 @@ function createRustCompileErrorDetail(
         : ErrorSeverity.InvalidJS;
   const loc = toLegacySourceLocation(result.location, filename);
   return {
-    category: result.category,
+    category: legacyCategory,
     reason: result.reason,
     description: result.message,
     severity,
     loc,
+    rustCategory: result.category,
     suggestions: null,
     options: {
       suggestions: null,
