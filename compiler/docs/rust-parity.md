@@ -110,6 +110,7 @@ Bridge response validation currently enforces:
   - `*.ts`/`*.tsx`/`*.mts`/`*.cts` => TypeScript
   - `*.flow` or `parserOpts.plugins` containing `flow` => Flow
   - `parserOpts.plugins` containing `typescript` => TypeScript
+  - when extensions are inconclusive and both parser plugins are present, the first matching plugin in parser order wins
   - otherwise => JavaScript
 - Runtime helper alias detection recognizes:
   - direct `require(...)`
