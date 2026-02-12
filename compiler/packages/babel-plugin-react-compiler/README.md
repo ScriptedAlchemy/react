@@ -89,6 +89,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Foldable loose equality/inequality (`==` / `!=`) conditionals are also recognized,
   including primitive coercions and `null == undefined` checks
   (e.g. `module[((true == 1) ? 'require' : 'nope')](((null == (void false)) ? 'react/compiler-runtime' : 'nope'))`).
+  Foldable relational comparisons (`<`, `<=`, `>`, `>=`) are also supported for
+  static string and numeric comparisons used in conditional alias selection.
   Truthy array/object literal conditions are folded as expected
   (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`).
   Truthy function/class literal conditions are folded as expected

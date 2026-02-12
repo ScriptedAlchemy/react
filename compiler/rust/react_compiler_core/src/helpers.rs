@@ -230,6 +230,18 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
                 expression_static_primitive_value(binary_expression.right.as_ref())?,
             )?,
         ),
+        Expr::Bin(binary_expression)
+            if matches!(
+                binary_expression.op,
+                BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq
+            ) =>
+        {
+            static_relational_comparison(
+                expression_static_primitive_value(binary_expression.left.as_ref())?,
+                expression_static_primitive_value(binary_expression.right.as_ref())?,
+                binary_expression.op,
+            )
+        }
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
             let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
             if left_truthy {
@@ -500,4 +512,48 @@ fn static_abstract_equality(left: StaticPrimitive, right: StaticPrimitive) -> Op
         | (StaticPrimitive::Undefined, _)
         | (_, StaticPrimitive::Undefined) => Some(false),
     }
+}
+
+fn static_primitive_to_number(value: StaticPrimitive) -> Option<f64> {
+    match value {
+        StaticPrimitive::Bool(value) => Some(if value { 1.0 } else { 0.0 }),
+        StaticPrimitive::Number(value) => Some(value),
+        StaticPrimitive::String(value) => parse_js_numeric_string(&value),
+        StaticPrimitive::Null => Some(0.0),
+        StaticPrimitive::Undefined => Some(f64::NAN),
+        StaticPrimitive::BigInt(_) => None,
+    }
+}
+
+fn static_relational_comparison(
+    left: StaticPrimitive,
+    right: StaticPrimitive,
+    operator: BinaryOp,
+) -> Option<bool> {
+    if let (StaticPrimitive::String(left_string), StaticPrimitive::String(right_string)) =
+        (&left, &right)
+    {
+        return Some(match operator {
+            BinaryOp::Lt => left_string < right_string,
+            BinaryOp::LtEq => left_string <= right_string,
+            BinaryOp::Gt => left_string > right_string,
+            BinaryOp::GtEq => left_string >= right_string,
+            _ => return None,
+        });
+    }
+
+    let left_number = static_primitive_to_number(left)?;
+    let right_number = static_primitive_to_number(right)?;
+
+    if left_number.is_nan() || right_number.is_nan() {
+        return Some(false);
+    }
+
+    Some(match operator {
+        BinaryOp::Lt => left_number < right_number,
+        BinaryOp::LtEq => left_number <= right_number,
+        BinaryOp::Gt => left_number > right_number,
+        BinaryOp::GtEq => left_number >= right_number,
+        _ => return None,
+    })
 }
