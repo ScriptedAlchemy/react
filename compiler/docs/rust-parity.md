@@ -69,6 +69,9 @@ Additional bridge execution knobs:
 - `REACT_COMPILER_RUST_CLI_MAX_BUFFER_BYTES` — positive integer max stdio buffer
   for each CLI invocation (default: `67108864`).
 
+If manifest discovery fails, the bridge error message includes the candidate
+manifest paths that were checked.
+
 ## Protocol contract (current)
 
 - Request includes `protocol_version` (currently `1`)
