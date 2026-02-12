@@ -163,8 +163,14 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             Lit::Str(string_literal) => Some(!string_literal.value.is_empty()),
             Lit::Num(number_literal) => Some(number_literal.value != 0.0 && !number_literal.value.is_nan()),
             Lit::BigInt(big_int_literal) => Some(big_int_literal.value.to_string() != "0"),
+            Lit::Regex(_) => Some(true),
             _ => None,
         },
+        Expr::Array(_) => Some(true),
+        Expr::Object(_) => Some(true),
+        Expr::Fn(_) => Some(true),
+        Expr::Arrow(_) => Some(true),
+        Expr::Class(_) => Some(true),
         Expr::Tpl(_) => expression_static_string_value(expr).map(|value| !value.is_empty()),
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
             expression_static_truthiness_value(unary_expression.arg.as_ref()).map(|value| !value)

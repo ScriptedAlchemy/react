@@ -82,6 +82,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(0, 'require')]((0, 'react/compiler-runtime'))`).
   Conditional tests may also use foldable truthy/falsy literals
   (e.g. `module['x' ? 'require' : 'nope'](void false ? 'nope' : 'react/compiler-runtime')`).
+  Truthy array/object literal conditions are folded as expected
+  (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`).
   Foldable template-literal conditions are supported too (truthy and falsy branches)
   (e.g. `module[\`${'x'}\` ? 'require' : 'nope'](\`${''}\` ? 'nope' : 'react/compiler-runtime')`).
   Nullish checks treat foldable `void` literals as nullish values
