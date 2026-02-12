@@ -85,6 +85,10 @@ Bridge response validation currently enforces:
 
 - `status: "ok" | "error"`
 - `ok` includes string `code`
+- optional `ok.react_functions` entries require:
+  - `name: string`
+  - `kind: "Component" | "Hook"`
+  - optional `loc` with numeric source coordinates
 - `error` includes string fields:
   `code`, `category`, `reason`, `severity`, `message`
 - optional `error.location`, when present, must include numeric:
