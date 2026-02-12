@@ -23,10 +23,37 @@ import {
   type RustSourceLocation,
 } from '../RustBridge/RustCli';
 
+function hasTypeScriptParserPlugin(pass: BabelCore.PluginPass): boolean {
+  const parserOpts = (
+    pass.file as {
+      opts?: {
+        parserOpts?: {plugins?: Array<unknown>} | null;
+      };
+    }
+  )?.opts?.parserOpts;
+  const parserPlugins = parserOpts?.plugins;
+  if (!Array.isArray(parserPlugins)) {
+    return false;
+  }
+  return parserPlugins.some(pluginEntry => {
+    if (typeof pluginEntry === 'string') {
+      return pluginEntry === 'typescript';
+    }
+    if (Array.isArray(pluginEntry) && pluginEntry.length > 0) {
+      return pluginEntry[0] === 'typescript';
+    }
+    return false;
+  });
+}
+
 function detectRustDialect(
   filename: string | null,
+  pass: BabelCore.PluginPass,
 ): 'javascript' | 'typescript' {
   if (filename != null && /\.(cts|mts|tsx|ts)$/i.test(filename)) {
+    return 'typescript';
+  }
+  if (hasTypeScriptParserPlugin(pass)) {
     return 'typescript';
   }
   return 'javascript';
@@ -179,7 +206,7 @@ export function maybeRunRustProgramCompiler(
   const logger = getRustFrontendLogger(pass);
   const emitDebugIr = logger?.debugLogIRs != null;
   const sourceType = prog.node.sourceType === 'module' ? 'module' : 'script';
-  const dialect = detectRustDialect(filename);
+  const dialect = detectRustDialect(filename, pass);
   const rustRequest: RustCompileRequest = {
     source: sourceCode,
     dialect,
