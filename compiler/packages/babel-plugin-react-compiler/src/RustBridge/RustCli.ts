@@ -157,6 +157,11 @@ function resolveRustCliInvocation(manifestPath: string): {
         return {command: prebuiltBinaryPath, args: []};
       }
     }
+    if (profiles.length === 1) {
+      throw new Error(
+        `REACT_COMPILER_RUST_USE_PREBUILT_BIN is enabled but no prebuilt react_compiler_cli binary was found in target/${profiles[0]}`,
+      );
+    }
   }
 
   return {
