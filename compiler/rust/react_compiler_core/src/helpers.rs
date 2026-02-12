@@ -665,6 +665,14 @@ fn static_abstract_equality(left: StaticPrimitive, right: StaticPrimitive) -> Op
             left,
             StaticPrimitive::Number(if value { 1.0 } else { 0.0 }),
         ),
+        (StaticPrimitive::BigInt(left), StaticPrimitive::String(right))
+        | (StaticPrimitive::String(right), StaticPrimitive::BigInt(left)) => Some(
+            static_canonical_bigint_equality(&left, parse_js_bigint_string(&right)?),
+        ),
+        (StaticPrimitive::BigInt(left), StaticPrimitive::Number(right))
+        | (StaticPrimitive::Number(right), StaticPrimitive::BigInt(left)) => {
+            static_number_bigint_equality(right, &left)
+        }
         (StaticPrimitive::BigInt(_), _)
         | (_, StaticPrimitive::BigInt(_))
         | (StaticPrimitive::Null, _)
@@ -784,4 +792,37 @@ fn normalize_decimal_bigint_string(value: &str) -> Option<(i8, &str)> {
     }
 
     Some((sign, digits))
+}
+
+fn parse_js_bigint_string(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    let (sign, digits) = normalize_decimal_bigint_string(trimmed)?;
+    let mut normalized = String::new();
+    if sign < 0 {
+        normalized.push('-');
+    }
+    normalized.push_str(digits);
+    Some(normalized)
+}
+
+fn static_canonical_bigint_equality(left: &str, right: String) -> bool {
+    parse_js_bigint_string(left).as_ref() == Some(&right)
+}
+
+fn static_number_bigint_equality(number: f64, bigint: &str) -> Option<bool> {
+    if number.is_nan() || !number.is_finite() {
+        return Some(false);
+    }
+    if number.fract() != 0.0 {
+        return Some(false);
+    }
+
+    const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+    if number.abs() > MAX_SAFE_INTEGER {
+        return None;
+    }
+
+    let integer = number as i64;
+    let bigint_from_number = integer.to_string();
+    Some(static_canonical_bigint_equality(bigint, bigint_from_number))
 }
