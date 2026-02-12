@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use swc_ecma_ast::{AssignTarget, CallExpr, Callee, Expr, Lit, Pat};
+use swc_ecma_ast::{AssignTarget, CallExpr, Callee, Expr, Pat};
 
 use crate::{
     binding::{expression_ident, simple_assign_target_ident},
     entrypoint::{is_member_prop_with, is_prop_name_with},
-    helpers::unwrap_expression,
+    helpers::{expression_static_string_value, unwrap_expression},
 };
 
 pub(crate) fn collect_binding_names_from_pat(pattern: &Pat) -> Vec<String> {
@@ -155,26 +155,9 @@ fn is_require_runtime_call_expr(call_expr: &CallExpr) -> bool {
     let Some(first_arg) = call_expr.args.first() else {
         return false;
     };
-    match unwrap_expression(first_arg.expr.as_ref()) {
-        Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"react/compiler-runtime",
-        Expr::Tpl(template_literal)
-            if template_literal.exprs.is_empty() && template_literal.quasis.len() == 1 =>
-        {
-            template_literal
-                .quasis
-                .first()
-                .and_then(|quasi| {
-                    quasi
-                        .cooked
-                        .as_ref()
-                        .map(|value| value.as_ref())
-                        .or_else(|| Some(quasi.raw.as_ref()))
-                })
-                .map(|value| value == "react/compiler-runtime")
-                .unwrap_or(false)
-        }
-        _ => false,
-    }
+    expression_static_string_value(first_arg.expr.as_ref())
+        .map(|value| value == "react/compiler-runtime")
+        .unwrap_or(false)
 }
 
 fn is_require_callee_expr(expr: &Expr) -> bool {

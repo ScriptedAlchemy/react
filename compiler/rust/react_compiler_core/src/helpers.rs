@@ -1,5 +1,5 @@
 use swc_common::{sync::Lrc, SourceMap, Span};
-use swc_ecma_ast::Expr;
+use swc_ecma_ast::{Expr, Lit};
 
 use crate::SourceLocation;
 
@@ -54,5 +54,41 @@ pub(crate) fn unwrap_expression_mut(expr: &mut Expr) -> &mut Expr {
             unwrap_expression_mut(ts_instantiation_expr.expr.as_mut())
         }
         _ => expr,
+    }
+}
+
+pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
+    match unwrap_expression(expr) {
+        Expr::Lit(literal) => match literal {
+            Lit::Str(str_lit) => Some(str_lit.value.to_string()),
+            Lit::Bool(bool_lit) => Some(if bool_lit.value {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            }),
+            Lit::Null(_) => Some("null".to_string()),
+            Lit::Num(number_lit) => Some(number_lit.value.to_string()),
+            Lit::BigInt(big_int_lit) => Some(big_int_lit.value.to_string()),
+            _ => None,
+        },
+        Expr::Tpl(template_literal) => {
+            if template_literal.quasis.len() != template_literal.exprs.len() + 1 {
+                return None;
+            }
+            let mut result = String::new();
+            for (index, quasi) in template_literal.quasis.iter().enumerate() {
+                let quasi_segment = quasi
+                    .cooked
+                    .as_ref()
+                    .map(|value| value.as_ref())
+                    .unwrap_or_else(|| quasi.raw.as_ref());
+                result.push_str(quasi_segment);
+                if let Some(template_expr) = template_literal.exprs.get(index) {
+                    result.push_str(expression_static_string_value(template_expr.as_ref())?.as_str());
+                }
+            }
+            Some(result)
+        }
+        _ => None,
     }
 }

@@ -1,14 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use swc_ecma_ast::{
-    AssignTarget, DefaultDecl, Expr, Lit, MemberExpr, MemberProp, Module, ModuleDecl,
+    AssignTarget, DefaultDecl, Expr, MemberExpr, MemberProp, Module, ModuleDecl,
     ModuleExportName, ModuleItem, Pat, Prop, PropName, PropOrSpread, Script, SimpleAssignTarget,
     Stmt, VarDecl,
 };
 
 use crate::{
     binding::{assign_target_ident, resolve_function_binding_name, TopLevelBinding},
-    helpers::unwrap_expression,
+    helpers::{expression_static_string_value, unwrap_expression},
 };
 
 pub(crate) fn collect_fixture_entrypoint_function_names(module: &Module) -> HashSet<String> {
@@ -257,26 +257,9 @@ fn is_fn_property_name(name: &PropName) -> bool {
 }
 
 fn computed_prop_name_matches_expected(expr: &Expr, expected: &str) -> bool {
-    match unwrap_expression(expr) {
-        Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *expected,
-        Expr::Tpl(template_literal)
-            if template_literal.exprs.is_empty() && template_literal.quasis.len() == 1 =>
-        {
-            template_literal
-                .quasis
-                .first()
-                .and_then(|quasi| {
-                    quasi
-                        .cooked
-                        .as_ref()
-                        .map(|value| value.as_ref())
-                        .or_else(|| Some(quasi.raw.as_ref()))
-                })
-                .map(|value| value == expected)
-                .unwrap_or(false)
-        }
-        _ => false,
-    }
+    expression_static_string_value(expr)
+        .map(|value| value == expected)
+        .unwrap_or(false)
 }
 
 pub(crate) fn is_prop_name_with(name: &PropName, expected: &str) -> bool {
