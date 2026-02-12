@@ -123,6 +123,7 @@ Bridge response validation currently enforces:
   - escaped/unicode computed property variants for `module` / `require` keys
   - nested computed chains such as `globalThis['module']['require'](...)`
   - mixed member/computed chains such as `globalThis.module['require'](...)` and `self['module'].require(...)`
+  - sequence wrappers around intermediate module roots/chains (e.g. `(0, window.module).require(...)`, `(0, self['module'])['require'](...)`)
 - Rust output is used directly for AST replacement
 - Compatibility logger events are emitted for:
   - `CompileSuccess` (per detected React function when locations are available)
