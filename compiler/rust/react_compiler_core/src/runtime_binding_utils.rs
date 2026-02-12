@@ -171,14 +171,32 @@ fn is_require_callee_expr(expr: &Expr) -> bool {
             if !is_member_prop_with(&member_expr.prop, "require") {
                 return false;
             }
-            expression_ident(member_expr.obj.as_ref())
-                .map(|name| name == "module")
-                .unwrap_or(false)
+            is_module_object_expr(member_expr.obj.as_ref())
         }
         Expr::Seq(sequence_expr) => sequence_expr
             .exprs
             .last()
             .map(|last_expr| is_require_callee_expr(last_expr.as_ref()))
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
+fn is_module_object_expr(expr: &Expr) -> bool {
+    match unwrap_expression(expr) {
+        Expr::Ident(object_ident) => object_ident.sym == *"module",
+        Expr::Member(member_expr) => {
+            if !is_member_prop_with(&member_expr.prop, "module") {
+                return false;
+            }
+            expression_ident(member_expr.obj.as_ref())
+                .map(|name| matches!(name.as_str(), "globalThis" | "global"))
+                .unwrap_or(false)
+        }
+        Expr::Seq(sequence_expr) => sequence_expr
+            .exprs
+            .last()
+            .map(|last_expr| is_module_object_expr(last_expr.as_ref()))
             .unwrap_or(false),
         _ => false,
     }
