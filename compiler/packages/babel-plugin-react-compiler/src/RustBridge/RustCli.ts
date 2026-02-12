@@ -305,11 +305,7 @@ function assertRustCompileResponseShape(
   }
 
   if (status === 'ok') {
-    if (typeof payload['code'] !== 'string' || payload['code'].length === 0) {
-      throw new Error(
-        'Rust compiler CLI returned invalid ok payload (code must be a non-empty string)',
-      );
-    }
+    requireNonEmptyStringField(payload, 'code', 'ok payload');
     if (
       payload['debug_ir'] != null &&
       typeof payload['debug_ir'] !== 'string'
@@ -334,16 +330,16 @@ function assertRustCompileResponseShape(
         );
       }
       const fnData = fnRecord as {[key: string]: unknown};
-      if (
-        typeof fnData['name'] !== 'string' ||
-        (fnData['name'] as string).length === 0 ||
-        typeof fnData['kind'] !== 'string'
-      ) {
-        throw new Error(
-          'Rust compiler CLI returned invalid ok payload (react_functions entries require non-empty name and kind strings)',
-        );
-      }
-      const fnKind = fnData['kind'];
+      requireNonEmptyStringField(
+        fnData,
+        'name',
+        'ok payload (react_functions entries)',
+      );
+      const fnKind = requireNonEmptyStringField(
+        fnData,
+        'kind',
+        'ok payload (react_functions entries)',
+      );
       if (fnKind !== 'Component' && fnKind !== 'Hook') {
         throw new Error(
           `Rust compiler CLI returned invalid ok payload (react_functions kind must be Component or Hook, got ${String(
@@ -360,22 +356,26 @@ function assertRustCompileResponseShape(
     return;
   }
 
-  if (
-    typeof payload['code'] !== 'string' ||
-    payload['code'].length === 0 ||
-    typeof payload['category'] !== 'string' ||
-    payload['category'].length === 0 ||
-    typeof payload['reason'] !== 'string' ||
-    payload['reason'].length === 0 ||
-    typeof payload['severity'] !== 'string' ||
-    payload['severity'].length === 0 ||
-    typeof payload['message'] !== 'string'
-  ) {
-    throw new Error(
-      'Rust compiler CLI returned invalid error payload (required string fields must be present and non-empty)',
-    );
-  }
-  const category = payload['category'];
+  const code = requireNonEmptyStringField(payload, 'code', 'error payload');
+  const category = requireNonEmptyStringField(
+    payload,
+    'category',
+    'error payload',
+  );
+  const reason = requireNonEmptyStringField(payload, 'reason', 'error payload');
+  const severityValue = requireNonEmptyStringField(
+    payload,
+    'severity',
+    'error payload',
+  );
+  const message = requireNonEmptyStringField(
+    payload,
+    'message',
+    'error payload',
+  );
+  void code;
+  void reason;
+  void message;
   if (
     category !== 'request' &&
     category !== 'syntax' &&
@@ -387,7 +387,7 @@ function assertRustCompileResponseShape(
       )})`,
     );
   }
-  const severity = (payload['severity'] as string).toLowerCase();
+  const severity = severityValue.toLowerCase();
   if (
     severity !== 'error' &&
     severity !== 'warning' &&
@@ -406,6 +406,20 @@ function assertRustCompileResponseShape(
     return;
   }
   assertRustLocationPayload(location, 'location');
+}
+
+function requireNonEmptyStringField(
+  payload: {[key: string]: unknown},
+  key: string,
+  payloadLabel: string,
+): string {
+  const value = payload[key];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(
+      `Rust compiler CLI returned invalid ${payloadLabel} (${key} must be a non-empty string)`,
+    );
+  }
+  return value;
 }
 
 function assertRustLocationPayload(
