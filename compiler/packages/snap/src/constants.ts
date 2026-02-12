@@ -7,9 +7,8 @@
 
 import path from 'path';
 
-export const PROJECT_ROOT = path.join(process.cwd(), '..', '..');
+export const PROJECT_ROOT = path.normalize(path.join(__dirname, '..', '..', '..'));
 
-// We assume this is run from `babel-plugin-react-compiler`
 export const BABEL_PLUGIN_ROOT = path.normalize(
   path.join(PROJECT_ROOT, 'packages', 'babel-plugin-react-compiler'),
 );
