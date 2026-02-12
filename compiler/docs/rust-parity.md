@@ -202,6 +202,8 @@ Bridge response validation currently enforces:
     (e.g. `typeof ((0, 1))`, `typeof (false || (() => 1))`, `typeof (null ?? 1)`)
   - `typeof` folding also covers static binary-expression operands
     (e.g. `typeof (1 + 2)`, `typeof ('a' + 1)`, `typeof (1 < 2)`)
+  - `typeof` folding includes static BigInt binary forms when both operands are BigInt
+    (e.g. `typeof (1n + 2n)`)
   - truthy array/object literal conditional aliases
     (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`)
   - truthy function/class literal conditional aliases

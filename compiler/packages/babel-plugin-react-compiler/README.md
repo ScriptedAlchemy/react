@@ -100,6 +100,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Foldable `typeof` checks over static binary expressions are also handled,
   including arithmetic/string and comparison forms
   (e.g. `typeof (1 + 2)`, `typeof ('a' + 1)`, `typeof (1 < 2)`).
+  BigInt binary forms are included when both operands are statically BigInt
+  (e.g. `typeof (1n + 2n)` resolves to `'bigint'`).
   Truthy array/object literal conditions are folded as expected
   (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`).
   Truthy function/class literal conditions are folded as expected
