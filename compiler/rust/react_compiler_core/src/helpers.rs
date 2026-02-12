@@ -690,6 +690,23 @@ fn static_relational_comparison(
     right: StaticPrimitive,
     operator: BinaryOp,
 ) -> Option<bool> {
+    if let (StaticPrimitive::BigInt(left_bigint), StaticPrimitive::BigInt(right_bigint)) =
+        (&left, &right)
+    {
+        let ordering = static_bigint_decimal_compare(left_bigint, right_bigint)?;
+        return Some(match operator {
+            BinaryOp::Lt => ordering == std::cmp::Ordering::Less,
+            BinaryOp::LtEq => {
+                ordering == std::cmp::Ordering::Less || ordering == std::cmp::Ordering::Equal
+            }
+            BinaryOp::Gt => ordering == std::cmp::Ordering::Greater,
+            BinaryOp::GtEq => {
+                ordering == std::cmp::Ordering::Greater || ordering == std::cmp::Ordering::Equal
+            }
+            _ => return None,
+        });
+    }
+
     if let (StaticPrimitive::String(left_string), StaticPrimitive::String(right_string)) =
         (&left, &right)
     {
@@ -716,4 +733,55 @@ fn static_relational_comparison(
         BinaryOp::GtEq => left_number >= right_number,
         _ => return None,
     })
+}
+
+fn static_bigint_decimal_compare(left: &str, right: &str) -> Option<std::cmp::Ordering> {
+    let (left_sign, left_digits) = normalize_decimal_bigint_string(left)?;
+    let (right_sign, right_digits) = normalize_decimal_bigint_string(right)?;
+
+    if left_sign != right_sign {
+        return Some(if left_sign < right_sign {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        });
+    }
+
+    let mut ordering = left_digits.len().cmp(&right_digits.len());
+    if ordering == std::cmp::Ordering::Equal {
+        ordering = left_digits.cmp(right_digits);
+    }
+
+    if left_sign < 0 {
+        ordering = ordering.reverse();
+    }
+
+    Some(ordering)
+}
+
+fn normalize_decimal_bigint_string(value: &str) -> Option<(i8, &str)> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let (mut sign, mut digits) = if let Some(rest) = trimmed.strip_prefix('-') {
+        (-1, rest)
+    } else if let Some(rest) = trimmed.strip_prefix('+') {
+        (1, rest)
+    } else {
+        (1, trimmed)
+    };
+
+    digits = digits.trim_start_matches('0');
+    if digits.is_empty() {
+        digits = "0";
+        sign = 1;
+    }
+
+    if !digits.chars().all(|character| character.is_ascii_digit()) {
+        return None;
+    }
+
+    Some((sign, digits))
 }

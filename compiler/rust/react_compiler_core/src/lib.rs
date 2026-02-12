@@ -654,6 +654,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_bigint_relational_conditional_object_key() {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((1n < 2n) ? 'fn' : 'not-fn'))]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_loose_nullish_equality_conditional_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((null == (void false)) ? 'fn' : 'not-fn'))]: component, params: [] };",
@@ -1536,6 +1556,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_bigint_relational_conditional_member_assignment() {
+        let output = compile(
+            "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((1n < 2n) ? 'fn' : 'not-fn'))] = component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_loose_nullish_equality_conditional_member_assignment(
     ) {
         let output = compile(
@@ -2268,6 +2308,27 @@ mod tests {
     fn detects_script_fixture_entrypoint_function_from_relational_conditional_object_key() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((1 < 2) ? 'fn' : 'not-fn'))]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_bigint_relational_conditional_object_key() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((1n < 2n) ? 'fn' : 'not-fn'))]: render, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -3063,6 +3124,28 @@ mod tests {
     fn detects_script_fixture_entrypoint_function_from_relational_conditional_member_assignment() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((1 < 2) ? 'fn' : 'not-fn'))] = render;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_bigint_relational_conditional_member_assignment(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((1n < 2n) ? 'fn' : 'not-fn'))] = render;",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -4678,6 +4761,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_require_bigint_relational_conditional_member_alias_in_module()
+    {
+        let output = compile(
+            "const cache = require((((1n < 2n) ? 'react/compiler-runtime' : 'nope'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_loose_nullish_equality_conditional_member_alias_in_module(
     ) {
         let output = compile(
@@ -5339,6 +5439,23 @@ mod tests {
     fn reuses_existing_runtime_cache_module_relational_conditional_require_member_alias_in_module() {
         let output = compile(
             "const cache = module[((('b' > 'a') ? 'require' : 'nope'))]((((1 < 2) ? 'react/compiler-runtime' : 'nope'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_bigint_relational_conditional_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(((2n > 1n) ? 'require' : 'nope'))]((((1n < 2n) ? 'react/compiler-runtime' : 'nope'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -14863,6 +14980,25 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_require_bigint_relational_conditional_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require((((1n < 2n) ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_loose_nullish_equality_conditional_member_alias(
     ) {
         let output = compile(
@@ -15601,6 +15737,25 @@ mod tests {
     fn transforms_script_component_with_module_relational_conditional_require_member_alias() {
         let output = compile(
             "const cache = module[((('b' > 'a') ? 'require' : 'nope'))]((((1 < 2) ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_module_bigint_relational_conditional_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[(((2n > 1n) ? 'require' : 'nope'))]((((1n < 2n) ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),

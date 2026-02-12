@@ -196,6 +196,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(((!0) === true) ? 'require' : 'nope')]((((!0) === true) ? 'react/compiler-runtime' : 'nope'))`)
   - foldable relational conditionals (`<`, `<=`, `>`, `>=`) over static primitive operands
     (e.g. `module[((('b' > 'a') ? 'require' : 'nope'))]((((1 < 2) ? 'react/compiler-runtime' : 'nope')))` )
+  - static BigInt-to-BigInt relational conditionals
+    (e.g. `module[(((2n > 1n) ? 'require' : 'nope'))]((((1n < 2n) ? 'react/compiler-runtime' : 'nope')))` )
   - foldable `typeof` conditionals where operand type is statically known
     (e.g. `module[(((typeof (() => 1)) === 'function') ? 'require' : 'nope')]((((typeof 1) === 'number') ? 'react/compiler-runtime' : 'nope'))`)
   - `typeof` folding also covers foldable sequence/logical/nullish operand wrappers
