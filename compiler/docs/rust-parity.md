@@ -128,6 +128,8 @@ Bridge response validation currently enforces:
   - `PipelineError`
 - Rust error categories are normalized to legacy compiler categories for downstream
   lint consumer compatibility (`syntax -> Syntax`, `internal/request -> Invariant`).
+- Rust error codes can further refine mapped legacy categories for compatibility
+  (e.g. `unsupported_flow_syntax -> UnsupportedSyntax`).
 - Rust severity values are preserved where possible for downstream diagnostics
   (`warning`/`hint`/`off` map to legacy severities; request/internal categories remain category-driven).
 - Invocation and output-parse pipeline errors include the underlying Rust CLI
