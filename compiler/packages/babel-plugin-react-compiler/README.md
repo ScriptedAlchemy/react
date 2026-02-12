@@ -72,6 +72,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (`globalThis`, `global`, `window`, `self`) across member/computed/sequence chains.
   Static template-expression forms are resolved when interpolations are literal-like
   (e.g. `module[\`requ\${'ire'}\`](\`react/compiler-\${'runtime'}\`)`).
+  Static binary-string concatenation forms are also resolved
+  (e.g. `module['requ' + 'ire']('react/compiler-' + 'runtime')`).
   Destructured `c` aliases with default patterns are recognized too
   (e.g. `const {c: cache = fallback} = runtime`, `const {['\\x63']: c = fallback} = runtime`, `const {c = fallback} = require(...)`, `const {['\\x63']: c = fallback} = module['\\x72equire'](...)`).
   Assignment-destructure aliases are recognized too

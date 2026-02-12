@@ -1,5 +1,5 @@
 use swc_common::{sync::Lrc, SourceMap, Span};
-use swc_ecma_ast::{Expr, Lit};
+use swc_ecma_ast::{BinaryOp, Expr, Lit};
 
 use crate::SourceLocation;
 
@@ -88,6 +88,11 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
                 }
             }
             Some(result)
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::Add => {
+            let left_value = expression_static_string_value(binary_expression.left.as_ref())?;
+            let right_value = expression_static_string_value(binary_expression.right.as_ref())?;
+            Some(format!("{left_value}{right_value}"))
         }
         _ => None,
     }
