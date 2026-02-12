@@ -173,6 +173,15 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             expression_static_truthiness_value(unary_expression.arg.as_ref())?;
             Some(false)
         }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Plus => {
+            let number_value = expression_static_number_value(unary_expression.arg.as_ref())?;
+            Some(number_value != 0.0 && !number_value.is_nan())
+        }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Minus => {
+            let number_value = expression_static_number_value(unary_expression.arg.as_ref())?;
+            let negated_value = -number_value;
+            Some(negated_value != 0.0 && !negated_value.is_nan())
+        }
         Expr::Seq(sequence_expression) => {
             if sequence_expression.exprs.is_empty() {
                 return None;
@@ -213,6 +222,19 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             } else {
                 expression_static_truthiness_value(binary_expression.left.as_ref())
             }
+        }
+        _ => None,
+    }
+}
+
+fn expression_static_number_value(expr: &Expr) -> Option<f64> {
+    match unwrap_expression(expr) {
+        Expr::Lit(Lit::Num(number_literal)) => Some(number_literal.value),
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Plus => {
+            expression_static_number_value(unary_expression.arg.as_ref())
+        }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Minus => {
+            expression_static_number_value(unary_expression.arg.as_ref()).map(|value| -value)
         }
         _ => None,
     }
