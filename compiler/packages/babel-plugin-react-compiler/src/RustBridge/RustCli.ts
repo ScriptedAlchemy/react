@@ -829,6 +829,7 @@ function assertRustOkMetadataPayload(
   assertConsistentOkCountRelationships(payload);
   assertCandidatePartitionConsistency(payload);
   assertDetectedFunctionNameAlignment(payload, reactFunctions);
+  assertPlaceholderKindCountConsistency(payload, reactFunctions);
 }
 
 function assertConsistentOkCountRelationships(payload: {
@@ -1140,6 +1141,99 @@ function mergeSortedUniqueStringArrays(
     }
   }
   return merged;
+}
+
+function assertPlaceholderKindCountConsistency(
+  payload: {[key: string]: unknown},
+  reactFunctions: Array<RustReactFunction>,
+): void {
+  const candidateNames = payload['placeholder_transform_candidates'] as Array<string>;
+  const transformedNames = payload['placeholder_transformed_functions'] as Array<string>;
+  const skippedNames = payload['placeholder_transform_skipped_functions'] as Array<string>;
+  const candidateCounts = countNamesByKind(candidateNames, reactFunctions);
+  const transformedCounts = countNamesByKind(transformedNames, reactFunctions);
+  const skippedCounts = countNamesByKind(skippedNames, reactFunctions);
+
+  if (
+    candidateCounts.componentCount !==
+    (payload['placeholder_transform_candidate_component_count'] as number)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_transform_candidate_component_count does not match candidate names)',
+    );
+  }
+  if (
+    candidateCounts.hookCount !==
+    (payload['placeholder_transform_candidate_hook_count'] as number)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_transform_candidate_hook_count does not match candidate names)',
+    );
+  }
+  if (
+    transformedCounts.componentCount !==
+    (payload['placeholder_transform_transformed_component_count'] as number)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_transform_transformed_component_count does not match transformed names)',
+    );
+  }
+  if (
+    transformedCounts.hookCount !==
+    (payload['placeholder_transform_transformed_hook_count'] as number)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_transform_transformed_hook_count does not match transformed names)',
+    );
+  }
+  if (
+    skippedCounts.componentCount !==
+    (payload['placeholder_transform_skipped_component_count'] as number)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_transform_skipped_component_count does not match skipped names)',
+    );
+  }
+  if (
+    skippedCounts.hookCount !==
+    (payload['placeholder_transform_skipped_hook_count'] as number)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_transform_skipped_hook_count does not match skipped names)',
+    );
+  }
+}
+
+function countNamesByKind(
+  names: Array<string>,
+  reactFunctions: Array<RustReactFunction>,
+): {componentCount: number; hookCount: number} {
+  const kindByName = new Map<string, RustReactFunction['kind']>();
+  for (const reactFunction of reactFunctions) {
+    kindByName.set(reactFunction.name, reactFunction.kind);
+  }
+  let componentCount = 0;
+  let hookCount = 0;
+  for (const name of names) {
+    const explicitKind = kindByName.get(name);
+    const kind =
+      explicitKind ??
+      (isHookLikeName(name) ? ('Hook' as const) : ('Component' as const));
+    if (kind === 'Hook') {
+      hookCount += 1;
+    } else {
+      componentCount += 1;
+    }
+  }
+  return {componentCount, hookCount};
+}
+
+function isHookLikeName(name: string): boolean {
+  if (!name.startsWith('use') || name.length <= 3) {
+    return false;
+  }
+  const nextChar = name.charAt(3);
+  return /[A-Z0-9]/.test(nextChar);
 }
 
 function areEqualStringArrays(left: Array<string>, right: Array<string>): boolean {

@@ -138,6 +138,8 @@ Bridge response validation currently enforces:
     exactly into `placeholder_transform_candidates`
   - `detected_component_functions` / `detected_hook_functions` must align with
     kind-partitioned names from `react_functions`
+  - placeholder component/hook split counters are validated against the
+    corresponding name arrays (using `react_functions` kinds with hook-name fallback)
   - `react_functions` ordering is validated as deterministic
     (location -> name -> kind), with duplicate entries rejected
   - `placeholder_transform_status` enum validation:
