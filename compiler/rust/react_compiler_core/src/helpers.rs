@@ -230,6 +230,8 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
 fn expression_static_number_value(expr: &Expr) -> Option<f64> {
     match unwrap_expression(expr) {
         Expr::Lit(Lit::Num(number_literal)) => Some(number_literal.value),
+        Expr::Lit(Lit::Bool(boolean_literal)) => Some(if boolean_literal.value { 1.0 } else { 0.0 }),
+        Expr::Lit(Lit::Null(_)) => Some(0.0),
         Expr::Bin(binary_expression) => {
             let left = expression_static_number_value(binary_expression.left.as_ref())?;
             let right = expression_static_number_value(binary_expression.right.as_ref())?;

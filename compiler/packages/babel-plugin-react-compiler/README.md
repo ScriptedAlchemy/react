@@ -90,6 +90,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(1 && 'require')]((0 || 'react/compiler-runtime'))`).
   Unary numeric forms are folded in the same truthy/falsy logic
   (e.g. `module[((-1) && 'require')]((+0 || 'react/compiler-runtime'))`).
+  Unary numeric coercions over foldable booleans/null are supported
+  (e.g. `module[(+true && 'require')]((+false || 'react/compiler-runtime'))`).
   Arithmetic numeric forms are folded before truthy/falsy checks
   (e.g. `module[(((3 - 2) && 'require'))]((((2 - 2) || 'react/compiler-runtime')))`).
   Foldable bigint truthy/falsy conditions are supported as well
