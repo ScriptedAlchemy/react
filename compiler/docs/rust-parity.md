@@ -97,6 +97,8 @@ Bridge response validation currently enforces:
   - `PipelineError`
 - Rust error categories are normalized to legacy compiler categories for downstream
   lint consumer compatibility (`syntax -> Syntax`, `internal/request -> Invariant`).
+- Invocation and output-parse pipeline errors include the underlying Rust CLI
+  failure cause in the emitted message payload.
 - When requested via logger, Rust debug IR is forwarded through `debugLogIRs`
 
 ## Report shape
