@@ -1214,9 +1214,9 @@ function requireStringArrayField(
     );
   }
   for (const entry of value) {
-    if (typeof entry !== 'string') {
+    if (typeof entry !== 'string' || entry.length === 0) {
       throw new Error(
-        `Rust compiler CLI returned invalid ${payloadLabel} (${key} must contain only strings)`,
+        `Rust compiler CLI returned invalid ${payloadLabel} (${key} must contain only non-empty strings)`,
       );
     }
   }

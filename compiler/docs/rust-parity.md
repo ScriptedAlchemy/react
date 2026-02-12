@@ -132,7 +132,7 @@ Bridge response validation currently enforces:
     - generated/reused callee flags are mutually exclusive and require transformed output
     - selected pre/post callee names must appear in their respective candidate lists
     - transformed output requires a post-transform runtime callee name
-  - deterministic string-list telemetry arrays are validated as sorted + duplicate-free
+  - deterministic string-list telemetry arrays are validated as non-empty entries, sorted, + duplicate-free
   - transformed/skipped placeholder function arrays must be disjoint and compose
     exactly into `placeholder_transform_candidates`
   - `detected_component_functions` / `detected_hook_functions` must align with
