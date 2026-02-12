@@ -347,6 +347,11 @@ async function runCompileCommand(opts: CompileOptions): Promise<void> {
 type ParityMismatchKind = 'output_mismatch' | 'unexpected_error_mismatch';
 
 type ParitySectionDiff = {
+  firstRun: string | null;
+  secondRun: string | null;
+  normalizedFirstRun: string;
+  normalizedSecondRun: string;
+  // Legacy aliases retained for report compatibility.
   babel: string | null;
   rust: string | null;
   normalizedBabel: string;
@@ -364,9 +369,15 @@ type ParityMismatch = {
   hasEvalSectionMismatch: boolean;
   hasLogsSectionMismatch: boolean;
   hasErrorSectionMismatch: boolean;
+  firstRunUnexpectedError: string | null;
+  secondRunUnexpectedError: string | null;
+  // Legacy aliases retained for report compatibility.
   babelUnexpectedError: string | null;
   rustUnexpectedError: string | null;
   outputPath: string;
+  firstRunActual?: string | null;
+  secondRunActual?: string | null;
+  // Legacy aliases retained for report compatibility.
   babelActual?: string | null;
   rustActual?: string | null;
   codeSectionDiff?: ParitySectionDiff | null;
@@ -391,11 +402,17 @@ function createSectionDiff(
   rustValue: string | null,
   normalize: (value: string | null) => string,
 ): ParitySectionDiff {
+  const normalizedFirstRun = normalize(babelValue);
+  const normalizedSecondRun = normalize(rustValue);
   return {
+    firstRun: babelValue,
+    secondRun: rustValue,
+    normalizedFirstRun,
+    normalizedSecondRun,
     babel: babelValue,
     rust: rustValue,
-    normalizedBabel: normalize(babelValue),
-    normalizedRust: normalize(rustValue),
+    normalizedBabel: normalizedFirstRun,
+    normalizedRust: normalizedSecondRun,
   };
 }
 
@@ -574,13 +591,13 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       normalizeSectionText,
     );
     const hasCodeSectionMismatch =
-      codeSectionDiff.normalizedBabel !== codeSectionDiff.normalizedRust;
+      codeSectionDiff.normalizedFirstRun !== codeSectionDiff.normalizedSecondRun;
     const hasEvalSectionMismatch =
-      evalSectionDiff.normalizedBabel !== evalSectionDiff.normalizedRust;
+      evalSectionDiff.normalizedFirstRun !== evalSectionDiff.normalizedSecondRun;
     const hasLogsSectionMismatch =
-      logsSectionDiff.normalizedBabel !== logsSectionDiff.normalizedRust;
+      logsSectionDiff.normalizedFirstRun !== logsSectionDiff.normalizedSecondRun;
     const hasErrorSectionMismatch =
-      errorSectionDiff.normalizedBabel !== errorSectionDiff.normalizedRust;
+      errorSectionDiff.normalizedFirstRun !== errorSectionDiff.normalizedSecondRun;
     const hasOutputMismatch = opts.ignoreFormatting
       ? hasNormalizedOutputMismatch
       : hasRawOutputMismatch;
@@ -601,11 +618,15 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       hasEvalSectionMismatch,
       hasLogsSectionMismatch,
       hasErrorSectionMismatch,
+      firstRunUnexpectedError: babelResult.unexpectedError,
+      secondRunUnexpectedError: strictRustResult.unexpectedError,
       babelUnexpectedError: babelResult.unexpectedError,
       rustUnexpectedError: strictRustResult.unexpectedError,
       outputPath: strictRustResult.outputPath,
     };
     if (opts.includeOutput) {
+      mismatch.firstRunActual = babelResult.actual;
+      mismatch.secondRunActual = strictRustResult.actual;
       mismatch.babelActual = babelResult.actual;
       mismatch.rustActual = strictRustResult.actual;
     }
@@ -621,12 +642,12 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       if (hasUnexpectedErrorMismatch) {
         console.log(
           chalk.red(
-            `  first run error: ${mismatch.babelUnexpectedError ?? '<none>'}`,
+            `  first run error: ${mismatch.firstRunUnexpectedError ?? '<none>'}`,
           ),
         );
         console.log(
           chalk.red(
-            `  second run error: ${mismatch.rustUnexpectedError ?? '<none>'}`,
+            `  second run error: ${mismatch.secondRunUnexpectedError ?? '<none>'}`,
           ),
         );
       }
