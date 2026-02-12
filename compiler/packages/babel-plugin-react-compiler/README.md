@@ -22,5 +22,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `CompileSuccess` is emitted per detected React function with source location metadata when available
   - Rust error categories are normalized for downstream lint consumers (`syntax -> Syntax`, `internal/request -> Invariant`).
   - explicit event type aliases are exported for consumers (`CompileSuccessEvent`, `CompileErrorEvent`, `CompileDiagnosticEvent`, `PipelineErrorEvent`).
+- Dialect selection:
+  - TypeScript extensions (`.ts`, `.tsx`, `.mts`, `.cts`) map to Rust TypeScript mode
+  - Flow file hints (`.flow` extension or Babel `flow` parser plugin) map to Rust Flow mode
+  - all other inputs default to JavaScript mode
 
 You can find usage documentation here: https://react.dev/learn/react-compiler
