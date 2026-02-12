@@ -185,12 +185,34 @@ function mapRustCategoryToLegacySeverity(category: string): ErrorSeverity {
   }
 }
 
+function mapRustErrorResultToLegacySeverity(
+  result: Extract<RustCompileResponse, {status: 'error'}>,
+): ErrorSeverity {
+  const categoryMappedSeverity = mapRustCategoryToLegacySeverity(result.category);
+  if (
+    categoryMappedSeverity === ErrorSeverity.InvalidConfig ||
+    categoryMappedSeverity === ErrorSeverity.Invariant
+  ) {
+    return categoryMappedSeverity;
+  }
+  switch (result.severity.toLowerCase()) {
+    case 'warning':
+      return ErrorSeverity.Warning;
+    case 'hint':
+      return ErrorSeverity.Hint;
+    case 'off':
+      return ErrorSeverity.Off;
+    default:
+      return categoryMappedSeverity;
+  }
+}
+
 function createRustCompileErrorDetail(
   result: Extract<RustCompileResponse, {status: 'error'}>,
   filename: string | null,
 ): CompilerErrorDetailOptions {
   const legacyCategory = mapRustCategoryToLegacyCategory(result.category);
-  const severity = mapRustCategoryToLegacySeverity(result.category);
+  const severity = mapRustErrorResultToLegacySeverity(result);
   const loc = toLegacySourceLocation(result.location, filename);
   return {
     category: legacyCategory,
@@ -199,6 +221,7 @@ function createRustCompileErrorDetail(
     severity,
     loc,
     rustCategory: result.category,
+    rustSeverity: result.severity,
     suggestions: null,
     options: {
       suggestions: null,
