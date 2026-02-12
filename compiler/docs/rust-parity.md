@@ -54,7 +54,7 @@ Fixture source path can be overridden with `REACT_COMPILER_FIXTURES_PATH`
 
 The Babel bridge resolves the Rust CLI command in this order:
 
-1. `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path)
+1. `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path/command)
 2. existing debug binary (`compiler/rust/target/debug/react_compiler_cli`) when
    `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1`
 3. fallback to `cargo +stable run --manifest-path ... -p react_compiler_cli`
@@ -63,6 +63,8 @@ For repeated local runs, setting `REACT_COMPILER_RUST_CLI_BIN` to a prebuilt bin
 avoids repeated Cargo startup overhead.
 If `REACT_COMPILER_RUST_CLI_BIN` contains path separators, it is resolved to an
 absolute path and validated before invocation; bare command names are resolved via `PATH`.
+If `REACT_COMPILER_RUST_MANIFEST` is set, it is treated as authoritative and must
+resolve to an existing manifest path.
 
 Additional bridge execution knobs:
 
