@@ -293,14 +293,16 @@ function resolveRequestProtocolVersion(raw: unknown): number {
   if (raw == null) {
     return RUST_CLI_PROTOCOL_VERSION;
   }
-  if (!Number.isInteger(raw) || (raw as number) < 0) {
+  const numericVersion =
+    typeof raw === 'string' && raw.trim().length > 0 ? Number(raw) : raw;
+  if (!Number.isInteger(numericVersion) || (numericVersion as number) < 0) {
     throw new Error(
       `Rust compiler CLI request protocol_version must be a non-negative integer, got: ${String(
         raw,
       )}`,
     );
   }
-  return raw as number;
+  return numericVersion as number;
 }
 
 function assertRustCompileResponseShape(
