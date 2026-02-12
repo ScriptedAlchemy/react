@@ -535,7 +535,7 @@ function assertRustCompileResponseShape(
         loc: fnLoc,
       });
     }
-    assertRustOkMetadataPayload(payload, validatedReactFunctions.length);
+    assertRustOkMetadataPayload(payload, validatedReactFunctions);
     return;
   }
 
@@ -593,7 +593,7 @@ function assertRustCompileResponseShape(
 
 function assertRustOkMetadataPayload(
   payload: {[key: string]: unknown},
-  reactFunctionCount: number,
+  reactFunctions: Array<RustReactFunction>,
 ): void {
   requireNonNegativeIntegerField(payload, 'statement_count', 'ok payload');
   requireNonNegativeIntegerField(
@@ -789,7 +789,7 @@ function assertRustOkMetadataPayload(
   assertArrayCountMatchesField(
     payload,
     'react_functions',
-    reactFunctionCount,
+    reactFunctions.length,
     'detected_react_functions',
     'ok payload',
   );
@@ -826,6 +826,7 @@ function assertRustOkMetadataPayload(
   );
 
   assertConsistentOkCountRelationships(payload);
+  assertDetectedFunctionNameAlignment(payload, reactFunctions);
 }
 
 function assertConsistentOkCountRelationships(payload: {
@@ -1059,6 +1060,45 @@ function assertPlaceholderTransformStatusConsistency(payload: {
         )})`,
       );
   }
+}
+
+function assertDetectedFunctionNameAlignment(
+  payload: {[key: string]: unknown},
+  reactFunctions: Array<RustReactFunction>,
+): void {
+  const detectedComponentFunctions = payload[
+    'detected_component_functions'
+  ] as Array<string>;
+  const detectedHookFunctions = payload['detected_hook_functions'] as Array<string>;
+  const expectedComponentFunctions = reactFunctions
+    .filter(reactFunction => reactFunction.kind === 'Component')
+    .map(reactFunction => reactFunction.name);
+  const expectedHookFunctions = reactFunctions
+    .filter(reactFunction => reactFunction.kind === 'Hook')
+    .map(reactFunction => reactFunction.name);
+
+  if (!areEqualStringArrays(detectedComponentFunctions, expectedComponentFunctions)) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (detected_component_functions must match Component-kind react_functions names)',
+    );
+  }
+  if (!areEqualStringArrays(detectedHookFunctions, expectedHookFunctions)) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (detected_hook_functions must match Hook-kind react_functions names)',
+    );
+  }
+}
+
+function areEqualStringArrays(left: Array<string>, right: Array<string>): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index++) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function assertArrayCountMatchesField(
