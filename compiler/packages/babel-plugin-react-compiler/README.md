@@ -13,6 +13,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path, or bare command name resolved via PATH), or
   - `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1` (truthy values `1|true|yes|on`; use prebuilt `react_compiler_cli` when present).
   - `REACT_COMPILER_RUST_PREBUILT_PROFILE` (`debug` or `release`) to force a prebuilt profile when using prebuilt mode.
+  - Without a forced prebuilt profile, the bridge checks `target/debug` then `target/release`.
   - `REACT_COMPILER_RUST_MANIFEST` (authoritative manifest override; must resolve to an existing `Cargo.toml` file path).
   - Path-form overrides support `~` home-directory expansion.
 - Optional Rust CLI timeout override:
