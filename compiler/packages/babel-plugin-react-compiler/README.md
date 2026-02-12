@@ -57,7 +57,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   `require(...)`, `module.require(...)`, and global module roots
   (`globalThis`, `global`, `window`, `self`) across member/computed/sequence chains.
   Destructured `c` aliases with default patterns are recognized too
-  (e.g. `const {c: cache = fallback} = runtime`).
+  (e.g. `const {c: cache = fallback} = runtime`, `const {['c']: cache = fallback} = runtime`).
   Escaped/unicode `require` keys are supported across these roots
   (e.g. `global.module['\\u0072equire'](...)`).
 
