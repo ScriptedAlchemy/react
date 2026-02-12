@@ -205,8 +205,13 @@ export function runRustCompilerCli(
     );
   }
   if (result.status !== 0) {
+    const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+    const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+    const output = stderr.length > 0 ? stderr : stdout;
     throw new Error(
-      `Rust compiler CLI (${invocation.command}) exited with status ${result.status}\n${result.stderr}`,
+      `Rust compiler CLI (${invocation.command}) exited with status ${result.status}\n${
+        output.length > 0 ? output : '<no CLI output>'
+      }`,
     );
   }
   if (typeof result.stdout !== 'string' || result.stdout.length === 0) {
