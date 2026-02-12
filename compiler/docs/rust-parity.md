@@ -93,6 +93,7 @@ Bridge response validation currently enforces:
   - `name: string`
   - `kind: "Component" | "Hook"`
   - optional `loc` with numeric source coordinates
+- optional `ok.debug_ir`, when present, must be a string
 - `error` includes string fields:
   `code`, `category`, `reason`, `severity`, `message`
 - optional `error.location`, when present, must include numeric:
