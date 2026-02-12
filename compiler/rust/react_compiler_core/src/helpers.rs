@@ -94,6 +94,21 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
             let right_value = expression_static_string_value(binary_expression.right.as_ref())?;
             Some(format!("{left_value}{right_value}"))
         }
+        Expr::Cond(conditional_expression) => {
+            let test_value = expression_static_boolean_value(conditional_expression.test.as_ref())?;
+            if test_value {
+                expression_static_string_value(conditional_expression.cons.as_ref())
+            } else {
+                expression_static_string_value(conditional_expression.alt.as_ref())
+            }
+        }
+        _ => None,
+    }
+}
+
+fn expression_static_boolean_value(expr: &Expr) -> Option<bool> {
+    match unwrap_expression(expr) {
+        Expr::Lit(Lit::Bool(boolean_literal)) => Some(boolean_literal.value),
         _ => None,
     }
 }
