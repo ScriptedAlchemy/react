@@ -788,6 +788,75 @@ function assertRustOkMetadataPayload(
     'placeholder_transform_skipped_hook_count',
     'ok payload',
   );
+
+  assertConsistentOkCountRelationships(payload);
+}
+
+function assertConsistentOkCountRelationships(payload: {
+  [key: string]: unknown;
+}): void {
+  const candidateCount = payload['placeholder_transform_candidate_count'] as number;
+  const skippedCount = payload['placeholder_transform_skipped_count'] as number;
+  const transformedCount = payload['placeholder_transforms_applied'] as number;
+  if (candidateCount !== skippedCount + transformedCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (candidate count must equal skipped + transformed counts)',
+    );
+  }
+
+  const candidateComponentCount = payload[
+    'placeholder_transform_candidate_component_count'
+  ] as number;
+  const candidateHookCount = payload[
+    'placeholder_transform_candidate_hook_count'
+  ] as number;
+  if (candidateCount !== candidateComponentCount + candidateHookCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (candidate component/hook counts must sum to candidate count)',
+    );
+  }
+
+  const transformedComponentCount = payload[
+    'placeholder_transform_transformed_component_count'
+  ] as number;
+  const transformedHookCount = payload[
+    'placeholder_transform_transformed_hook_count'
+  ] as number;
+  if (transformedCount !== transformedComponentCount + transformedHookCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (transformed component/hook counts must sum to transformed count)',
+    );
+  }
+
+  const skippedComponentCount = payload[
+    'placeholder_transform_skipped_component_count'
+  ] as number;
+  const skippedHookCount = payload['placeholder_transform_skipped_hook_count'] as number;
+  if (skippedCount !== skippedComponentCount + skippedHookCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (skipped component/hook counts must sum to skipped count)',
+    );
+  }
+
+  if (candidateComponentCount !== transformedComponentCount + skippedComponentCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (component candidate count must equal transformed + skipped component counts)',
+    );
+  }
+  if (candidateHookCount !== transformedHookCount + skippedHookCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (hook candidate count must equal transformed + skipped hook counts)',
+    );
+  }
+
+  const detectedReactFunctionCount = payload['detected_react_functions'] as number;
+  const detectedComponentCount = payload['detected_component_function_count'] as number;
+  const detectedHookCount = payload['detected_hook_function_count'] as number;
+  if (detectedReactFunctionCount !== detectedComponentCount + detectedHookCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (detected component/hook counts must sum to detected_react_functions)',
+    );
+  }
 }
 
 function assertArrayCountMatchesField(

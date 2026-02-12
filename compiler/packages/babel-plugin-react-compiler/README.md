@@ -34,6 +34,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `ok` payload metadata contract fields with strict type/count checks
     (numeric counters, boolean state flags, string-array telemetry lists)
   - telemetry count fields must match their corresponding list lengths
+  - telemetry aggregate relationships must hold (candidate = transformed + skipped,
+    component/hook splits sum correctly, detected component + hook = detected total)
   - `error.category` in `{request, syntax, internal}`
   - `error.severity` in `{error, warning, hint, off}`
   - required response string fields must be present and non-empty
