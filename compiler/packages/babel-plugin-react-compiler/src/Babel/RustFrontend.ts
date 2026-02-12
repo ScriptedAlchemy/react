@@ -216,6 +216,7 @@ function createRustCompileErrorDetail(
   const loc = toLegacySourceLocation(result.location, filename);
   return {
     category: legacyCategory,
+    code: result.code,
     reason: result.reason,
     description: result.message,
     severity,
