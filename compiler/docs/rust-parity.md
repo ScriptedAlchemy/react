@@ -189,6 +189,9 @@ Bridge response validation currently enforces:
     (e.g. `module[(('require' === 'require') ? 'require' : 'nope')]((('runtime' === 'runtime') ? 'react/compiler-runtime' : 'nope'))`)
   - strict equality follows JavaScript `NaN` semantics (`NaN === NaN` is false),
     so foldable `NaN` comparisons select the same fallback branch as Babel
+  - foldable loose equality/inequality conditionals (`==` / `!=`) over static primitives,
+    including primitive coercions and `null == undefined` checks
+    (e.g. `module[((true == 1) ? 'require' : 'nope')](((null == (void false)) ? 'react/compiler-runtime' : 'nope'))`)
   - truthy array/object literal conditional aliases
     (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`)
   - truthy function/class literal conditional aliases

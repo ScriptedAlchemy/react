@@ -86,6 +86,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(('require' === 'require') ? 'require' : 'nope')]((('runtime' === 'runtime') ? 'react/compiler-runtime' : 'nope'))`).
   Strict equality folding also preserves JavaScript `NaN` behavior (`NaN === NaN` is false),
   allowing deterministic fallback branch selection in foldable conditionals.
+  Foldable loose equality/inequality (`==` / `!=`) conditionals are also recognized,
+  including primitive coercions and `null == undefined` checks
+  (e.g. `module[((true == 1) ? 'require' : 'nope')](((null == (void false)) ? 'react/compiler-runtime' : 'nope'))`).
   Truthy array/object literal conditions are folded as expected
   (e.g. `module[(({a: 1}) ? 'require' : 'nope')](([1] ? 'react/compiler-runtime' : 'nope'))`).
   Truthy function/class literal conditions are folded as expected

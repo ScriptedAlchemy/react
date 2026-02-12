@@ -212,12 +212,24 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
                 expression_static_primitive_value(binary_expression.right.as_ref())?,
             ))
         }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::EqEq => Some(
+            static_abstract_equality(
+                expression_static_primitive_value(binary_expression.left.as_ref())?,
+                expression_static_primitive_value(binary_expression.right.as_ref())?,
+            )?,
+        ),
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NotEqEq => {
             Some(!static_strict_equality(
                 expression_static_primitive_value(binary_expression.left.as_ref())?,
                 expression_static_primitive_value(binary_expression.right.as_ref())?,
             ))
         }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NotEq => Some(
+            !static_abstract_equality(
+                expression_static_primitive_value(binary_expression.left.as_ref())?,
+                expression_static_primitive_value(binary_expression.right.as_ref())?,
+            )?,
+        ),
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
             let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
             if left_truthy {
@@ -450,5 +462,42 @@ fn static_strict_equality(left: StaticPrimitive, right: StaticPrimitive) -> bool
         (StaticPrimitive::Undefined, StaticPrimitive::Undefined) => true,
         (StaticPrimitive::BigInt(left), StaticPrimitive::BigInt(right)) => left == right,
         _ => false,
+    }
+}
+
+fn static_number_equality(left: f64, right: f64) -> bool {
+    !left.is_nan() && !right.is_nan() && left == right
+}
+
+fn static_abstract_equality(left: StaticPrimitive, right: StaticPrimitive) -> Option<bool> {
+    match (left, right) {
+        (StaticPrimitive::Bool(left), StaticPrimitive::Bool(right)) => Some(left == right),
+        (StaticPrimitive::String(left), StaticPrimitive::String(right)) => Some(left == right),
+        (StaticPrimitive::Number(left), StaticPrimitive::Number(right)) => {
+            Some(static_number_equality(left, right))
+        }
+        (StaticPrimitive::Null, StaticPrimitive::Null) => Some(true),
+        (StaticPrimitive::Undefined, StaticPrimitive::Undefined) => Some(true),
+        (StaticPrimitive::BigInt(left), StaticPrimitive::BigInt(right)) => Some(left == right),
+        (StaticPrimitive::Null, StaticPrimitive::Undefined)
+        | (StaticPrimitive::Undefined, StaticPrimitive::Null) => Some(true),
+        (StaticPrimitive::Number(left), StaticPrimitive::String(right))
+        | (StaticPrimitive::String(right), StaticPrimitive::Number(left)) => {
+            Some(static_number_equality(left, parse_js_numeric_string(&right)?))
+        }
+        (StaticPrimitive::Bool(value), right) => static_abstract_equality(
+            StaticPrimitive::Number(if value { 1.0 } else { 0.0 }),
+            right,
+        ),
+        (left, StaticPrimitive::Bool(value)) => static_abstract_equality(
+            left,
+            StaticPrimitive::Number(if value { 1.0 } else { 0.0 }),
+        ),
+        (StaticPrimitive::BigInt(_), _)
+        | (_, StaticPrimitive::BigInt(_))
+        | (StaticPrimitive::Null, _)
+        | (_, StaticPrimitive::Null)
+        | (StaticPrimitive::Undefined, _)
+        | (_, StaticPrimitive::Undefined) => Some(false),
     }
 }
