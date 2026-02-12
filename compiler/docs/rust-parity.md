@@ -192,6 +192,8 @@ Bridge response validation currently enforces:
   - foldable loose equality/inequality conditionals (`==` / `!=`) over static primitives,
     including primitive coercions and `null == undefined` checks
     (e.g. `module[((true == 1) ? 'require' : 'nope')](((null == (void false)) ? 'react/compiler-runtime' : 'nope'))`)
+  - foldable equality conditionals over unary-not booleans
+    (e.g. `module[(((!0) === true) ? 'require' : 'nope')]((((!0) === true) ? 'react/compiler-runtime' : 'nope'))`)
   - foldable relational conditionals (`<`, `<=`, `>`, `>=`) over static primitive operands
     (e.g. `module[((('b' > 'a') ? 'require' : 'nope'))]((((1 < 2) ? 'react/compiler-runtime' : 'nope')))` )
   - foldable `typeof` conditionals where operand type is statically known

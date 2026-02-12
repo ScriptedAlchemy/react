@@ -411,6 +411,11 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
                 unary_expression.arg.as_ref(),
             )?))
         }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
+            Some(StaticPrimitive::Bool(
+                !expression_static_truthiness_value(unary_expression.arg.as_ref())?,
+            ))
+        }
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
             expression_static_truthiness_value(unary_expression.arg.as_ref())?;
             Some(StaticPrimitive::Undefined)
