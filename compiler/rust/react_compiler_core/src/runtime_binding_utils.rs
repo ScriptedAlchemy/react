@@ -167,6 +167,14 @@ fn is_require_runtime_call_expr(call_expr: &CallExpr) -> bool {
 fn is_require_callee_expr(expr: &Expr) -> bool {
     match unwrap_expression(expr) {
         Expr::Ident(callee_ident) => callee_ident.sym == *"require",
+        Expr::Member(member_expr) => {
+            if !is_member_prop_with(&member_expr.prop, "require") {
+                return false;
+            }
+            expression_ident(member_expr.obj.as_ref())
+                .map(|name| name == "module")
+                .unwrap_or(false)
+        }
         Expr::Seq(sequence_expr) => sequence_expr
             .exprs
             .last()
