@@ -102,6 +102,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(+'1' && 'require')]((+'' || 'react/compiler-runtime'))`).
   Radix and whitespace string-numeric coercions are folded too
   (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`).
+  Hex/octal/infinity numeric-string coercions are folded too
+  (e.g. `module[(+'Infinity' && 'require')]((+'0o0' || 'react/compiler-runtime'))`).
   Unary numeric coercions over foldable conditionals are supported too
   (e.g. `module[((+(true ? true : false)) && 'require')](((+(true ? false : true)) || 'react/compiler-runtime'))`).
   Arithmetic numeric forms are folded before truthy/falsy checks
