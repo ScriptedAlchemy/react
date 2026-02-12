@@ -130,6 +130,8 @@ Bridge response validation currently enforces:
     - helper import counts are non-decreasing
     - helper-added flag must align with before/after import deltas
     - generated/reused callee flags are mutually exclusive and require transformed output
+    - selected pre/post callee names must appear in their respective candidate lists
+    - transformed output requires a post-transform runtime callee name
   - `placeholder_transform_status` enum validation:
     `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`
     with count/status coherence checks

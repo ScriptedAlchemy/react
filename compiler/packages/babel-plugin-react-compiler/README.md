@@ -38,6 +38,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
     component/hook splits sum correctly, detected component + hook = detected total)
   - runtime helper import/callee flags are cross-validated for coherence
     (import count monotonicity, helper-added delta checks, generated vs reused exclusivity)
+  - runtime callee names/candidates are cross-validated
+    (selected callee names must appear in candidate lists; transformed output requires post-transform callee)
   - `placeholder_transform_status` must be one of
     `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`,
     with status/count consistency checks

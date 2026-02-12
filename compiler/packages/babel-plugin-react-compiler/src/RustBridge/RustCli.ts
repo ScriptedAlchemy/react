@@ -877,6 +877,12 @@ function assertRuntimeImportAndCalleeFlagConsistency(payload: {
   const calleeGenerated = payload['placeholder_runtime_callee_generated'] as boolean;
   const calleeNameBefore = payload['placeholder_runtime_callee_name_before_transform'];
   const calleeNameAfter = payload['placeholder_runtime_callee_name'];
+  const calleeCandidatesBefore = payload[
+    'placeholder_runtime_callee_candidates_before_transform'
+  ] as Array<string>;
+  const calleeCandidatesAfter = payload[
+    'placeholder_runtime_callee_candidates'
+  ] as Array<string>;
 
   if (helperImportCountAfter < helperImportCountBefore) {
     throw new Error(
@@ -938,6 +944,38 @@ function assertRuntimeImportAndCalleeFlagConsistency(payload: {
   if (transformedCount > 0 && calleeNameBefore == null && !calleeGenerated) {
     throw new Error(
       'Rust compiler CLI returned invalid ok payload (transformed output without pre-transform callee must report generated runtime callee)',
+    );
+  }
+
+  if (calleeNameBefore == null && calleeCandidatesBefore.length > 0) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (pre-transform callee candidates require placeholder_runtime_callee_name_before_transform)',
+    );
+  }
+  if (calleeNameAfter == null && calleeCandidatesAfter.length > 0) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (post-transform callee candidates require placeholder_runtime_callee_name)',
+    );
+  }
+  if (
+    typeof calleeNameBefore === 'string' &&
+    !calleeCandidatesBefore.includes(calleeNameBefore)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (pre-transform callee name must appear in pre-transform callee candidates)',
+    );
+  }
+  if (
+    typeof calleeNameAfter === 'string' &&
+    !calleeCandidatesAfter.includes(calleeNameAfter)
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (post-transform callee name must appear in post-transform callee candidates)',
+    );
+  }
+  if (transformedCount > 0 && typeof calleeNameAfter !== 'string') {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (transformed output requires placeholder_runtime_callee_name)',
     );
   }
 }
