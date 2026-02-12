@@ -47,24 +47,63 @@ export type RustReactFunction = {
   loc?: RustSourceLocation | null;
 };
 
+export type RustCompileSuccessResponse = {
+  status: 'ok';
+  protocol_version?: number;
+  code: string;
+  statement_count: number;
+  statement_count_after_transform: number;
+  placeholder_runtime_helper_import_count_before_transform: number;
+  placeholder_runtime_helper_import_count_after_transform: number;
+  placeholder_runtime_helper_import_added: boolean;
+  placeholder_runtime_callee_reused: boolean;
+  placeholder_runtime_callee_generated: boolean;
+  placeholder_transform_status: string;
+  placeholder_transform_candidates: Array<string>;
+  placeholder_transform_skipped_functions: Array<string>;
+  placeholder_transform_candidate_count: number;
+  placeholder_transform_skipped_count: number;
+  placeholder_transform_candidate_component_count: number;
+  placeholder_transform_candidate_hook_count: number;
+  placeholder_transform_transformed_component_count: number;
+  placeholder_transform_transformed_hook_count: number;
+  placeholder_transform_skipped_component_count: number;
+  placeholder_transform_skipped_hook_count: number;
+  detected_component_function_count: number;
+  detected_hook_function_count: number;
+  detected_component_functions: Array<string>;
+  detected_hook_functions: Array<string>;
+  detected_react_functions: number;
+  react_functions: Array<RustReactFunction>;
+  placeholder_transforms_applied: number;
+  placeholder_transformed_functions: Array<string>;
+  placeholder_runtime_callee_name_before_transform?: string;
+  placeholder_runtime_callee_candidates_before_transform: Array<string>;
+  placeholder_runtime_callee_candidate_count_before_transform: number;
+  placeholder_runtime_namespace_candidates_before_transform: Array<string>;
+  placeholder_runtime_namespace_candidate_count_before_transform: number;
+  placeholder_runtime_callee_name?: string;
+  placeholder_runtime_callee_candidates: Array<string>;
+  placeholder_runtime_callee_candidate_count: number;
+  placeholder_runtime_namespace_candidates: Array<string>;
+  placeholder_runtime_namespace_candidate_count: number;
+  debug_ir?: string;
+};
+
+export type RustCompileErrorResponse = {
+  status: 'error';
+  protocol_version?: number;
+  code: string;
+  category: string;
+  reason: string;
+  severity: string;
+  message: string;
+  location?: RustSourceLocation | null;
+};
+
 export type RustCompileResponse =
-  | {
-      status: 'ok';
-      protocol_version?: number;
-      code: string;
-      debug_ir?: string;
-      react_functions?: Array<RustReactFunction>;
-    }
-  | {
-      status: 'error';
-      protocol_version?: number;
-      code: string;
-      category: string;
-      reason: string;
-      severity: string;
-      message: string;
-      location?: RustSourceLocation | null;
-    };
+  | RustCompileSuccessResponse
+  | RustCompileErrorResponse;
 
 function resolveRustManifestPath(): string {
   const explicitPath = process.env['REACT_COMPILER_RUST_MANIFEST'];
@@ -337,14 +376,12 @@ function assertRustCompileResponseShape(
       );
     }
     const reactFunctions = payload['react_functions'];
-    if (reactFunctions == null) {
-      return;
-    }
     if (!Array.isArray(reactFunctions)) {
       throw new Error(
-        'Rust compiler CLI returned invalid ok payload (react_functions must be an array when present)',
+        'Rust compiler CLI returned invalid ok payload (react_functions must be an array)',
       );
     }
+    const validatedReactFunctions: Array<RustReactFunction> = [];
     for (const fnRecord of reactFunctions) {
       if (fnRecord == null || typeof fnRecord !== 'object') {
         throw new Error(
@@ -371,10 +408,21 @@ function assertRustCompileResponseShape(
       }
       const fnLoc = fnData['loc'];
       if (fnLoc == null) {
+        validatedReactFunctions.push({
+          name: fnData['name'] as string,
+          kind: fnKind,
+          loc: null,
+        });
         continue;
       }
       assertRustLocationPayload(fnLoc, 'react_functions[].loc');
+      validatedReactFunctions.push({
+        name: fnData['name'] as string,
+        kind: fnKind,
+        loc: fnLoc,
+      });
     }
+    assertRustOkMetadataPayload(payload, validatedReactFunctions.length);
     return;
   }
 
@@ -430,6 +478,220 @@ function assertRustCompileResponseShape(
   assertRustLocationPayload(location, 'location');
 }
 
+function assertRustOkMetadataPayload(
+  payload: {[key: string]: unknown},
+  reactFunctionCount: number,
+): void {
+  requireNonNegativeIntegerField(payload, 'statement_count', 'ok payload');
+  requireNonNegativeIntegerField(
+    payload,
+    'statement_count_after_transform',
+    'ok payload',
+  );
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_runtime_helper_import_count_before_transform',
+    'ok payload',
+  );
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_runtime_helper_import_count_after_transform',
+    'ok payload',
+  );
+  requireBooleanField(
+    payload,
+    'placeholder_runtime_helper_import_added',
+    'ok payload',
+  );
+  requireBooleanField(payload, 'placeholder_runtime_callee_reused', 'ok payload');
+  requireBooleanField(
+    payload,
+    'placeholder_runtime_callee_generated',
+    'ok payload',
+  );
+  requireNonEmptyStringField(payload, 'placeholder_transform_status', 'ok payload');
+
+  const placeholderTransformCandidates = requireStringArrayField(
+    payload,
+    'placeholder_transform_candidates',
+    'ok payload',
+  );
+  const placeholderTransformSkippedFunctions = requireStringArrayField(
+    payload,
+    'placeholder_transform_skipped_functions',
+    'ok payload',
+  );
+  const detectedComponentFunctions = requireStringArrayField(
+    payload,
+    'detected_component_functions',
+    'ok payload',
+  );
+  const detectedHookFunctions = requireStringArrayField(
+    payload,
+    'detected_hook_functions',
+    'ok payload',
+  );
+  const placeholderTransformedFunctions = requireStringArrayField(
+    payload,
+    'placeholder_transformed_functions',
+    'ok payload',
+  );
+  const placeholderRuntimeCalleeCandidatesBeforeTransform = requireStringArrayField(
+    payload,
+    'placeholder_runtime_callee_candidates_before_transform',
+    'ok payload',
+  );
+  const placeholderRuntimeNamespaceCandidatesBeforeTransform = requireStringArrayField(
+    payload,
+    'placeholder_runtime_namespace_candidates_before_transform',
+    'ok payload',
+  );
+  const placeholderRuntimeCalleeCandidates = requireStringArrayField(
+    payload,
+    'placeholder_runtime_callee_candidates',
+    'ok payload',
+  );
+  const placeholderRuntimeNamespaceCandidates = requireStringArrayField(
+    payload,
+    'placeholder_runtime_namespace_candidates',
+    'ok payload',
+  );
+
+  if (
+    payload['placeholder_runtime_callee_name_before_transform'] != null &&
+    typeof payload['placeholder_runtime_callee_name_before_transform'] !== 'string'
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_callee_name_before_transform must be a string when present)',
+    );
+  }
+  if (
+    payload['placeholder_runtime_callee_name'] != null &&
+    typeof payload['placeholder_runtime_callee_name'] !== 'string'
+  ) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_runtime_callee_name must be a string when present)',
+    );
+  }
+
+  assertArrayCountMatchesField(
+    payload,
+    'placeholder_transform_candidates',
+    placeholderTransformCandidates.length,
+    'placeholder_transform_candidate_count',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'placeholder_transform_skipped_functions',
+    placeholderTransformSkippedFunctions.length,
+    'placeholder_transform_skipped_count',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'detected_component_functions',
+    detectedComponentFunctions.length,
+    'detected_component_function_count',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'detected_hook_functions',
+    detectedHookFunctions.length,
+    'detected_hook_function_count',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'placeholder_runtime_callee_candidates_before_transform',
+    placeholderRuntimeCalleeCandidatesBeforeTransform.length,
+    'placeholder_runtime_callee_candidate_count_before_transform',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'placeholder_runtime_namespace_candidates_before_transform',
+    placeholderRuntimeNamespaceCandidatesBeforeTransform.length,
+    'placeholder_runtime_namespace_candidate_count_before_transform',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'placeholder_runtime_callee_candidates',
+    placeholderRuntimeCalleeCandidates.length,
+    'placeholder_runtime_callee_candidate_count',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'placeholder_runtime_namespace_candidates',
+    placeholderRuntimeNamespaceCandidates.length,
+    'placeholder_runtime_namespace_candidate_count',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'placeholder_transformed_functions',
+    placeholderTransformedFunctions.length,
+    'placeholder_transforms_applied',
+    'ok payload',
+  );
+  assertArrayCountMatchesField(
+    payload,
+    'react_functions',
+    reactFunctionCount,
+    'detected_react_functions',
+    'ok payload',
+  );
+
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_transform_candidate_component_count',
+    'ok payload',
+  );
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_transform_candidate_hook_count',
+    'ok payload',
+  );
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_transform_transformed_component_count',
+    'ok payload',
+  );
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_transform_transformed_hook_count',
+    'ok payload',
+  );
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_transform_skipped_component_count',
+    'ok payload',
+  );
+  requireNonNegativeIntegerField(
+    payload,
+    'placeholder_transform_skipped_hook_count',
+    'ok payload',
+  );
+}
+
+function assertArrayCountMatchesField(
+  payload: {[key: string]: unknown},
+  arrayFieldName: string,
+  arrayLength: number,
+  countFieldName: string,
+  payloadLabel: string,
+): void {
+  const count = requireNonNegativeIntegerField(payload, countFieldName, payloadLabel);
+  if (count !== arrayLength) {
+    throw new Error(
+      `Rust compiler CLI returned invalid ${payloadLabel} (${countFieldName} must match ${arrayFieldName} length)`,
+    );
+  }
+}
+
 function requireNonEmptyStringField(
   payload: {[key: string]: unknown},
   key: string,
@@ -440,6 +702,55 @@ function requireNonEmptyStringField(
     throw new Error(
       `Rust compiler CLI returned invalid ${payloadLabel} (${key} must be a non-empty string)`,
     );
+  }
+  return value;
+}
+
+function requireBooleanField(
+  payload: {[key: string]: unknown},
+  key: string,
+  payloadLabel: string,
+): boolean {
+  const value = payload[key];
+  if (typeof value !== 'boolean') {
+    throw new Error(
+      `Rust compiler CLI returned invalid ${payloadLabel} (${key} must be a boolean)`,
+    );
+  }
+  return value;
+}
+
+function requireNonNegativeIntegerField(
+  payload: {[key: string]: unknown},
+  key: string,
+  payloadLabel: string,
+): number {
+  const value = payload[key];
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    throw new Error(
+      `Rust compiler CLI returned invalid ${payloadLabel} (${key} must be a non-negative integer)`,
+    );
+  }
+  return value as number;
+}
+
+function requireStringArrayField(
+  payload: {[key: string]: unknown},
+  key: string,
+  payloadLabel: string,
+): Array<string> {
+  const value = payload[key];
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `Rust compiler CLI returned invalid ${payloadLabel} (${key} must be an array of strings)`,
+    );
+  }
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      throw new Error(
+        `Rust compiler CLI returned invalid ${payloadLabel} (${key} must contain only strings)`,
+      );
+    }
   }
   return value;
 }
