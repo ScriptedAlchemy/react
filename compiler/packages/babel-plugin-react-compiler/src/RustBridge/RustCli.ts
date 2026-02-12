@@ -143,17 +143,20 @@ function resolveRustCliInvocation(manifestPath: string): {
     const rustWorkspaceRoot = path.dirname(manifestPath);
     const binaryName =
       process.platform === 'win32' ? 'react_compiler_cli.exe' : 'react_compiler_cli';
-    const debugBinaryPath = path.resolve(
-      rustWorkspaceRoot,
-      'target',
-      'debug',
-      binaryName,
-    );
-    if (
-      fs.existsSync(debugBinaryPath) &&
-      fs.statSync(debugBinaryPath).isFile()
-    ) {
-      return {command: debugBinaryPath, args: []};
+    const profiles = resolveRustPrebuiltProfiles();
+    for (const profile of profiles) {
+      const prebuiltBinaryPath = path.resolve(
+        rustWorkspaceRoot,
+        'target',
+        profile,
+        binaryName,
+      );
+      if (
+        fs.existsSync(prebuiltBinaryPath) &&
+        fs.statSync(prebuiltBinaryPath).isFile()
+      ) {
+        return {command: prebuiltBinaryPath, args: []};
+      }
     }
   }
 
@@ -169,6 +172,20 @@ function resolveRustCliInvocation(manifestPath: string): {
       'react_compiler_cli',
     ],
   };
+}
+
+function resolveRustPrebuiltProfiles(): Array<'debug' | 'release'> {
+  const raw = process.env['REACT_COMPILER_RUST_PREBUILT_PROFILE'];
+  if (raw == null || raw.length === 0) {
+    return ['debug', 'release'];
+  }
+  const normalized = raw.toLowerCase();
+  if (normalized === 'debug' || normalized === 'release') {
+    return [normalized];
+  }
+  throw new Error(
+    `REACT_COMPILER_RUST_PREBUILT_PROFILE must be "debug" or "release", got: ${raw}`,
+  );
 }
 
 function resolveRustCliTimeoutMs(): number {
