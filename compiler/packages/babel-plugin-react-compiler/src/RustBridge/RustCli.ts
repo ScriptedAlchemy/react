@@ -237,9 +237,10 @@ export function runRustCompilerCli(
   const invocationSummary = [invocation.command, ...invocation.args].join(' ');
   const timeoutMs = resolveRustCliTimeoutMs();
   const maxBufferBytes = resolveRustCliMaxBufferBytes();
+  const protocolVersion = resolveRequestProtocolVersion(request.protocol_version);
   const requestPayload: RustCompileRequest = {
     ...request,
-    protocol_version: request.protocol_version ?? RUST_CLI_PROTOCOL_VERSION,
+    protocol_version: protocolVersion,
   };
 
   const result = spawnSync(invocation.command, invocation.args, {
@@ -286,6 +287,20 @@ export function runRustCompilerCli(
   assertRustCompileResponseShape(response);
   assertCompatibleRustCliProtocolVersion(response);
   return response;
+}
+
+function resolveRequestProtocolVersion(raw: unknown): number {
+  if (raw == null) {
+    return RUST_CLI_PROTOCOL_VERSION;
+  }
+  if (!Number.isInteger(raw) || (raw as number) < 0) {
+    throw new Error(
+      `Rust compiler CLI request protocol_version must be a non-negative integer, got: ${String(
+        raw,
+      )}`,
+    );
+  }
+  return raw as number;
 }
 
 function assertRustCompileResponseShape(
