@@ -104,7 +104,7 @@ function resolveRustManifestPath(): string {
 
   for (const candidate of candidates) {
     checkedCandidates.add(candidate);
-    if (fs.existsSync(candidate)) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
       return candidate;
     }
   }
