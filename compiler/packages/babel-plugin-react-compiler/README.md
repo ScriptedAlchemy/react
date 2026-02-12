@@ -24,6 +24,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - Rust warning/hint/off severities are preserved in mapped compile-error detail when available.
   - compile-error detail payloads include the Rust error `code` for downstream handling.
   - explicit event type aliases are exported for consumers (`CompileSuccessEvent`, `CompileErrorEvent`, `CompileDiagnosticEvent`, `PipelineErrorEvent`).
+- Rust bridge response validation accepts:
+  - `error.category` in `{request, syntax, internal}`
+  - `error.severity` in `{error, warning, hint, off}`
 - Dialect selection:
   - TypeScript extensions (`.ts`, `.tsx`, `.mts`, `.cts`) map to Rust TypeScript mode
   - Flow file hints (`.flow` extension or Babel `flow` parser plugin) map to Rust Flow mode
