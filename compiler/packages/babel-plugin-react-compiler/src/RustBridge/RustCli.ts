@@ -255,6 +255,14 @@ function assertRustCompileResponseShape(
           'Rust compiler CLI returned invalid ok payload (react_functions entries require name/kind strings)',
         );
       }
+      const fnKind = fnData['kind'];
+      if (fnKind !== 'Component' && fnKind !== 'Hook') {
+        throw new Error(
+          `Rust compiler CLI returned invalid ok payload (react_functions kind must be Component or Hook, got ${String(
+            fnKind,
+          )})`,
+        );
+      }
       const fnLoc = fnData['loc'];
       if (fnLoc == null) {
         continue;
