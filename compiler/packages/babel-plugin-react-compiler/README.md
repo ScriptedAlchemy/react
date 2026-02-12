@@ -12,7 +12,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
 - Rust CLI execution can be configured with:
   - `REACT_COMPILER_RUST_CLI_BIN` (explicit binary path, or bare command name resolved via PATH), or
   - `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1` (use `compiler/rust/target/debug/react_compiler_cli` when present).
-  - `REACT_COMPILER_RUST_MANIFEST` (authoritative manifest override; must resolve to an existing `Cargo.toml`).
+  - `REACT_COMPILER_RUST_MANIFEST` (authoritative manifest override; must resolve to an existing `Cargo.toml` file).
 - Optional Rust CLI timeout override:
   - `REACT_COMPILER_RUST_CLI_TIMEOUT_MS` (positive integer milliseconds, default `60000`).
 - Optional Rust CLI stdout/stderr buffer override:
