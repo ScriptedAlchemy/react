@@ -833,6 +833,14 @@ function assertRustOkMetadataPayload(
 function assertConsistentOkCountRelationships(payload: {
   [key: string]: unknown;
 }): void {
+  const statementCount = payload['statement_count'] as number;
+  const statementCountAfterTransform = payload['statement_count_after_transform'] as number;
+  if (statementCountAfterTransform < statementCount) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (statement_count_after_transform cannot be less than statement_count)',
+    );
+  }
+
   const candidateCount = payload['placeholder_transform_candidate_count'] as number;
   const skippedCount = payload['placeholder_transform_skipped_count'] as number;
   const transformedCount = payload['placeholder_transforms_applied'] as number;

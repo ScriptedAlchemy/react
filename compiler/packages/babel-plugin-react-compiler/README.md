@@ -36,6 +36,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - telemetry count fields must match their corresponding list lengths
   - telemetry aggregate relationships must hold (candidate = transformed + skipped,
     component/hook splits sum correctly, detected component + hook = detected total)
+  - transformed statement count must be monotonic (`statementCountAfterTransform >= statementCount`)
   - runtime helper import/callee flags are cross-validated for coherence
     (import count monotonicity, helper-added delta checks, generated vs reused exclusivity)
   - runtime callee names/candidates are cross-validated

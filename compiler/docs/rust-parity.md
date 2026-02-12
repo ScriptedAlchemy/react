@@ -123,6 +123,7 @@ Bridge response validation currently enforces:
   - count fields must match their corresponding array lengths
   - `detected_react_functions` must match `react_functions.length`
   - aggregate consistency checks:
+    - `statement_count_after_transform >= statement_count`
     - candidate count = transformed + skipped counts
     - component/hook subtype counts sum to their parent totals
     - detected component + detected hook counts = detected total
