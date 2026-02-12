@@ -66,6 +66,8 @@ Additional bridge execution knobs:
 
 - `REACT_COMPILER_RUST_CLI_TIMEOUT_MS` — positive integer timeout in milliseconds
   for each CLI invocation (default: `60000`).
+- `REACT_COMPILER_RUST_CLI_MAX_BUFFER_BYTES` — positive integer max stdio buffer
+  for each CLI invocation (default: `67108864`).
 
 ## Protocol contract (current)
 

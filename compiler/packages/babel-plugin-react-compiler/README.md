@@ -14,5 +14,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1` (use `compiler/rust/target/debug/react_compiler_cli` when present).
 - Optional Rust CLI timeout override:
   - `REACT_COMPILER_RUST_CLI_TIMEOUT_MS` (positive integer milliseconds, default `60000`).
+- Optional Rust CLI stdout/stderr buffer override:
+  - `REACT_COMPILER_RUST_CLI_MAX_BUFFER_BYTES` (positive integer bytes, default `67108864`).
 
 You can find usage documentation here: https://react.dev/learn/react-compiler
