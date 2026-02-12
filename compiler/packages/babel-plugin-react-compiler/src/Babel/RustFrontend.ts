@@ -101,22 +101,34 @@ function toLegacySourceLocation(
   };
 }
 
+function mapRustCategoryToLegacyCategory(category: string): ErrorCategory {
+  switch (category) {
+    case 'syntax':
+      return ErrorCategory.Syntax;
+    case 'internal':
+    case 'request':
+    default:
+      return ErrorCategory.Invariant;
+  }
+}
+
+function mapRustCategoryToLegacySeverity(category: string): ErrorSeverity {
+  switch (category) {
+    case 'request':
+      return ErrorSeverity.InvalidConfig;
+    case 'internal':
+      return ErrorSeverity.Invariant;
+    default:
+      return ErrorSeverity.InvalidJS;
+  }
+}
+
 function createRustCompileErrorDetail(
   result: Extract<RustCompileResponse, {status: 'error'}>,
   filename: string | null,
 ): CompilerErrorDetailOptions {
-  const legacyCategory =
-    result.category === 'syntax'
-      ? ErrorCategory.Syntax
-      : result.category === 'internal'
-        ? ErrorCategory.Invariant
-        : ErrorCategory.Invariant;
-  const severity =
-    result.category === 'request'
-      ? ErrorSeverity.InvalidConfig
-      : result.category === 'internal'
-        ? ErrorSeverity.Invariant
-        : ErrorSeverity.InvalidJS;
+  const legacyCategory = mapRustCategoryToLegacyCategory(result.category);
+  const severity = mapRustCategoryToLegacySeverity(result.category);
   const loc = toLegacySourceLocation(result.location, filename);
   return {
     category: legacyCategory,
