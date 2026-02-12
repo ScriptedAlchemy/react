@@ -43,7 +43,7 @@ export type RustSourceLocation = {
 
 export type RustReactFunction = {
   name: string;
-  kind: string;
+  kind: 'Component' | 'Hook';
   loc?: RustSourceLocation | null;
 };
 
@@ -523,7 +523,7 @@ function assertRustCompileResponseShape(
       if (fnLoc == null) {
         validatedReactFunctions.push({
           name: fnData['name'] as string,
-          kind: fnKind,
+          kind: fnKind as RustReactFunction['kind'],
           loc: null,
         });
         continue;
@@ -531,7 +531,7 @@ function assertRustCompileResponseShape(
       assertRustLocationPayload(fnLoc, 'react_functions[].loc');
       validatedReactFunctions.push({
         name: fnData['name'] as string,
-        kind: fnKind,
+        kind: fnKind as RustReactFunction['kind'],
         loc: fnLoc,
       });
     }
