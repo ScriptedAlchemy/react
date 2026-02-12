@@ -137,8 +137,7 @@ function resolveRustCliInvocation(manifestPath: string): {
   }
 
   const usePrebuiltBinary =
-    process.env['REACT_COMPILER_RUST_USE_PREBUILT_BIN'] === '1' ||
-    process.env['REACT_COMPILER_RUST_USE_PREBUILT_BIN'] === 'true';
+    isEnabledEnvironmentVariable('REACT_COMPILER_RUST_USE_PREBUILT_BIN');
   if (usePrebuiltBinary) {
     const rustWorkspaceRoot = path.dirname(manifestPath);
     const binaryName =
@@ -174,12 +173,26 @@ function resolveRustCliInvocation(manifestPath: string): {
   };
 }
 
+function isEnabledEnvironmentVariable(name: string): boolean {
+  const raw = process.env[name];
+  if (raw == null) {
+    return false;
+  }
+  const normalized = raw.trim().toLowerCase();
+  return (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  );
+}
+
 function resolveRustPrebuiltProfiles(): Array<'debug' | 'release'> {
   const raw = process.env['REACT_COMPILER_RUST_PREBUILT_PROFILE'];
   if (raw == null || raw.length === 0) {
     return ['debug', 'release'];
   }
-  const normalized = raw.toLowerCase();
+  const normalized = raw.trim().toLowerCase();
   if (normalized === 'debug' || normalized === 'release') {
     return [normalized];
   }
