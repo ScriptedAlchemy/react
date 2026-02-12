@@ -98,6 +98,8 @@ Bridge response validation currently enforces:
 - optional `ok.debug_ir`, when present, must be a string
 - `error` includes string fields:
   `code`, `category`, `reason`, `severity`, `message`
+- validated `error.category` values: `request`, `syntax`, `internal`
+- validated `error.severity` values: `error`, `warning`, `hint`, `off`
 - optional `error.location`, when present, must include numeric:
   `start_line`, `start_column`, `end_line`, `end_column`
 - all validated location payloads must have non-decreasing source ranges
