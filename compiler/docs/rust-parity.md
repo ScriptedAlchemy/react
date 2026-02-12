@@ -133,6 +133,8 @@ Bridge response validation currently enforces:
     - selected pre/post callee names must appear in their respective candidate lists
     - transformed output requires a post-transform runtime callee name
   - deterministic string-list telemetry arrays are validated as sorted + duplicate-free
+  - transformed/skipped placeholder function arrays must be disjoint and compose
+    exactly into `placeholder_transform_candidates`
   - `detected_component_functions` / `detected_hook_functions` must align with
     kind-partitioned names from `react_functions`
   - `placeholder_transform_status` enum validation:

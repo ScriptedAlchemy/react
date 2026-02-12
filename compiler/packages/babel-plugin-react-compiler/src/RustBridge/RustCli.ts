@@ -826,6 +826,7 @@ function assertRustOkMetadataPayload(
   );
 
   assertConsistentOkCountRelationships(payload);
+  assertCandidatePartitionConsistency(payload);
   assertDetectedFunctionNameAlignment(payload, reactFunctions);
 }
 
@@ -1087,6 +1088,49 @@ function assertDetectedFunctionNameAlignment(
       'Rust compiler CLI returned invalid ok payload (detected_hook_functions must match Hook-kind react_functions names)',
     );
   }
+}
+
+function assertCandidatePartitionConsistency(payload: {
+  [key: string]: unknown;
+}): void {
+  const candidates = payload['placeholder_transform_candidates'] as Array<string>;
+  const transformed = payload['placeholder_transformed_functions'] as Array<string>;
+  const skipped = payload['placeholder_transform_skipped_functions'] as Array<string>;
+  const merged = mergeSortedUniqueStringArrays(transformed, skipped);
+  if (!areEqualStringArrays(candidates, merged)) {
+    throw new Error(
+      'Rust compiler CLI returned invalid ok payload (placeholder_transform_candidates must equal transformed+skipped partition)',
+    );
+  }
+}
+
+function mergeSortedUniqueStringArrays(
+  left: Array<string>,
+  right: Array<string>,
+): Array<string> {
+  const merged: Array<string> = [];
+  let leftIndex = 0;
+  let rightIndex = 0;
+  while (leftIndex < left.length || rightIndex < right.length) {
+    const leftValue = leftIndex < left.length ? left[leftIndex] : null;
+    const rightValue = rightIndex < right.length ? right[rightIndex] : null;
+    if (leftValue != null && (rightValue == null || leftValue < rightValue)) {
+      merged.push(leftValue);
+      leftIndex += 1;
+      continue;
+    }
+    if (rightValue != null && (leftValue == null || rightValue < leftValue)) {
+      merged.push(rightValue);
+      rightIndex += 1;
+      continue;
+    }
+    if (leftValue != null && rightValue != null && leftValue === rightValue) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (transformed and skipped function partitions must be disjoint)',
+      );
+    }
+  }
+  return merged;
 }
 
 function areEqualStringArrays(left: Array<string>, right: Array<string>): boolean {
