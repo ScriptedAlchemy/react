@@ -165,6 +165,7 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             Lit::BigInt(big_int_literal) => Some(big_int_literal.value.to_string() != "0"),
             _ => None,
         },
+        Expr::Tpl(_) => expression_static_string_value(expr).map(|value| !value.is_empty()),
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
             expression_static_truthiness_value(unary_expression.arg.as_ref()).map(|value| !value)
         }
