@@ -66,6 +66,10 @@ absolute path and validated before invocation; bare command names are resolved v
 If `REACT_COMPILER_RUST_MANIFEST` is set, it is treated as authoritative and must
 resolve to an existing `Cargo.toml` file path.
 Explicit path-form overrides support `~` home-directory expansion.
+When `REACT_COMPILER_RUST_USE_PREBUILT_BIN=1` and no explicit profile is set,
+the bridge checks `target/debug` first, then `target/release`.
+`REACT_COMPILER_RUST_PREBUILT_PROFILE` can force a specific prebuilt profile
+(`debug` or `release`).
 
 Additional bridge execution knobs:
 
