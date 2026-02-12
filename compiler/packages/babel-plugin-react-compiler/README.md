@@ -63,7 +63,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Destructured `c` aliases with default patterns are recognized too
   (e.g. `const {c: cache = fallback} = runtime`, `const {['c']: cache = fallback} = runtime`).
   Assignment-destructure aliases are recognized too
-  (e.g. `({c: cache = fallback} = runtime)`).
+  (e.g. `({c: cache = fallback} = runtime)`, `({c: cache = fallback} = require(...))`).
   Escaped/unicode `require` keys are supported across these roots
   (e.g. `global.module['\\u0072equire'](...)`).
 
