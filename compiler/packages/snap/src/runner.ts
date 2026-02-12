@@ -151,6 +151,13 @@ async function runTestCommand(opts: TestOptions): Promise<void> {
                 false, // no requireSingleFixture in non-watch mode
                 opts.sync,
               );
+              if (results.size === 0) {
+                console.warn(
+                  `No test fixtures found under ${FIXTURES_PATH}${
+                    opts.pattern != null ? ` for pattern "${opts.pattern}"` : ''
+                  }.`,
+                );
+              }
               if (opts.update) {
                 update(results);
                 isSuccess = true;
@@ -943,6 +950,15 @@ async function onChange(
       true, // requireSingleFixture in watch mode
       sync,
     );
+    if (results.size === 0) {
+      console.warn(
+        `No test fixtures found under ${FIXTURES_PATH}${
+          mode.filter && filter?.paths[0] != null
+            ? ` for pattern "${filter.paths[0]}"`
+            : ''
+        }.`,
+      );
+    }
     const end = performance.now();
 
     // Track fixture status for autocomplete suggestions
