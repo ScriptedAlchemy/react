@@ -119,6 +119,7 @@ Bridge response validation currently enforces:
   - direct `require(...)`
   - sequence wrappers like `(0, require)(...)`
   - `module.require(...)` and global-module forms (`globalThis.module.require(...)`, `global.module['require'](...)`, `window.module.require(...)`, `self.module['require'](...)`)
+  - sequence-call wrappers for global-module aliases (e.g. `(0, window.module.require)(...)`, `(0, self.module['require'])(...)`)
   - escaped/unicode computed property variants for `module` / `require` keys
   - nested computed chains such as `globalThis['module']['require'](...)`
   - mixed member/computed chains such as `globalThis.module['require'](...)` and `self['module'].require(...)`
