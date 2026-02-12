@@ -61,6 +61,7 @@ function resolveRustManifestPath(): string {
   const checkedCandidates = new Set<string>();
   if (explicitPath != null && explicitPath.length > 0) {
     candidates.add(explicitPath);
+    candidates.add(path.resolve(explicitPath));
   }
 
   let currentDir = process.cwd();
@@ -96,6 +97,15 @@ function resolveRustCliInvocation(manifestPath: string): {
 } {
   const explicitBinary = process.env['REACT_COMPILER_RUST_CLI_BIN'];
   if (explicitBinary != null && explicitBinary.length > 0) {
+    if (/[\\/]/.test(explicitBinary)) {
+      const resolvedBinary = path.resolve(explicitBinary);
+      if (!fs.existsSync(resolvedBinary)) {
+        throw new Error(
+          `REACT_COMPILER_RUST_CLI_BIN points to a missing binary: ${resolvedBinary}`,
+        );
+      }
+      return {command: resolvedBinary, args: []};
+    }
     return {command: explicitBinary, args: []};
   }
 
