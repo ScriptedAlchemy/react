@@ -159,7 +159,7 @@ Bridge response validation currently enforces:
 - Runtime helper alias detection recognizes:
   - direct `require(...)`
   - object destructure aliases (e.g. `const { c: cache } = runtime`)
-  - defaulted object destructure aliases (e.g. `const { c: cache = fallback } = runtime`, `const { ['c']: cache = fallback } = runtime`)
+  - defaulted object destructure aliases (e.g. `const { c: cache = fallback } = runtime`, `const { ['c']: cache = fallback } = runtime`, `const { ['\\x63']: cache = fallback } = runtime`)
   - sequence wrappers like `(0, require)(...)`
   - `module.require(...)` and global-module forms (`globalThis.module.require(...)`, `global.module['require'](...)`, `window.module.require(...)`, `self.module['require'](...)`)
   - sequence-call wrappers for global-module aliases (e.g. `(0, window.module.require)(...)`, `(0, self.module['require'])(...)`)
