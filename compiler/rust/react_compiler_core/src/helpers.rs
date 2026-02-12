@@ -736,9 +736,13 @@ fn static_abstract_equality(left: StaticPrimitive, right: StaticPrimitive) -> Op
             StaticPrimitive::Number(if value { 1.0 } else { 0.0 }),
         ),
         (StaticPrimitive::BigInt(left), StaticPrimitive::String(right))
-        | (StaticPrimitive::String(right), StaticPrimitive::BigInt(left)) => Some(
-            static_canonical_bigint_equality(&left, parse_js_bigint_string(&right)?),
-        ),
+        | (StaticPrimitive::String(right), StaticPrimitive::BigInt(left)) => {
+            Some(if let Some(parsed_bigint) = parse_js_bigint_string(&right) {
+                static_canonical_bigint_equality(&left, parsed_bigint)
+            } else {
+                false
+            })
+        }
         (StaticPrimitive::BigInt(left), StaticPrimitive::Number(right))
         | (StaticPrimitive::Number(right), StaticPrimitive::BigInt(left)) => {
             static_number_bigint_equality(right, &left)
@@ -955,28 +959,37 @@ fn parse_js_bigint_string(value: &str) -> Option<String> {
         return None;
     }
 
-    let (sign, unsigned_body) = if let Some(rest) = trimmed.strip_prefix('-') {
-        (-1, rest)
+    let (had_explicit_sign, sign, unsigned_body) = if let Some(rest) = trimmed.strip_prefix('-') {
+        (true, -1, rest)
     } else if let Some(rest) = trimmed.strip_prefix('+') {
-        (1, rest)
+        (true, 1, rest)
     } else {
-        (1, trimmed)
+        (false, 1, trimmed)
     };
 
     let canonical_unsigned = if let Some(hex_digits) = unsigned_body
         .strip_prefix("0x")
         .or_else(|| unsigned_body.strip_prefix("0X"))
     {
+        if had_explicit_sign {
+            return None;
+        }
         convert_radix_bigint_to_decimal(hex_digits, 16)?
     } else if let Some(octal_digits) = unsigned_body
         .strip_prefix("0o")
         .or_else(|| unsigned_body.strip_prefix("0O"))
     {
+        if had_explicit_sign {
+            return None;
+        }
         convert_radix_bigint_to_decimal(octal_digits, 8)?
     } else if let Some(binary_digits) = unsigned_body
         .strip_prefix("0b")
         .or_else(|| unsigned_body.strip_prefix("0B"))
     {
+        if had_explicit_sign {
+            return None;
+        }
         convert_radix_bigint_to_decimal(binary_digits, 2)?
     } else {
         let (_, decimal_digits) = normalize_decimal_bigint_string(unsigned_body)?;
