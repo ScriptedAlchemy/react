@@ -91,7 +91,7 @@ Non-zero Rust CLI exits surface whichever stdio stream contains output
 Bridge response validation currently enforces:
 
 - `status: "ok" | "error"`
-- `ok` includes string `code`
+- `ok` includes non-empty string `code`
 - optional `ok.react_functions` entries require:
   - `name: string`
   - `kind: "Component" | "Hook"`
@@ -99,6 +99,7 @@ Bridge response validation currently enforces:
 - optional `ok.debug_ir`, when present, must be a string
 - `error` includes string fields:
   `code`, `category`, `reason`, `severity`, `message`
+- required string fields are validated as non-empty
 - validated `error.category` values: `request`, `syntax`, `internal`
 - validated `error.severity` values: `error`, `warning`, `hint`, `off`
 - optional `error.location`, when present, must include numeric:
