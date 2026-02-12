@@ -274,9 +274,9 @@ function assertRustCompileResponseShape(
   }
 
   if (status === 'ok') {
-    if (typeof payload['code'] !== 'string') {
+    if (typeof payload['code'] !== 'string' || payload['code'].length === 0) {
       throw new Error(
-        'Rust compiler CLI returned invalid ok payload (missing code string)',
+        'Rust compiler CLI returned invalid ok payload (code must be a non-empty string)',
       );
     }
     if (
@@ -327,13 +327,17 @@ function assertRustCompileResponseShape(
 
   if (
     typeof payload['code'] !== 'string' ||
+    payload['code'].length === 0 ||
     typeof payload['category'] !== 'string' ||
+    payload['category'].length === 0 ||
     typeof payload['reason'] !== 'string' ||
+    payload['reason'].length === 0 ||
     typeof payload['severity'] !== 'string' ||
+    payload['severity'].length === 0 ||
     typeof payload['message'] !== 'string'
   ) {
     throw new Error(
-      'Rust compiler CLI returned invalid error payload (missing required string fields)',
+      'Rust compiler CLI returned invalid error payload (required string fields must be present and non-empty)',
     );
   }
   const category = payload['category'];
