@@ -65,6 +65,11 @@ function resolveRustManifestPath(): string {
       fs.existsSync(resolvedExplicitPath) &&
       fs.statSync(resolvedExplicitPath).isFile()
     ) {
+      if (path.basename(resolvedExplicitPath) !== 'Cargo.toml') {
+        throw new Error(
+          `REACT_COMPILER_RUST_MANIFEST must point to a Cargo.toml file, got: ${resolvedExplicitPath}`,
+        );
+      }
       return resolvedExplicitPath;
     }
     throw new Error(
