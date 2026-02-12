@@ -1155,6 +1155,7 @@ function assertPlaceholderKindCountConsistency(
   const candidateCounts = countNamesByKind(candidateNames, reactFunctions);
   const transformedCounts = countNamesByKind(transformedNames, reactFunctions);
   const skippedCounts = countNamesByKind(skippedNames, reactFunctions);
+  assertNoDuplicateReactFunctionNamesByKind(reactFunctions);
   const candidateNamesSet = new Set(candidateNames);
   const transformedNamesSet = new Set(transformedNames);
   const skippedNamesSet = new Set(skippedNames);
@@ -1222,6 +1223,21 @@ function assertPlaceholderKindCountConsistency(
     throw new Error(
       'Rust compiler CLI returned invalid ok payload (placeholder_transform_skipped_hook_count does not match skipped names)',
     );
+  }
+}
+
+function assertNoDuplicateReactFunctionNamesByKind(
+  reactFunctions: Array<RustReactFunction>,
+): void {
+  const seenNamesByKind = new Set<string>();
+  for (const reactFunction of reactFunctions) {
+    const key = `${reactFunction.kind}:${reactFunction.name}`;
+    if (seenNamesByKind.has(key)) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (react_functions must not contain duplicate name/kind pairs)',
+      );
+    }
+    seenNamesByKind.add(key);
   }
 }
 

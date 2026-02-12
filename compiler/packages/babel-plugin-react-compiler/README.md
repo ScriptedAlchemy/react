@@ -51,7 +51,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `placeholder_transform_candidates` must include all detected `react_functions` names
   - each detected react function name must appear in transformed-or-skipped placeholder partitions
   - `react_functions` must be deterministically ordered by location/name/kind and
-    must not contain duplicate entries
+    must not contain duplicate entries or duplicate name/kind pairs
   - `placeholder_transform_status` must be one of
     `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`,
     with status/count consistency checks
