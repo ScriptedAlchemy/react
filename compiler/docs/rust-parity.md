@@ -193,6 +193,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(1 && 'require')]((0 || 'react/compiler-runtime'))`)
   - unary numeric truthy/falsy logical aliases
     (e.g. `module[((-1) && 'require')]((+0 || 'react/compiler-runtime'))`)
+  - arithmetic numeric truthy/falsy logical aliases
+    (e.g. `module[(((3 - 2) && 'require'))]((((2 - 2) || 'react/compiler-runtime')))`).
   - bigint truthy/falsy logical aliases with foldable bigint literals
     (e.g. `module[(1n && 'require')]((0n || 'react/compiler-runtime'))`)
   - object destructure aliases (e.g. `const { c: cache } = runtime`)

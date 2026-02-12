@@ -230,6 +230,19 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
 fn expression_static_number_value(expr: &Expr) -> Option<f64> {
     match unwrap_expression(expr) {
         Expr::Lit(Lit::Num(number_literal)) => Some(number_literal.value),
+        Expr::Bin(binary_expression) => {
+            let left = expression_static_number_value(binary_expression.left.as_ref())?;
+            let right = expression_static_number_value(binary_expression.right.as_ref())?;
+            match binary_expression.op {
+                BinaryOp::Add => Some(left + right),
+                BinaryOp::Sub => Some(left - right),
+                BinaryOp::Mul => Some(left * right),
+                BinaryOp::Div => Some(left / right),
+                BinaryOp::Mod => Some(left % right),
+                BinaryOp::Exp => Some(left.powf(right)),
+                _ => None,
+            }
+        }
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Plus => {
             expression_static_number_value(unary_expression.arg.as_ref())
         }
