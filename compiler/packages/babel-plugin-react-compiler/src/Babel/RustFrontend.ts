@@ -267,6 +267,57 @@ function createRustCompileErrorDetail(
   };
 }
 
+function emitRustCompileMetadataDebug(
+  logger: Logger | null,
+  rustResult: Extract<RustCompileResponse, {status: 'ok'}>,
+): void {
+  if (logger?.debugLogIRs == null) {
+    return;
+  }
+  const metadataPayload = {
+    statement_count: rustResult.statement_count,
+    statement_count_after_transform: rustResult.statement_count_after_transform,
+    placeholder_runtime_helper_import_count_before_transform:
+      rustResult.placeholder_runtime_helper_import_count_before_transform,
+    placeholder_runtime_helper_import_count_after_transform:
+      rustResult.placeholder_runtime_helper_import_count_after_transform,
+    placeholder_runtime_helper_import_added:
+      rustResult.placeholder_runtime_helper_import_added,
+    placeholder_runtime_callee_reused: rustResult.placeholder_runtime_callee_reused,
+    placeholder_runtime_callee_generated:
+      rustResult.placeholder_runtime_callee_generated,
+    placeholder_transform_status: rustResult.placeholder_transform_status,
+    placeholder_transform_candidates: rustResult.placeholder_transform_candidates,
+    placeholder_transform_skipped_functions:
+      rustResult.placeholder_transform_skipped_functions,
+    placeholder_transforms_applied: rustResult.placeholder_transforms_applied,
+    placeholder_transformed_functions: rustResult.placeholder_transformed_functions,
+    placeholder_runtime_callee_name_before_transform:
+      rustResult.placeholder_runtime_callee_name_before_transform ?? null,
+    placeholder_runtime_callee_candidates_before_transform:
+      rustResult.placeholder_runtime_callee_candidates_before_transform,
+    placeholder_runtime_namespace_candidates_before_transform:
+      rustResult.placeholder_runtime_namespace_candidates_before_transform,
+    placeholder_runtime_callee_name:
+      rustResult.placeholder_runtime_callee_name ?? null,
+    placeholder_runtime_callee_candidates:
+      rustResult.placeholder_runtime_callee_candidates,
+    placeholder_runtime_namespace_candidates:
+      rustResult.placeholder_runtime_namespace_candidates,
+    detected_react_functions: rustResult.detected_react_functions,
+    detected_component_function_count: rustResult.detected_component_function_count,
+    detected_hook_function_count: rustResult.detected_hook_function_count,
+    detected_component_functions: rustResult.detected_component_functions,
+    detected_hook_functions: rustResult.detected_hook_functions,
+    react_functions: rustResult.react_functions,
+  };
+  logger.debugLogIRs({
+    kind: 'debug',
+    name: 'RustFrontendCompileMetadata',
+    value: JSON.stringify(metadataPayload, null, 2),
+  });
+}
+
 export function maybeRunRustProgramCompiler(
   prog: NodePath<t.Program>,
   pass: BabelCore.PluginPass,
@@ -322,6 +373,7 @@ export function maybeRunRustProgramCompiler(
       value: rustResult.debug_ir,
     });
   }
+  emitRustCompileMetadataDebug(logger, rustResult);
   maybeApplyStrictRustProgramReplacement(
     prog,
     pass,

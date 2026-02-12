@@ -25,6 +25,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - bridge emits `CompileSuccess`, `CompileError`, and `PipelineError` events
   - `CompileSuccess` is emitted per detected React function with source location metadata when available
   - each `CompileSuccess` event also includes transform telemetry (`statementCount`, `statementCountAfterTransform`, `placeholderTransformsApplied`, `placeholderTransformStatus`, `detectedReactFunctions`)
+  - when `logger.debugLogIRs` is present, bridge emits both `RustFrontendDebugIR` and a structured `RustFrontendCompileMetadata` debug payload
   - Rust error categories are normalized for downstream lint consumers (`syntax -> Syntax`, `internal/request -> Invariant`).
   - Rust warning/hint/off severities are preserved in mapped compile-error detail when available.
   - compile-error detail payloads include the Rust error `code` for downstream handling.

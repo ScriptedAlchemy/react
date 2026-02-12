@@ -136,6 +136,9 @@ Bridge response validation currently enforces:
 ## Rust frontend behavior
 
 - Placeholder transforms are always enabled (`apply_placeholder_transforms: true`)
+- When compatibility logger debug hooks are enabled, Rust frontend emits:
+  - `RustFrontendDebugIR` (string debug IR from Rust CLI)
+  - `RustFrontendCompileMetadata` (serialized Rust-side transform/detection telemetry)
 - Dialect detection behavior:
   - `*.ts`/`*.tsx`/`*.mts`/`*.cts` => TypeScript
   - `*.flow` or `parserOpts.plugins` containing `flow` => Flow
