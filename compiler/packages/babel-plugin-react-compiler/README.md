@@ -34,6 +34,6 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - all other inputs default to JavaScript mode
 - Runtime helper alias reuse supports CommonJS/global patterns including
   `require(...)`, `module.require(...)`, and global module roots
-  (`globalThis`, `global`, `window`, `self`) across member/computed chains.
+  (`globalThis`, `global`, `window`, `self`) across member/computed/sequence chains.
 
 You can find usage documentation here: https://react.dev/learn/react-compiler
