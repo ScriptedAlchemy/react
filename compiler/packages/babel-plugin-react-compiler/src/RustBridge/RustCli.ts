@@ -325,6 +325,15 @@ function assertRustLocationPayload(
       `Rust compiler CLI returned invalid payload (${fieldName} must include non-negative integer start/end fields)`,
     );
   }
+  const startLine = locationRecord['start_line'] as number;
+  const startColumn = locationRecord['start_column'] as number;
+  const endLine = locationRecord['end_line'] as number;
+  const endColumn = locationRecord['end_column'] as number;
+  if (endLine < startLine || (endLine === startLine && endColumn < startColumn)) {
+    throw new Error(
+      `Rust compiler CLI returned invalid payload (${fieldName} end location must not precede start location)`,
+    );
+  }
 }
 
 function assertCompatibleRustCliProtocolVersion(
