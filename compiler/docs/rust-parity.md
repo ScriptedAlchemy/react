@@ -65,6 +65,7 @@ If `REACT_COMPILER_RUST_CLI_BIN` contains path separators, it is resolved to an
 absolute path and validated before invocation; bare command names are resolved via `PATH`.
 If `REACT_COMPILER_RUST_MANIFEST` is set, it is treated as authoritative and must
 resolve to an existing `Cargo.toml` file path.
+Explicit path-form overrides support `~` home-directory expansion.
 
 Additional bridge execution knobs:
 
