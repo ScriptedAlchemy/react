@@ -611,6 +611,46 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_truthy_string_conditional_member_assignment() {
+        let output = compile(
+            "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT['x' ? 'fn' : 'not-fn'] = component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_void_nullish_member_assignment() {
+        let output = compile(
+            "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(void false ?? 'fn')] = component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_logical_literal_member_assignment() {
         let output = compile(
             "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[true && 'fn'] = component;",
@@ -1112,6 +1152,49 @@ mod tests {
     fn detects_script_fixture_entrypoint_function_from_conditional_literal_member_assignment() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[true ? 'fn' : 'not-fn'] = render;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_truthy_string_conditional_member_assignment(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT['x' ? 'fn' : 'not-fn'] = render;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_void_nullish_member_assignment() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(void false ?? 'fn')] = render;",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
