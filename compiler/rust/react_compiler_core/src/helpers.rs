@@ -238,6 +238,26 @@ fn expression_static_number_value(expr: &Expr) -> Option<f64> {
         Expr::Lit(Lit::Num(number_literal)) => Some(number_literal.value),
         Expr::Lit(Lit::Bool(boolean_literal)) => Some(if boolean_literal.value { 1.0 } else { 0.0 }),
         Expr::Lit(Lit::Null(_)) => Some(0.0),
+        Expr::Seq(sequence_expression) => {
+            if sequence_expression.exprs.is_empty() {
+                return None;
+            }
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+                expression_static_number_value(sequence_item.as_ref())?;
+            }
+            sequence_expression
+                .exprs
+                .last()
+                .and_then(|expression| expression_static_number_value(expression.as_ref()))
+        }
+        Expr::Cond(conditional_expression) => {
+            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            if test_truthy {
+                expression_static_number_value(conditional_expression.cons.as_ref())
+            } else {
+                expression_static_number_value(conditional_expression.alt.as_ref())
+            }
+        }
         Expr::Bin(binary_expression) => {
             let left = expression_static_number_value(binary_expression.left.as_ref())?;
             let right = expression_static_number_value(binary_expression.right.as_ref())?;
@@ -248,6 +268,27 @@ fn expression_static_number_value(expr: &Expr) -> Option<f64> {
                 BinaryOp::Div => Some(left / right),
                 BinaryOp::Mod => Some(left % right),
                 BinaryOp::Exp => Some(left.powf(right)),
+                BinaryOp::LogicalAnd => {
+                    if expression_static_truthiness_value(binary_expression.left.as_ref())? {
+                        Some(right)
+                    } else {
+                        Some(left)
+                    }
+                }
+                BinaryOp::LogicalOr => {
+                    if expression_static_truthiness_value(binary_expression.left.as_ref())? {
+                        Some(left)
+                    } else {
+                        Some(right)
+                    }
+                }
+                BinaryOp::NullishCoalescing => {
+                    if expression_is_static_nullish(binary_expression.left.as_ref()) {
+                        Some(right)
+                    } else {
+                        Some(left)
+                    }
+                }
                 _ => None,
             }
         }
