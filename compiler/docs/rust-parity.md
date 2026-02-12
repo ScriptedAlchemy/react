@@ -125,6 +125,7 @@ Bridge response validation currently enforces:
   - mixed member/computed chains such as `globalThis.module['require'](...)` and `self['module'].require(...)`
   - sequence wrappers around intermediate module roots/chains (e.g. `(0, window.module).require(...)`, `(0, self['module'])['require'](...)`)
   - direct/chain variants on browser-like globals (`window.module.require(...)`, `window['module']['require'](...)`, `self.module.require(...)`, `self['module']['require'](...)`)
+  - nested global-root chains before `module` (e.g. `globalThis.window.module.require(...)`, `global.self.module['require'](...)`)
 - Rust output is used directly for AST replacement
 - Compatibility logger events are emitted for:
   - `CompileSuccess` (per detected React function when locations are available)
