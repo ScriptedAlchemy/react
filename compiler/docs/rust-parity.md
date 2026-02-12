@@ -95,6 +95,11 @@ Bridge invocation errors include the full resolved command + arguments.
 - Request-side bridge validation requires non-negative integer `protocol_version`
   when explicitly provided.
 - numeric string request versions (e.g. `"1"`) are coerced and validated.
+- request payload shape validation requires:
+  - `source` is a string
+  - optional `filename` is non-empty string
+  - optional `is_module` / `apply_placeholder_transforms` / `emit_debug_ir` are booleans
+  - optional `dialect` is one of `javascript | typescript | flow`
 - Response may include `protocol_version` on `ok` and `error`
 - `protocol_version` values in responses must be integers and non-negative
 - Unsupported request versions are rejected with:

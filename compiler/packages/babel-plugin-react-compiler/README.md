@@ -36,6 +36,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `error.category` in `{request, syntax, internal}`
   - `error.severity` in `{error, warning, hint, off}`
   - required response string fields must be present and non-empty
+  - request payload validation for runtime consumers:
+    `source` string required; optional `filename` non-empty string;
+    optional flags (`is_module`, `apply_placeholder_transforms`, `emit_debug_ir`) must be booleans
   - explicitly provided request `protocol_version` must be a non-negative integer
     (numeric strings are coerced and validated)
 - Dialect selection:

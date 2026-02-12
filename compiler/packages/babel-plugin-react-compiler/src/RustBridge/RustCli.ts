@@ -281,11 +281,7 @@ export function runRustCompilerCli(
   const invocationSummary = [invocation.command, ...invocation.args].join(' ');
   const timeoutMs = resolveRustCliTimeoutMs();
   const maxBufferBytes = resolveRustCliMaxBufferBytes();
-  const protocolVersion = resolveRequestProtocolVersion(request.protocol_version);
-  const requestPayload: RustCompileRequest = {
-    ...request,
-    protocol_version: protocolVersion,
-  };
+  const requestPayload = normalizeRustCompileRequest(request);
 
   const result = spawnSync(invocation.command, invocation.args, {
     input: JSON.stringify(requestPayload),
@@ -331,6 +327,71 @@ export function runRustCompilerCli(
   assertRustCompileResponseShape(response);
   assertCompatibleRustCliProtocolVersion(response);
   return response;
+}
+
+function normalizeRustCompileRequest(request: RustCompileRequest): RustCompileRequest {
+  if (request == null || typeof request !== 'object') {
+    throw new Error('Rust compiler CLI request must be a JSON object');
+  }
+  if (typeof request.source !== 'string') {
+    throw new Error('Rust compiler CLI request source must be a string');
+  }
+  const normalizedRequest: RustCompileRequest = {
+    source: request.source,
+  };
+  if (request.filename != null) {
+    if (typeof request.filename !== 'string' || request.filename.length === 0) {
+      throw new Error(
+        'Rust compiler CLI request filename must be a non-empty string when present',
+      );
+    }
+    normalizedRequest.filename = request.filename;
+  }
+  if (request.dialect != null) {
+    normalizedRequest.dialect = normalizeRequestDialect(request.dialect);
+  }
+  if (request.is_module != null) {
+    if (typeof request.is_module !== 'boolean') {
+      throw new Error(
+        'Rust compiler CLI request is_module must be a boolean when present',
+      );
+    }
+    normalizedRequest.is_module = request.is_module;
+  }
+  if (request.apply_placeholder_transforms != null) {
+    if (typeof request.apply_placeholder_transforms !== 'boolean') {
+      throw new Error(
+        'Rust compiler CLI request apply_placeholder_transforms must be a boolean when present',
+      );
+    }
+    normalizedRequest.apply_placeholder_transforms =
+      request.apply_placeholder_transforms;
+  }
+  if (request.emit_debug_ir != null) {
+    if (typeof request.emit_debug_ir !== 'boolean') {
+      throw new Error(
+        'Rust compiler CLI request emit_debug_ir must be a boolean when present',
+      );
+    }
+    normalizedRequest.emit_debug_ir = request.emit_debug_ir;
+  }
+  normalizedRequest.protocol_version = resolveRequestProtocolVersion(
+    request.protocol_version,
+  );
+  return normalizedRequest;
+}
+
+function normalizeRequestDialect(
+  dialect: RustCompileRequest['dialect'],
+): 'javascript' | 'typescript' | 'flow' {
+  if (dialect === 'javascript' || dialect === 'typescript' || dialect === 'flow') {
+    return dialect;
+  }
+  throw new Error(
+    `Rust compiler CLI request dialect must be one of javascript/typescript/flow, got: ${String(
+      dialect,
+    )}`,
+  );
 }
 
 function resolveRequestProtocolVersion(raw: unknown): number {
