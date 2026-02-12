@@ -106,10 +106,16 @@ Bridge response validation currently enforces:
 
 - `status: "ok" | "error"`
 - `ok` includes non-empty string `code`
-- optional `ok.react_functions` entries require:
+- `ok.react_functions` is required and entries require:
   - `name: non-empty string`
   - `kind: "Component" | "Hook"`
   - optional `loc` with numeric source coordinates
+- strict `ok` metadata telemetry validation:
+  - non-negative integer counters for statement/transform metrics
+  - boolean state flags for helper import/callee reuse generation state
+  - string-array telemetry payloads for candidate/skipped/transformed names
+  - count fields must match their corresponding array lengths
+  - `detected_react_functions` must match `react_functions.length`
 - optional `ok.debug_ir`, when present, must be a string
 - `error` includes string fields:
   `code`, `category`, `reason`, `severity`, `message`

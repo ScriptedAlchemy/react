@@ -29,6 +29,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - compile-error detail payloads include the Rust error `code` for downstream handling.
   - explicit event type aliases are exported for consumers (`CompileSuccessEvent`, `CompileErrorEvent`, `CompileDiagnosticEvent`, `PipelineErrorEvent`).
 - Rust bridge response validation accepts:
+  - `ok` payload metadata contract fields with strict type/count checks
+    (numeric counters, boolean state flags, string-array telemetry lists)
+  - telemetry count fields must match their corresponding list lengths
   - `error.category` in `{request, syntax, internal}`
   - `error.severity` in `{error, warning, hint, off}`
   - required response string fields must be present and non-empty
