@@ -94,5 +94,8 @@ Parity JSON reports include mismatch counts and section-level diffs:
 - logs
 - error
 
+Report payloads include `firstRun*` / `secondRun*` fields and retain legacy
+`babel*` / `rust*` aliases for compatibility with older tooling.
+
 This helps isolate semantic mismatches from formatting/logging noise.
 
