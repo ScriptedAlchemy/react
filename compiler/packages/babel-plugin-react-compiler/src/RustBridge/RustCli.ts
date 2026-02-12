@@ -11,7 +11,7 @@ import {spawnSync} from 'child_process';
 import {RUST_CLI_PROTOCOL_VERSION} from './RustCliProtocol';
 
 const DEFAULT_RUST_CLI_TIMEOUT_MS = 60_000;
-const RUST_CLI_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+const DEFAULT_RUST_CLI_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 
 export type RustCompileRequest = {
   source: string;
@@ -133,12 +133,27 @@ function resolveRustCliTimeoutMs(): number {
   return parsed;
 }
 
+function resolveRustCliMaxBufferBytes(): number {
+  const raw = process.env['REACT_COMPILER_RUST_CLI_MAX_BUFFER_BYTES'];
+  if (raw == null || raw.length === 0) {
+    return DEFAULT_RUST_CLI_MAX_BUFFER_BYTES;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      `REACT_COMPILER_RUST_CLI_MAX_BUFFER_BYTES must be a positive integer, got: ${raw}`,
+    );
+  }
+  return parsed;
+}
+
 export function runRustCompilerCli(
   request: RustCompileRequest,
 ): RustCompileResponse {
   const manifestPath = resolveRustManifestPath();
   const invocation = resolveRustCliInvocation(manifestPath);
   const timeoutMs = resolveRustCliTimeoutMs();
+  const maxBufferBytes = resolveRustCliMaxBufferBytes();
   const requestPayload: RustCompileRequest = {
     ...request,
     protocol_version: request.protocol_version ?? RUST_CLI_PROTOCOL_VERSION,
@@ -148,7 +163,7 @@ export function runRustCompilerCli(
     input: JSON.stringify(requestPayload),
     encoding: 'utf-8',
     timeout: timeoutMs,
-    maxBuffer: RUST_CLI_MAX_BUFFER_BYTES,
+    maxBuffer: maxBufferBytes,
   });
 
   if (result.error != null) {
