@@ -249,6 +249,14 @@ function assertRustCompileResponseShape(
         'Rust compiler CLI returned invalid ok payload (missing code string)',
       );
     }
+    if (
+      payload['debug_ir'] != null &&
+      typeof payload['debug_ir'] !== 'string'
+    ) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (debug_ir must be a string when present)',
+      );
+    }
     const reactFunctions = payload['react_functions'];
     if (reactFunctions == null) {
       return;
