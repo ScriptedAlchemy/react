@@ -535,6 +535,7 @@ function assertRustCompileResponseShape(
         loc: fnLoc,
       });
     }
+    assertSortedReactFunctions(validatedReactFunctions);
     assertRustOkMetadataPayload(payload, validatedReactFunctions);
     return;
   }
@@ -1151,6 +1152,69 @@ function areEqualStringArrays(left: Array<string>, right: Array<string>): boolea
     }
   }
   return true;
+}
+
+function assertSortedReactFunctions(reactFunctions: Array<RustReactFunction>): void {
+  for (let index = 1; index < reactFunctions.length; index++) {
+    const previous = reactFunctions[index - 1];
+    const current = reactFunctions[index];
+    const comparison = compareReactFunctionSortOrder(previous, current);
+    if (comparison === 0) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (react_functions must not contain duplicate entries)',
+      );
+    }
+    if (comparison > 0) {
+      throw new Error(
+        'Rust compiler CLI returned invalid ok payload (react_functions must be sorted by location, name, and kind)',
+      );
+    }
+  }
+}
+
+function compareReactFunctionSortOrder(
+  left: RustReactFunction,
+  right: RustReactFunction,
+): number {
+  const leftKey = reactFunctionSortKey(left);
+  const rightKey = reactFunctionSortKey(right);
+  return compareKeyTuple(leftKey, rightKey);
+}
+
+function reactFunctionSortKey(
+  reactFunction: RustReactFunction,
+): [number, number, number, number, string, RustReactFunction['kind']] {
+  if (reactFunction.loc == null) {
+    return [
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+      reactFunction.name,
+      reactFunction.kind,
+    ];
+  }
+  return [
+    reactFunction.loc.start_line,
+    reactFunction.loc.start_column,
+    reactFunction.loc.end_line,
+    reactFunction.loc.end_column,
+    reactFunction.name,
+    reactFunction.kind,
+  ];
+}
+
+function compareKeyTuple(
+  left: [number, number, number, number, string, RustReactFunction['kind']],
+  right: [number, number, number, number, string, RustReactFunction['kind']],
+): number {
+  for (let index = 0; index < left.length; index++) {
+    if (left[index] === right[index]) {
+      continue;
+    }
+    return left[index] < right[index] ? -1 : 1;
+  }
+  return 0;
 }
 
 function assertArrayCountMatchesField(

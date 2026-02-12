@@ -138,6 +138,8 @@ Bridge response validation currently enforces:
     exactly into `placeholder_transform_candidates`
   - `detected_component_functions` / `detected_hook_functions` must align with
     kind-partitioned names from `react_functions`
+  - `react_functions` ordering is validated as deterministic
+    (location -> name -> kind), with duplicate entries rejected
   - `placeholder_transform_status` enum validation:
     `disabled | no_candidates | transformed | blocked_missing_runtime_callee | no_op`
     with count/status coherence checks
