@@ -157,6 +157,12 @@ async function readOutputFixtures(
 export async function getFixtures(
   filter: TestFilter | null,
 ): Promise<Map<string, TestFixture>> {
+  try {
+    await fs.access(FIXTURES_PATH);
+  } catch {
+    return new Map();
+  }
+
   const inputs = await readInputFixtures(FIXTURES_PATH, filter);
   const outputs = await readOutputFixtures(FIXTURES_PATH, filter);
 
