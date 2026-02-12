@@ -200,6 +200,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((('b' > 'a') ? 'require' : 'nope'))]((((1 < 2) ? 'react/compiler-runtime' : 'nope')))` )
   - static BigInt-to-BigInt relational conditionals
     (e.g. `module[(((2n > 1n) ? 'require' : 'nope'))]((((1n < 2n) ? 'react/compiler-runtime' : 'nope')))` )
+  - static BigInt-to-Number relational conditionals when number side is a foldable safe integer
+    (e.g. `module[(((2 > 1n) ? 'require' : 'nope'))]((((1n < 2) ? 'react/compiler-runtime' : 'nope')))` )
   - unary-minus BigInt truthiness in conditionals
     (e.g. `module[(((-1n) ? 'require' : 'nope'))]((((-1n) ? 'react/compiler-runtime' : 'nope')))` )
   - foldable `typeof` conditionals where operand type is statically known

@@ -785,6 +785,18 @@ fn static_relational_comparison(
         });
     }
 
+    if let (StaticPrimitive::BigInt(left_bigint), StaticPrimitive::Number(right_number)) =
+        (&left, &right)
+    {
+        return static_bigint_number_relational(left_bigint, *right_number, operator, true);
+    }
+
+    if let (StaticPrimitive::Number(left_number), StaticPrimitive::BigInt(right_bigint)) =
+        (&left, &right)
+    {
+        return static_bigint_number_relational(right_bigint, *left_number, operator, false);
+    }
+
     if let (StaticPrimitive::String(left_string), StaticPrimitive::String(right_string)) =
         (&left, &right)
     {
@@ -835,6 +847,68 @@ fn static_bigint_decimal_compare(left: &str, right: &str) -> Option<std::cmp::Or
     }
 
     Some(ordering)
+}
+
+fn static_bigint_number_relational(
+    bigint: &str,
+    number: f64,
+    operator: BinaryOp,
+    bigint_is_left: bool,
+) -> Option<bool> {
+    use std::cmp::Ordering;
+
+    if number.is_nan() {
+        return Some(false);
+    }
+
+    if number == f64::INFINITY {
+        return Some(match (bigint_is_left, operator) {
+            (true, BinaryOp::Lt | BinaryOp::LtEq) => true,
+            (true, BinaryOp::Gt | BinaryOp::GtEq) => false,
+            (false, BinaryOp::Lt | BinaryOp::LtEq) => false,
+            (false, BinaryOp::Gt | BinaryOp::GtEq) => true,
+            _ => return None,
+        });
+    }
+
+    if number == f64::NEG_INFINITY {
+        return Some(match (bigint_is_left, operator) {
+            (true, BinaryOp::Lt | BinaryOp::LtEq) => false,
+            (true, BinaryOp::Gt | BinaryOp::GtEq) => true,
+            (false, BinaryOp::Lt | BinaryOp::LtEq) => true,
+            (false, BinaryOp::Gt | BinaryOp::GtEq) => false,
+            _ => return None,
+        });
+    }
+
+    if number.fract() != 0.0 {
+        return None;
+    }
+
+    const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+    if number.abs() > MAX_SAFE_INTEGER {
+        return None;
+    }
+
+    let number_bigint = (number as i64).to_string();
+    let ordering = static_bigint_decimal_compare(bigint, &number_bigint)?;
+    let effective_ordering = if bigint_is_left {
+        ordering
+    } else {
+        ordering.reverse()
+    };
+
+    Some(match operator {
+        BinaryOp::Lt => effective_ordering == Ordering::Less,
+        BinaryOp::LtEq => {
+            effective_ordering == Ordering::Less || effective_ordering == Ordering::Equal
+        }
+        BinaryOp::Gt => effective_ordering == Ordering::Greater,
+        BinaryOp::GtEq => {
+            effective_ordering == Ordering::Greater || effective_ordering == Ordering::Equal
+        }
+        _ => return None,
+    })
 }
 
 fn normalize_decimal_bigint_string(value: &str) -> Option<(i8, &str)> {
