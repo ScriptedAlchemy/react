@@ -6,6 +6,7 @@
  */
 
 import watcher from '@parcel/watcher';
+import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 import {FIXTURES_PATH, BABEL_PLUGIN_ROOT} from './constants';
@@ -133,6 +134,12 @@ function subscribeFixtures(
   state: RunnerState,
   onChange: (state: RunnerState) => void,
 ) {
+  if (!fs.existsSync(FIXTURES_PATH)) {
+    console.warn(
+      `Skipping fixture watch subscription: ${FIXTURES_PATH} does not exist`,
+    );
+    return;
+  }
   // Watch the fixtures directory for changes
   watcher.subscribe(FIXTURES_PATH, async (err, _events) => {
     if (err) {
