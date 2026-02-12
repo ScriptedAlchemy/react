@@ -109,8 +109,10 @@ pub(crate) fn extract_runtime_callee_from_object_pat(
                 if !is_prop_name_with(&key_value.key, "c") {
                     continue;
                 }
-                if let Pat::Ident(binding) = key_value.value.as_ref() {
-                    return Some(binding.id.sym.to_string());
+                if let Some(binding_name) =
+                    extract_runtime_callee_binding_name_from_pat(key_value.value.as_ref())
+                {
+                    return Some(binding_name);
                 }
             }
             swc_ecma_ast::ObjectPatProp::Assign(assign) if assign.key.id.sym == *"c" => {
@@ -120,6 +122,17 @@ pub(crate) fn extract_runtime_callee_from_object_pat(
         }
     }
     None
+}
+
+fn extract_runtime_callee_binding_name_from_pat(pattern: &Pat) -> Option<String> {
+    match pattern {
+        Pat::Ident(binding) => Some(binding.id.sym.to_string()),
+        Pat::Assign(assign_pat) => match assign_pat.left.as_ref() {
+            Pat::Ident(binding) => Some(binding.id.sym.to_string()),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 pub(crate) fn is_require_runtime_call(expr: &Expr) -> bool {

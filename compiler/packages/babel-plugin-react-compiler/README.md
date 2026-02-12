@@ -51,5 +51,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
 - Runtime helper alias reuse supports CommonJS/global patterns including
   `require(...)`, `module.require(...)`, and global module roots
   (`globalThis`, `global`, `window`, `self`) across member/computed/sequence chains.
+  Destructured `c` aliases with default patterns are recognized too
+  (e.g. `const {c: cache = fallback} = runtime`).
 
 You can find usage documentation here: https://react.dev/learn/react-compiler
