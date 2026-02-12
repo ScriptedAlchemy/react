@@ -117,7 +117,7 @@ Bridge response validation currently enforces:
 - Runtime helper alias detection recognizes:
   - direct `require(...)`
   - sequence wrappers like `(0, require)(...)`
-  - `module.require(...)` and global-module forms (`globalThis.module.require(...)`, `global.module['require'](...)`)
+  - `module.require(...)` and global-module forms (`globalThis.module.require(...)`, `global.module['require'](...)`, `window.module.require(...)`, `self.module['require'](...)`)
   - escaped/unicode computed property variants for `module` / `require` keys
   - nested computed chains such as `globalThis['module']['require'](...)`
 - Rust output is used directly for AST replacement
