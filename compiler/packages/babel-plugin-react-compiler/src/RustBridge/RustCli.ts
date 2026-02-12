@@ -172,7 +172,13 @@ function resolveRustCliInvocation(manifestPath: string): {
       }
       return {command: resolvedBinary, args: []};
     }
-    return {command: explicitBinary, args: []};
+    const resolvedCommand = resolveCommandFromPath(explicitBinary);
+    if (resolvedCommand == null) {
+      throw new Error(
+        `REACT_COMPILER_RUST_CLI_BIN command is not available on PATH: ${explicitBinary}`,
+      );
+    }
+    return {command: resolvedCommand, args: []};
   }
 
   const usePrebuiltBinary =
@@ -215,6 +221,41 @@ function resolveRustCliInvocation(manifestPath: string): {
       'react_compiler_cli',
     ],
   };
+}
+
+function resolveCommandFromPath(commandName: string): string | null {
+  const envPath = process.env['PATH'];
+  if (envPath == null || envPath.length === 0) {
+    return null;
+  }
+  const pathEntries = envPath.split(path.delimiter).filter(entry => entry.length > 0);
+  const extensions =
+    process.platform === 'win32'
+      ? (process.env['PATHEXT'] ?? '.COM;.EXE;.BAT;.CMD')
+          .split(';')
+          .filter(extension => extension.length > 0)
+      : [''];
+
+  for (const pathEntry of pathEntries) {
+    for (const extension of extensions) {
+      const normalizedExtension =
+        extension.length > 0 && !extension.startsWith('.') ? `.${extension}` : extension;
+      const candidate = path.join(pathEntry, `${commandName}${normalizedExtension}`);
+      if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
+        continue;
+      }
+      if (process.platform !== 'win32') {
+        try {
+          fs.accessSync(candidate, fs.constants.X_OK);
+        } catch {
+          continue;
+        }
+      }
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 function isEnabledEnvironmentVariable(name: string): boolean {
