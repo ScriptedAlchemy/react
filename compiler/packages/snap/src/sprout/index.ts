@@ -45,22 +45,22 @@ export function runSprout(
     return makeError('Unexpected error in compiler runner', compiledResult.value);
   }
   if (originalCode.indexOf('@disableNonForgetInSprout') === -1) {
-    const nonForgetResult = doEval(originalCode);
+    const originalResult = doEval(originalCode);
 
-    if (nonForgetResult.kind === 'UnexpectedError') {
+    if (originalResult.kind === 'UnexpectedError') {
       return makeError(
         'Unexpected error in uncompiled runner',
-        nonForgetResult.value,
+        originalResult.value,
       );
     } else if (
-      compiledResult.kind !== nonForgetResult.kind ||
-      compiledResult.value !== nonForgetResult.value ||
-      !logsEqual(compiledResult.logs, nonForgetResult.logs)
+      compiledResult.kind !== originalResult.kind ||
+      compiledResult.value !== originalResult.value ||
+      !logsEqual(compiledResult.logs, originalResult.logs)
     ) {
       return makeError(
         'Found differences in evaluator results',
         `Uncompiled (expected):
-${stringify(nonForgetResult)}
+${stringify(originalResult)}
 Compiled:
 ${stringify(compiledResult)}
 `,
