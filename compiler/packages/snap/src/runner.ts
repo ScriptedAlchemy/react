@@ -977,7 +977,7 @@ async function onChange(
     console.log(`Completed in ${Math.floor(end - start)} ms`);
   } else {
     console.error(
-      `${mode}: Found errors in compiler source code, skipping test fixtures.`,
+      `${mode.action}: Found errors in compiler source code, skipping test fixtures.`,
     );
   }
   console.log(
