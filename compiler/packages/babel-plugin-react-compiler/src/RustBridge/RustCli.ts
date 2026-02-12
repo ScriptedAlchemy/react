@@ -317,6 +317,18 @@ function assertRustCompileResponseShape(
       'Rust compiler CLI returned invalid error payload (missing required string fields)',
     );
   }
+  const category = payload['category'];
+  if (
+    category !== 'request' &&
+    category !== 'syntax' &&
+    category !== 'internal'
+  ) {
+    throw new Error(
+      `Rust compiler CLI returned invalid error payload (unsupported category: ${String(
+        category,
+      )})`,
+    );
+  }
   const severity = (payload['severity'] as string).toLowerCase();
   if (
     severity !== 'error' &&
