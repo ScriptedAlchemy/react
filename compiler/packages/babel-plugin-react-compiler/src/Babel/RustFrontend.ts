@@ -218,11 +218,26 @@ function mapRustErrorResultToLegacySeverity(
   }
 }
 
+function mapRustErrorCodeToLegacyCategory(
+  code: string,
+  fallbackCategory: ErrorCategory,
+): ErrorCategory {
+  switch (code) {
+    case 'unsupported_flow_syntax':
+      return ErrorCategory.UnsupportedSyntax;
+    default:
+      return fallbackCategory;
+  }
+}
+
 function createRustCompileErrorDetail(
   result: Extract<RustCompileResponse, {status: 'error'}>,
   filename: string | null,
 ): CompilerErrorDetailOptions {
-  const legacyCategory = mapRustCategoryToLegacyCategory(result.category);
+  const legacyCategory = mapRustErrorCodeToLegacyCategory(
+    result.code,
+    mapRustCategoryToLegacyCategory(result.category),
+  );
   const severity = mapRustErrorResultToLegacySeverity(result);
   const loc = toLegacySourceLocation(result.location, filename);
   return {
