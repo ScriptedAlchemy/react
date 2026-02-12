@@ -222,17 +222,18 @@ function maybeApplyStrictRustProgramReplacement(
       dialect,
       sourceType,
     );
-  } catch {
+  } catch (error) {
     const reason = 'rust_frontend_parse_failure';
+    const causeMessage =
+      error instanceof Error ? error.message : String(error);
+    const message = `[RustCompiler:${reason}] failed to parse rust output for replacement: ${causeMessage}`;
     const logger = getRustFrontendLogger(pass);
     emitLoggerEvent(logger, pass.filename ?? null, {
       kind: 'PipelineError',
       fnLoc: null,
-      data: `[RustCompiler:${reason}] failed to parse rust output for replacement`,
+      data: message,
     });
-    throw new Error(
-      `[RustCompiler:${reason}] failed to parse rust output for replacement`,
-    );
+    throw new Error(message);
   }
 
   prog.node.body = parsed.program.body;
