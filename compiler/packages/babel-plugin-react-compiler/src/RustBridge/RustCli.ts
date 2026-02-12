@@ -138,7 +138,10 @@ function resolveRustCliInvocation(manifestPath: string): {
       'debug',
       binaryName,
     );
-    if (fs.existsSync(debugBinaryPath)) {
+    if (
+      fs.existsSync(debugBinaryPath) &&
+      fs.statSync(debugBinaryPath).isFile()
+    ) {
       return {command: debugBinaryPath, args: []};
     }
   }
