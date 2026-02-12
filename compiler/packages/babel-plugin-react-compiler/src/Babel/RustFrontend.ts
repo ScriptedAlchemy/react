@@ -23,7 +23,10 @@ import {
   type RustSourceLocation,
 } from '../RustBridge/RustCli';
 
-function hasTypeScriptParserPlugin(pass: BabelCore.PluginPass): boolean {
+function hasParserPlugin(
+  pass: BabelCore.PluginPass,
+  pluginName: 'typescript' | 'flow',
+): boolean {
   const parserOpts = (
     pass.file as {
       opts?: {
@@ -37,33 +40,10 @@ function hasTypeScriptParserPlugin(pass: BabelCore.PluginPass): boolean {
   }
   return parserPlugins.some(pluginEntry => {
     if (typeof pluginEntry === 'string') {
-      return pluginEntry === 'typescript';
+      return pluginEntry === pluginName;
     }
     if (Array.isArray(pluginEntry) && pluginEntry.length > 0) {
-      return pluginEntry[0] === 'typescript';
-    }
-    return false;
-  });
-}
-
-function hasFlowParserPlugin(pass: BabelCore.PluginPass): boolean {
-  const parserOpts = (
-    pass.file as {
-      opts?: {
-        parserOpts?: {plugins?: Array<unknown>} | null;
-      };
-    }
-  )?.opts?.parserOpts;
-  const parserPlugins = parserOpts?.plugins;
-  if (!Array.isArray(parserPlugins)) {
-    return false;
-  }
-  return parserPlugins.some(pluginEntry => {
-    if (typeof pluginEntry === 'string') {
-      return pluginEntry === 'flow';
-    }
-    if (Array.isArray(pluginEntry) && pluginEntry.length > 0) {
-      return pluginEntry[0] === 'flow';
+      return pluginEntry[0] === pluginName;
     }
     return false;
   });
@@ -79,10 +59,10 @@ function detectRustDialect(
   if (filename != null && /\.flow$/i.test(filename)) {
     return 'flow';
   }
-  if (hasTypeScriptParserPlugin(pass)) {
+  if (hasParserPlugin(pass, 'typescript')) {
     return 'typescript';
   }
-  if (hasFlowParserPlugin(pass)) {
+  if (hasParserPlugin(pass, 'flow')) {
     return 'flow';
   }
   return 'javascript';
