@@ -6,12 +6,23 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import {spawnSync} from 'child_process';
 import {RUST_CLI_PROTOCOL_VERSION} from './RustCliProtocol';
 
 const DEFAULT_RUST_CLI_TIMEOUT_MS = 60_000;
 const DEFAULT_RUST_CLI_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+
+function resolvePossiblyTildePath(inputPath: string): string {
+  if (inputPath === '~') {
+    return os.homedir();
+  }
+  if (inputPath.startsWith('~/') || inputPath.startsWith('~\\')) {
+    return path.join(os.homedir(), inputPath.slice(2));
+  }
+  return path.resolve(inputPath);
+}
 
 export type RustCompileRequest = {
   source: string;
@@ -60,7 +71,7 @@ function resolveRustManifestPath(): string {
   const candidates = new Set<string>();
   const checkedCandidates = new Set<string>();
   if (explicitPath != null && explicitPath.length > 0) {
-    const resolvedExplicitPath = path.resolve(explicitPath);
+    const resolvedExplicitPath = resolvePossiblyTildePath(explicitPath);
     if (
       fs.existsSync(resolvedExplicitPath) &&
       fs.statSync(resolvedExplicitPath).isFile()
@@ -111,7 +122,7 @@ function resolveRustCliInvocation(manifestPath: string): {
   const explicitBinary = process.env['REACT_COMPILER_RUST_CLI_BIN'];
   if (explicitBinary != null && explicitBinary.length > 0) {
     if (/[\\/]/.test(explicitBinary)) {
-      const resolvedBinary = path.resolve(explicitBinary);
+      const resolvedBinary = resolvePossiblyTildePath(explicitBinary);
       if (
         !fs.existsSync(resolvedBinary) ||
         !fs.statSync(resolvedBinary).isFile()
