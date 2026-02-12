@@ -472,6 +472,13 @@ function assertCompatibleRustCliProtocolVersion(
       )}`,
     );
   }
+  if ((protocolVersion as number) < 0) {
+    throw new Error(
+      `Rust compiler CLI returned negative protocol_version: ${String(
+        protocolVersion,
+      )}`,
+    );
+  }
   if (protocolVersion !== RUST_CLI_PROTOCOL_VERSION) {
     throw new Error(
       `Rust compiler CLI protocol_version mismatch. Expected ${RUST_CLI_PROTOCOL_VERSION}, received ${protocolVersion}`,
