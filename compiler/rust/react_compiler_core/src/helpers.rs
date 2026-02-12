@@ -406,6 +406,11 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
             _ => None,
         },
         Expr::Tpl(_) => Some(StaticPrimitive::String(expression_static_string_value(expr)?)),
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::TypeOf => {
+            Some(StaticPrimitive::String(expression_static_typeof_value(
+                unary_expression.arg.as_ref(),
+            )?))
+        }
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
             expression_static_truthiness_value(unary_expression.arg.as_ref())?;
             Some(StaticPrimitive::Undefined)
@@ -457,6 +462,57 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
                 expression_static_primitive_value(binary_expression.right.as_ref())
             } else {
                 expression_static_primitive_value(binary_expression.left.as_ref())
+            }
+        }
+        _ => None,
+    }
+}
+
+fn expression_static_typeof_value(expr: &Expr) -> Option<String> {
+    match unwrap_expression(expr) {
+        Expr::Lit(literal) => match literal {
+            Lit::Bool(_) => Some("boolean".to_string()),
+            Lit::Null(_) => Some("object".to_string()),
+            Lit::Str(_) => Some("string".to_string()),
+            Lit::Num(_) => Some("number".to_string()),
+            Lit::BigInt(_) => Some("bigint".to_string()),
+            Lit::Regex(_) => Some("object".to_string()),
+            _ => None,
+        },
+        Expr::Array(_) => Some("object".to_string()),
+        Expr::Object(_) => Some("object".to_string()),
+        Expr::Fn(_) => Some("function".to_string()),
+        Expr::Arrow(_) => Some("function".to_string()),
+        Expr::Class(_) => Some("function".to_string()),
+        Expr::Tpl(_) => {
+            expression_static_string_value(expr)?;
+            Some("string".to_string())
+        }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
+            expression_static_truthiness_value(unary_expression.arg.as_ref())?;
+            Some("undefined".to_string())
+        }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
+            expression_static_truthiness_value(unary_expression.arg.as_ref())?;
+            Some("boolean".to_string())
+        }
+        Expr::Unary(unary_expression)
+            if unary_expression.op == swc_ecma_ast::UnaryOp::Plus
+                || unary_expression.op == swc_ecma_ast::UnaryOp::Minus =>
+        {
+            expression_static_number_value(unary_expression.arg.as_ref())?;
+            Some("number".to_string())
+        }
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::TypeOf => {
+            expression_static_typeof_value(unary_expression.arg.as_ref())?;
+            Some("string".to_string())
+        }
+        Expr::Cond(conditional_expression) => {
+            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            if test_truthy {
+                expression_static_typeof_value(conditional_expression.cons.as_ref())
+            } else {
+                expression_static_typeof_value(conditional_expression.alt.as_ref())
             }
         }
         _ => None,
