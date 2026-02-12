@@ -16,5 +16,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `REACT_COMPILER_RUST_CLI_TIMEOUT_MS` (positive integer milliseconds, default `60000`).
 - Optional Rust CLI stdout/stderr buffer override:
   - `REACT_COMPILER_RUST_CLI_MAX_BUFFER_BYTES` (positive integer bytes, default `67108864`).
+- Compatibility logger integration:
+  - bridge emits `CompileSuccess`, `CompileError`, and `PipelineError` events
+  - Rust error categories are normalized for downstream lint consumers (`syntax -> Syntax`, `internal/request -> Invariant`).
 
 You can find usage documentation here: https://react.dev/learn/react-compiler
