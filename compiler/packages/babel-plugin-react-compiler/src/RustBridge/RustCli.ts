@@ -670,6 +670,42 @@ function assertRustOkMetadataPayload(
     'ok payload',
   );
 
+  assertSortedUniqueStringArray(
+    placeholderTransformCandidates,
+    'placeholder_transform_candidates',
+    'ok payload',
+  );
+  assertSortedUniqueStringArray(
+    placeholderTransformSkippedFunctions,
+    'placeholder_transform_skipped_functions',
+    'ok payload',
+  );
+  assertSortedUniqueStringArray(
+    placeholderTransformedFunctions,
+    'placeholder_transformed_functions',
+    'ok payload',
+  );
+  assertSortedUniqueStringArray(
+    placeholderRuntimeCalleeCandidatesBeforeTransform,
+    'placeholder_runtime_callee_candidates_before_transform',
+    'ok payload',
+  );
+  assertSortedUniqueStringArray(
+    placeholderRuntimeNamespaceCandidatesBeforeTransform,
+    'placeholder_runtime_namespace_candidates_before_transform',
+    'ok payload',
+  );
+  assertSortedUniqueStringArray(
+    placeholderRuntimeCalleeCandidates,
+    'placeholder_runtime_callee_candidates',
+    'ok payload',
+  );
+  assertSortedUniqueStringArray(
+    placeholderRuntimeNamespaceCandidates,
+    'placeholder_runtime_namespace_candidates',
+    'ok payload',
+  );
+
   if (
     payload['placeholder_runtime_callee_name_before_transform'] != null &&
     typeof payload['placeholder_runtime_callee_name_before_transform'] !== 'string'
@@ -1101,6 +1137,30 @@ function requireStringArrayField(
     }
   }
   return value;
+}
+
+function assertSortedUniqueStringArray(
+  values: Array<string>,
+  key: string,
+  payloadLabel: string,
+): void {
+  for (let index = 0; index < values.length; index++) {
+    const currentValue = values[index];
+    if (index === 0) {
+      continue;
+    }
+    const previousValue = values[index - 1];
+    if (currentValue === previousValue) {
+      throw new Error(
+        `Rust compiler CLI returned invalid ${payloadLabel} (${key} must not contain duplicate entries)`,
+      );
+    }
+    if (currentValue < previousValue) {
+      throw new Error(
+        `Rust compiler CLI returned invalid ${payloadLabel} (${key} must be sorted in ascending order)`,
+      );
+    }
+  }
 }
 
 function assertRustLocationPayload(
