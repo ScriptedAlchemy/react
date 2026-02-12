@@ -194,6 +194,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((true == 1) ? 'require' : 'nope')](((null == (void false)) ? 'react/compiler-runtime' : 'nope'))`)
   - foldable BigInt loose equality with static number/string operands
     (e.g. `(1n == 1)`, `(1n == '1')`)
+  - foldable BigInt loose equality with radix-prefixed string operands
+    (e.g. `(16n == '0x10')`)
   - foldable equality conditionals over unary-not booleans
     (e.g. `module[(((!0) === true) ? 'require' : 'nope')]((((!0) === true) ? 'react/compiler-runtime' : 'nope'))`)
   - foldable relational conditionals (`<`, `<=`, `>`, `>=`) over static primitive operands

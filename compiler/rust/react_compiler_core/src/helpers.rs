@@ -940,13 +940,47 @@ fn normalize_decimal_bigint_string(value: &str) -> Option<(i8, &str)> {
 
 fn parse_js_bigint_string(value: &str) -> Option<String> {
     let trimmed = value.trim();
-    let (sign, digits) = normalize_decimal_bigint_string(trimmed)?;
-    let mut normalized = String::new();
-    if sign < 0 {
-        normalized.push('-');
+    if trimmed.is_empty() {
+        return None;
     }
-    normalized.push_str(digits);
-    Some(normalized)
+
+    let (sign, unsigned_body) = if let Some(rest) = trimmed.strip_prefix('-') {
+        (-1, rest)
+    } else if let Some(rest) = trimmed.strip_prefix('+') {
+        (1, rest)
+    } else {
+        (1, trimmed)
+    };
+
+    let canonical_unsigned = if let Some(hex_digits) = unsigned_body
+        .strip_prefix("0x")
+        .or_else(|| unsigned_body.strip_prefix("0X"))
+    {
+        convert_radix_bigint_to_decimal(hex_digits, 16)?
+    } else if let Some(octal_digits) = unsigned_body
+        .strip_prefix("0o")
+        .or_else(|| unsigned_body.strip_prefix("0O"))
+    {
+        convert_radix_bigint_to_decimal(octal_digits, 8)?
+    } else if let Some(binary_digits) = unsigned_body
+        .strip_prefix("0b")
+        .or_else(|| unsigned_body.strip_prefix("0B"))
+    {
+        convert_radix_bigint_to_decimal(binary_digits, 2)?
+    } else {
+        let (_, decimal_digits) = normalize_decimal_bigint_string(unsigned_body)?;
+        decimal_digits.to_string()
+    };
+
+    if canonical_unsigned == "0" {
+        return Some(canonical_unsigned);
+    }
+
+    if sign < 0 {
+        Some(format!("-{canonical_unsigned}"))
+    } else {
+        Some(canonical_unsigned)
+    }
 }
 
 fn static_canonical_bigint_equality(left: &str, right: String) -> bool {
@@ -979,4 +1013,63 @@ fn negate_canonical_bigint(value: String) -> String {
         return stripped.to_string();
     }
     format!("-{value}")
+}
+
+fn convert_radix_bigint_to_decimal(value: &str, radix: u32) -> Option<String> {
+    if value.is_empty() {
+        return None;
+    }
+
+    let mut decimal = "0".to_string();
+    for digit_char in value.chars() {
+        let digit_value = digit_char.to_digit(radix)?;
+        decimal = decimal_string_mul_small(&decimal, radix);
+        decimal = decimal_string_add_small(&decimal, digit_value);
+    }
+
+    Some(decimal.trim_start_matches('0').to_string())
+        .filter(|normalized| !normalized.is_empty())
+        .or_else(|| Some("0".to_string()))
+}
+
+fn decimal_string_mul_small(value: &str, multiplier: u32) -> String {
+    let mut carry = 0u32;
+    let mut result_digits = Vec::with_capacity(value.len() + 1);
+
+    for digit_char in value.chars().rev() {
+        let digit = digit_char.to_digit(10).unwrap_or_default();
+        let product = digit * multiplier + carry;
+        result_digits.push(char::from_digit(product % 10, 10).unwrap_or('0'));
+        carry = product / 10;
+    }
+
+    while carry > 0 {
+        result_digits.push(char::from_digit(carry % 10, 10).unwrap_or('0'));
+        carry /= 10;
+    }
+
+    result_digits.iter().rev().collect()
+}
+
+fn decimal_string_add_small(value: &str, addend: u32) -> String {
+    if addend == 0 {
+        return value.to_string();
+    }
+
+    let mut carry = addend;
+    let mut result_digits = Vec::with_capacity(value.len() + 2);
+
+    for digit_char in value.chars().rev() {
+        let digit = digit_char.to_digit(10).unwrap_or_default();
+        let sum = digit + carry;
+        result_digits.push(char::from_digit(sum % 10, 10).unwrap_or('0'));
+        carry = sum / 10;
+    }
+
+    while carry > 0 {
+        result_digits.push(char::from_digit(carry % 10, 10).unwrap_or('0'));
+        carry /= 10;
+    }
+
+    result_digits.iter().rev().collect()
 }
