@@ -47,6 +47,9 @@ yarn workspace snap run snap parity \
 - `--ignore-logs` (default: `true`): ignore logger output differences
 - `--skip-build` (default: `false`): reuse existing build outputs
 
+Fixture source path can be overridden with `REACT_COMPILER_FIXTURES_PATH`
+(absolute path or path relative to `compiler/`).
+
 ## Rust CLI bridge behavior
 
 The Babel bridge resolves the Rust CLI command in this order:
