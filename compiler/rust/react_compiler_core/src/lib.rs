@@ -331,6 +331,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_void_nullish_object_key() {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(void false ?? 'fn')]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_negated_boolean_conditional_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(!false ? 'fn' : 'not-fn')]: component, params: [] };",
@@ -881,6 +901,27 @@ mod tests {
     fn detects_script_fixture_entrypoint_function_from_truthy_string_conditional_object_key() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { ['x' ? 'fn' : 'not-fn']: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_void_nullish_object_key() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(void false ?? 'fn')]: render, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -2485,6 +2526,22 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_require_void_nullish_member_alias_in_module() {
+        let output = compile(
+            "const cache = require((void false ?? 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_negated_boolean_conditional_member_alias_in_module() {
         let output = compile(
             "const cache = require((!false ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
@@ -2586,6 +2643,22 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(void false ? 'nope' : 'require')]((void false ? 'nope' : 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_void_nullish_require_member_alias_in_module() {
+        let output = compile(
+            "const cache = module[(void false ?? 'require')]((void false ?? 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -11383,6 +11456,24 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_require_void_nullish_member_alias() {
+        let output = compile(
+            "const cache = require((void false ?? 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_negated_boolean_conditional_member_alias() {
         let output = compile(
             "const cache = require((!false ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
@@ -11495,6 +11586,24 @@ mod tests {
     fn transforms_script_component_with_module_void_literal_conditional_require_member_alias() {
         let output = compile(
             "const cache = module[(void false ? 'nope' : 'require')]((void false ? 'nope' : 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_module_void_nullish_require_member_alias() {
+        let output = compile(
+            "const cache = module[(void false ?? 'require')]((void false ?? 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),

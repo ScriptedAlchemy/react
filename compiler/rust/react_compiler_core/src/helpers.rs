@@ -111,7 +111,7 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
             }
         }
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NullishCoalescing => {
-            if expression_is_static_null(binary_expression.left.as_ref()) {
+            if expression_is_static_nullish(binary_expression.left.as_ref()) {
                 expression_static_string_value(binary_expression.right.as_ref())
             } else {
                 expression_static_string_value(binary_expression.left.as_ref())
@@ -145,8 +145,14 @@ fn expression_static_boolean_value(expr: &Expr) -> Option<bool> {
     expression_static_truthiness_value(expr)
 }
 
-fn expression_is_static_null(expr: &Expr) -> bool {
-    matches!(unwrap_expression(expr), Expr::Lit(Lit::Null(_)))
+fn expression_is_static_nullish(expr: &Expr) -> bool {
+    match unwrap_expression(expr) {
+        Expr::Lit(Lit::Null(_)) => true,
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
+            expression_static_truthiness_value(unary_expression.arg.as_ref()).is_some()
+        }
+        _ => false,
+    }
 }
 
 fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
@@ -201,7 +207,7 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             }
         }
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NullishCoalescing => {
-            if expression_is_static_null(binary_expression.left.as_ref()) {
+            if expression_is_static_nullish(binary_expression.left.as_ref()) {
                 expression_static_truthiness_value(binary_expression.right.as_ref())
             } else {
                 expression_static_truthiness_value(binary_expression.left.as_ref())
