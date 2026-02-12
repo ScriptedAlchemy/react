@@ -144,6 +144,7 @@ Bridge response validation currently enforces:
   - computed nested global-root chains (e.g. `globalThis['window'].module.require(...)`, `global['self'].module['require'](...)`)
   - sequence wrappers over computed nested global roots (e.g. `(0, globalThis['window'].module.require)(...)`, `(0, global['self'].module['require'])(...)`)
   - fully computed nested global-root chains (e.g. `globalThis['window']['module']['require'](...)`, `global['self']['module']['require'](...)`)
+  - mixed computed module-require combinations on nested roots (e.g. `globalThis.window['module'].require(...)`, `global['self']['module'].require(...)`)
   - sequence wrappers over computed nested global-root chains (e.g. `(0, globalThis['window'].module.require)(...)`, `(0, global['self'].module['require'])(...)`)
 - Rust output is used directly for AST replacement
 - Compatibility logger events are emitted for:
