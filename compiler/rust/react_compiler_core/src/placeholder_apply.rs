@@ -8,8 +8,8 @@ use crate::{
     helpers::unwrap_expression_mut,
     model::DEFAULT_EXPORT_COMPONENT_NAME,
     placeholder::{
-        inject_placeholder_memo_init_into_arrow_function, inject_placeholder_memo_init_into_function,
-        make_runtime_import_decl,
+        inject_placeholder_memo_init_into_arrow_function,
+        inject_placeholder_memo_init_into_function, make_runtime_import_decl,
     },
     react_detect::{
         collect_placeholder_transform_candidate_names_for_module,

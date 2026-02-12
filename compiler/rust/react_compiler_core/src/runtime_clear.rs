@@ -225,7 +225,8 @@ fn clear_runtime_namespace_binding_for_opt_chain_expr(
 fn member_prop_may_target_runtime_c(prop: &MemberProp) -> bool {
     match prop {
         MemberProp::Ident(ident_name) => ident_name.sym == *"c",
-        MemberProp::Computed(computed_prop) => match unwrap_expression(computed_prop.expr.as_ref()) {
+        MemberProp::Computed(computed_prop) => match unwrap_expression(computed_prop.expr.as_ref())
+        {
             Expr::Lit(Lit::Str(str_lit)) => str_lit.value == *"c",
             Expr::Lit(_) => false,
             _ => true,

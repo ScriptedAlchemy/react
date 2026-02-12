@@ -364,7 +364,8 @@ pub(crate) fn collect_runtime_bindings_from_expression(
         return;
     }
     let target_ident = crate::binding::assign_target_ident(&assign_expr.left);
-    let target_object_pat = crate::runtime_binding_utils::assign_target_object_pat(&assign_expr.left);
+    let target_object_pat =
+        crate::runtime_binding_utils::assign_target_object_pat(&assign_expr.left);
     let right = crate::runtime_helpers::runtime_initializer_expr(assign_expr.right.as_ref());
     if crate::runtime_binding_utils::is_require_runtime_call(right) {
         crate::runtime_clear::clear_runtime_bindings_for_assign_target(

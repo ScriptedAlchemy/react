@@ -62,9 +62,9 @@ pub(crate) fn count_placeholder_transform_names_by_kind(
     names: &[String],
     react_functions: &[ReactFunction],
 ) -> PlaceholderTransformKindCounts {
-    names
-        .iter()
-        .fold(PlaceholderTransformKindCounts::default(), |mut counts, name| {
+    names.iter().fold(
+        PlaceholderTransformKindCounts::default(),
+        |mut counts, name| {
             let kind = react_functions
                 .iter()
                 .find(|function| function.name == *name)
@@ -81,21 +81,23 @@ pub(crate) fn count_placeholder_transform_names_by_kind(
                 ReactFunctionKind::Hook => counts.hook_count += 1,
             }
             counts
-        })
+        },
+    )
 }
 
 pub(crate) fn count_detected_react_functions_by_kind(
     react_functions: &[ReactFunction],
 ) -> PlaceholderTransformKindCounts {
-    react_functions
-        .iter()
-        .fold(PlaceholderTransformKindCounts::default(), |mut counts, function| {
+    react_functions.iter().fold(
+        PlaceholderTransformKindCounts::default(),
+        |mut counts, function| {
             match function.kind {
                 ReactFunctionKind::Component => counts.component_count += 1,
                 ReactFunctionKind::Hook => counts.hook_count += 1,
             }
             counts
-        })
+        },
+    )
 }
 
 pub(crate) fn collect_detected_react_function_names_by_kind(

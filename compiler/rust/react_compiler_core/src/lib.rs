@@ -23,12 +23,12 @@ mod runtime_scope;
 mod runtime_stmt;
 mod runtime_traversal;
 
+pub use compile_driver::compile;
 pub use error::CompilerError;
 pub use model::{
     render_react_functions_debug, CompileOutput, CompilerOptions, InputDialect, ParseMetadata,
     ReactFunction, ReactFunctionKind, SourceLocation, DEFAULT_EXPORT_COMPONENT_NAME,
 };
-pub use compile_driver::compile;
 pub(crate) use runtime_expr::collect_runtime_bindings_from_expression;
 
 #[cfg(test)]
@@ -77,16 +77,31 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
         assert_eq!(
-            output.metadata.placeholder_transform_candidate_component_count,
+            output
+                .metadata
+                .placeholder_transform_candidate_component_count,
             1
         );
-        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 0);
         assert_eq!(
-            output.metadata.placeholder_transform_transformed_component_count,
+            output.metadata.placeholder_transform_candidate_hook_count,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_transformed_component_count,
             1
         );
-        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
-        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_hook_count,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_skipped_component_count,
+            0
+        );
         assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
         assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert_eq!(output.metadata.detected_react_functions, 1);
@@ -119,7 +134,10 @@ mod tests {
             output.metadata.placeholder_runtime_callee_candidates,
             vec!["_c".to_string()]
         );
-        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidate_count,
+            1
+        );
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
@@ -144,7 +162,12 @@ mod tests {
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 0);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count,
+            0
+        );
         assert!(output
             .code
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
@@ -471,6 +494,46 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_strict_inequality_conditional_object_key() {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(('fn' !== 'not-fn') ? 'fn' : 'not-fn')]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_strict_equality_nan_conditional_object_key() {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((+'not-a-number') === (+'not-a-number')) ? 'not-fn' : 'fn')]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_truthy_template_conditional_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(`${'x'}` ? 'fn' : 'not-fn')]: component, params: [] };",
@@ -671,8 +734,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_unary_template_invalid_numeric_logical_object_key(
-    ) {
+    fn detects_fixture_entrypoint_function_from_unary_template_invalid_numeric_logical_object_key()
+    {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(+`${'not-a-number'}` || 'fn')]: component, params: [] };",
             &CompilerOptions {
@@ -732,8 +795,7 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_unary_infinity_string_numeric_logical_object_key()
-    {
+    fn detects_fixture_entrypoint_function_from_unary_infinity_string_numeric_logical_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(+'Infinity' && 'fn')]: component, params: [] };",
             &CompilerOptions {
@@ -1173,6 +1235,47 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_strict_inequality_conditional_member_assignment() {
+        let output = compile(
+            "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(('fn' !== 'not-fn') ? 'fn' : 'not-fn')] = component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_strict_equality_nan_conditional_member_assignment()
+    {
+        let output = compile(
+            "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((+'not-a-number') === (+'not-a-number')) ? 'not-fn' : 'fn')] = component;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_void_nullish_member_assignment() {
         let output = compile(
             "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(void false ?? 'fn')] = component;",
@@ -1273,7 +1376,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_unicode_escaped_template_literal_member_assignment() {
+    fn detects_fixture_entrypoint_function_from_unicode_escaped_template_literal_member_assignment()
+    {
         let output = compile(
             "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[`\\u0066n`] = component;",
             &CompilerOptions {
@@ -1690,6 +1794,49 @@ mod tests {
     }
 
     #[test]
+    fn detects_script_fixture_entrypoint_function_from_strict_inequality_conditional_object_key() {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(('fn' !== 'not-fn') ? 'fn' : 'not-fn')]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_strict_equality_nan_conditional_object_key()
+    {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((+'not-a-number') === (+'not-a-number')) ? 'not-fn' : 'fn')]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_script_fixture_entrypoint_function_from_numeric_logical_object_key() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(0 || 'fn')]: render, params: [] };",
@@ -1839,8 +1986,7 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_unary_template_numeric_logical_object_key()
-    {
+    fn detects_script_fixture_entrypoint_function_from_unary_template_numeric_logical_object_key() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(+`${''}` || 'fn')]: render, params: [] };",
             &CompilerOptions {
@@ -1905,8 +2051,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_unary_hex_string_numeric_logical_object_key(
-    ) {
+    fn detects_script_fixture_entrypoint_function_from_unary_hex_string_numeric_logical_object_key()
+    {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(+'0x0' || 'fn')]: render, params: [] };",
             &CompilerOptions {
@@ -2075,8 +2221,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_unicode_escaped_template_literal_object_key(
-    ) {
+    fn detects_script_fixture_entrypoint_function_from_unicode_escaped_template_literal_object_key()
+    {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [`\\u0066n`]: render, params: [] };",
             &CompilerOptions {
@@ -2181,8 +2327,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_truthy_string_conditional_member_assignment(
-    ) {
+    fn detects_script_fixture_entrypoint_function_from_truthy_string_conditional_member_assignment()
+    {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT['x' ? 'fn' : 'not-fn'] = render;",
             &CompilerOptions {
@@ -2203,8 +2349,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_truthy_object_conditional_member_assignment(
-    ) {
+    fn detects_script_fixture_entrypoint_function_from_truthy_object_conditional_member_assignment()
+    {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(({a: 1}) ? 'fn' : 'not-fn')] = render;",
             &CompilerOptions {
@@ -2225,7 +2371,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_truthy_regex_conditional_member_assignment() {
+    fn detects_script_fixture_entrypoint_function_from_truthy_regex_conditional_member_assignment()
+    {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[((/x/) ? 'fn' : 'not-fn')] = render;",
             &CompilerOptions {
@@ -2272,6 +2419,50 @@ mod tests {
     ) {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(('fn' === 'fn') ? 'fn' : 'not-fn')] = render;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_strict_inequality_conditional_member_assignment(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(('fn' !== 'not-fn') ? 'fn' : 'not-fn')] = render;",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_strict_equality_nan_conditional_member_assignment(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((+'not-a-number') === (+'not-a-number')) ? 'not-fn' : 'fn')] = render;",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -2656,8 +2847,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_global_module_escaped_computed_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_global_module_escaped_computed_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = global.module['\\x72equire']('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -2673,8 +2864,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_global_module_unicode_computed_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_global_module_unicode_computed_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = global.module['\\u0072equire']('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -2722,8 +2913,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_window_module_escaped_computed_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_window_module_escaped_computed_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = window.module['\\x72equire']('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -2739,8 +2930,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_window_module_unicode_computed_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_window_module_unicode_computed_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = window.module['\\u0072equire']('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -2974,8 +3165,7 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_self_module_escaped_computed_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_self_module_escaped_computed_require_member_alias_in_module() {
         let output = compile(
             "const cache = self.module['\\x72equire']('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -2991,8 +3181,7 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_self_module_unicode_computed_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_self_module_unicode_computed_require_member_alias_in_module() {
         let output = compile(
             "const cache = self.module['\\u0072equire']('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -3057,7 +3246,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_self_computed_module_computed_require_member_alias_in_module() {
+    fn reuses_existing_runtime_cache_self_computed_module_computed_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = self['module']['require']('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -3089,8 +3279,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_sequence_self_module_computed_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_sequence_self_module_computed_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = (0, self.module['require'])('react/compiler-runtime').c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -3691,6 +3881,40 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_require_strict_inequality_conditional_member_alias_in_module()
+    {
+        let output = compile(
+            "const cache = require((('runtime' !== 'nope') ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_require_strict_equality_nan_conditional_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = require((((+'not-a-number') === (+'not-a-number')) ? 'nope' : 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_truthy_string_conditional_member_alias_in_module() {
         let output = compile(
             "const cache = require(('x' ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
@@ -3900,7 +4124,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_require_unary_boolean_numeric_logical_member_alias_in_module() {
+    fn reuses_existing_runtime_cache_require_unary_boolean_numeric_logical_member_alias_in_module()
+    {
         let output = compile(
             "const cache = require((+false || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -3949,8 +4174,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_require_unary_template_numeric_logical_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_require_unary_template_numeric_logical_member_alias_in_module()
+    {
         let output = compile(
             "const cache = require((+`${''}` || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -4166,6 +4391,40 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(('require' === 'require') ? 'require' : 'nope')]((('runtime' === 'runtime') ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_strict_inequality_conditional_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(('require' !== 'nope') ? 'require' : 'nope')]((('runtime' !== 'nope') ? 'react/compiler-runtime' : 'nope')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_strict_equality_nan_conditional_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(((+'not-a-number') === (+'not-a-number')) ? 'nope' : 'require')]((((+'not-a-number') === (+'not-a-number')) ? 'nope' : 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -4718,7 +4977,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -4731,14 +4992,22 @@ mod tests {
             output.metadata.placeholder_runtime_callee_candidates,
             vec!["cache".to_string()]
         );
-        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidate_count,
+            1
+        );
         assert_eq!(
             output
                 .metadata
                 .placeholder_runtime_namespace_candidate_count_before_transform,
             1
         );
-        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count,
+            1
+        );
     }
 
     #[test]
@@ -4794,7 +5063,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -4878,8 +5149,7 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_require_escaped_template_literal_namespace_alias_in_module()
-    {
+    fn reuses_existing_runtime_cache_require_escaped_template_literal_namespace_alias_in_module() {
         let output = compile(
             "const runtime = require(`react/compiler-\\x72untime`); const cache = runtime.c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -5250,8 +5520,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_require_namespace_unicode_escaped_string_member_alias_in_module()
-    {
+    fn reuses_existing_runtime_cache_require_namespace_unicode_escaped_string_member_alias_in_module(
+    ) {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); const cache = runtime['\\u0063']; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -5368,7 +5638,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5415,7 +5687,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5462,7 +5736,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5509,7 +5785,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5556,7 +5834,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5603,7 +5883,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5650,7 +5932,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5697,7 +5981,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5744,7 +6030,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5791,7 +6079,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5838,7 +6128,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5885,7 +6177,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5932,7 +6226,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -5979,7 +6275,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -6026,7 +6324,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -6073,7 +6373,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -6120,7 +6422,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -6167,7 +6471,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -6214,7 +6520,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -6261,7 +6569,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -8180,23 +8490,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8217,23 +8531,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8314,23 +8632,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8351,23 +8673,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8388,23 +8714,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8425,23 +8755,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8462,23 +8796,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -8922,8 +9260,8 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_class_super_class_expression()
-    {
+    fn falls_back_to_import_when_module_runtime_alias_is_reassigned_in_class_super_class_expression(
+    ) {
         let output = compile(
             "let cache = require('react/compiler-runtime').c; class Base {} class RuntimeCarrier extends (cache = unknown, Base) {} export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -9308,8 +9646,7 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_import_when_module_runtime_namespace_c_member_is_deleted_via_optional_chain()
-    {
+    fn falls_back_to_import_when_module_runtime_namespace_c_member_is_deleted_via_optional_chain() {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); delete runtime?.c; const cache = runtime.c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -9325,23 +9662,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -9362,23 +9703,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -9399,23 +9744,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -9571,27 +9920,32 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
-    fn falls_back_to_import_when_module_runtime_namespace_computed_member_may_target_c_is_deleted() {
+    fn falls_back_to_import_when_module_runtime_namespace_computed_member_may_target_c_is_deleted()
+    {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); const prop = maybe ? 'c' : 'x'; delete runtime[prop]; const cache = runtime.c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -9607,23 +9961,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -9644,23 +10002,27 @@ mod tests {
             .contains("import { c as _c } from \"react/compiler-runtime\";"));
         assert!(output.code.contains("const $ = _c(0);"));
         assert!(!output.code.contains("const $ = cache(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -10577,23 +10939,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -10614,12 +10980,10 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
@@ -10704,23 +11068,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -10741,23 +11109,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -10778,23 +11150,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -10815,23 +11191,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -10852,23 +11232,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -11539,23 +11923,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -11576,23 +11964,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -11613,23 +12005,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -11726,23 +12122,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -11763,12 +12163,10 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
@@ -11793,23 +12191,27 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transforms_applied, 0);
         assert!(!output.code.contains("const $ = cache(0);"));
         assert!(!output.code.contains("const $ = _c(0);"));
-        assert!(
-            output
-                .metadata
-                .placeholder_runtime_namespace_candidates_before_transform
-                .is_empty()
-        );
+        assert!(output
+            .metadata
+            .placeholder_runtime_namespace_candidates_before_transform
+            .is_empty());
         assert!(output
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_name_before_transform.is_none());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_name_before_transform
+            .is_none());
         assert!(output.metadata.placeholder_runtime_callee_name.is_none());
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
             .is_empty());
-        assert!(output.metadata.placeholder_runtime_callee_candidates.is_empty());
+        assert!(output
+            .metadata
+            .placeholder_runtime_callee_candidates
+            .is_empty());
     }
 
     #[test]
@@ -11832,7 +12234,8 @@ mod tests {
     }
 
     #[test]
-    fn does_not_transform_script_component_when_runtime_namespace_c_member_uses_update_expression() {
+    fn does_not_transform_script_component_when_runtime_namespace_c_member_uses_update_expression()
+    {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); runtime.c++; const cache = runtime.c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -11871,8 +12274,8 @@ mod tests {
     }
 
     #[test]
-    fn does_not_transform_script_component_when_runtime_namespace_c_member_uses_compound_assignment()
-    {
+    fn does_not_transform_script_component_when_runtime_namespace_c_member_uses_compound_assignment(
+    ) {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); runtime.c += 1; const cache = runtime.c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -12508,8 +12911,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_self_module_escaped_computed_require_member_alias(
-    ) {
+    fn transforms_script_component_with_runtime_self_module_escaped_computed_require_member_alias()
+    {
         let output = compile(
             "const cache = self.module['\\x72equire']('react/compiler-runtime').c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -12527,8 +12930,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_self_module_unicode_computed_require_member_alias(
-    ) {
+    fn transforms_script_component_with_runtime_self_module_unicode_computed_require_member_alias()
+    {
         let output = compile(
             "const cache = self.module['\\u0072equire']('react/compiler-runtime').c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -12601,8 +13004,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_self_computed_module_computed_require_member_alias(
-    ) {
+    fn transforms_script_component_with_runtime_self_computed_module_computed_require_member_alias()
+    {
         let output = compile(
             "const cache = self['module']['require']('react/compiler-runtime').c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -12638,8 +13041,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_sequence_self_module_computed_require_member_alias(
-    ) {
+    fn transforms_script_component_with_runtime_sequence_self_module_computed_require_member_alias()
+    {
         let output = compile(
             "const cache = (0, self.module['require'])('react/compiler-runtime').c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -12675,8 +13078,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_global_this_module_computed_require_member_alias()
-    {
+    fn transforms_script_component_with_runtime_global_this_module_computed_require_member_alias() {
         let output = compile(
             "const cache = globalThis.module['require']('react/compiler-runtime').c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -13349,6 +13751,44 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_require_strict_inequality_conditional_member_alias()
+    {
+        let output = compile(
+            "const cache = require((('runtime' !== 'nope') ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_strict_equality_nan_conditional_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require((((+'not-a-number') === (+'not-a-number')) ? 'nope' : 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_truthy_string_conditional_member_alias() {
         let output = compile(
             "const cache = require(('x' ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
@@ -13584,8 +14024,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_require_unary_boolean_numeric_logical_member_alias(
-    ) {
+    fn transforms_script_component_with_runtime_require_unary_boolean_numeric_logical_member_alias()
+    {
         let output = compile(
             "const cache = require((+false || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -13880,8 +14320,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_strict_equality_conditional_require_member_alias()
-    {
+    fn transforms_script_component_with_module_strict_equality_conditional_require_member_alias() {
         let output = compile(
             "const cache = module[(('require' === 'require') ? 'require' : 'nope')]((('runtime' === 'runtime') ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -13899,8 +14338,45 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_truthy_string_conditional_require_member_alias()
+    fn transforms_script_component_with_module_strict_inequality_conditional_require_member_alias()
     {
+        let output = compile(
+            "const cache = module[(('require' !== 'nope') ? 'require' : 'nope')]((('runtime' !== 'nope') ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_module_strict_equality_nan_conditional_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[(((+'not-a-number') === (+'not-a-number')) ? 'nope' : 'require')]((((+'not-a-number') === (+'not-a-number')) ? 'nope' : 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_module_truthy_string_conditional_require_member_alias() {
         let output = compile(
             "const cache = module[('x' ? 'require' : 'nope')](('x' ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -14135,8 +14611,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_unary_boolean_numeric_logical_require_member_alias(
-    ) {
+    fn transforms_script_component_with_module_unary_boolean_numeric_logical_require_member_alias()
+    {
         let output = compile(
             "const cache = module[(+true && 'require')]((+false || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -14154,8 +14630,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_unary_string_numeric_logical_require_member_alias()
-    {
+    fn transforms_script_component_with_module_unary_string_numeric_logical_require_member_alias() {
         let output = compile(
             "const cache = module[(+'1' && 'require')]((+'' || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -14192,8 +14667,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_unary_template_numeric_logical_require_member_alias(
-    ) {
+    fn transforms_script_component_with_module_unary_template_numeric_logical_require_member_alias()
+    {
         let output = compile(
             "const cache = module[(+`${'1'}` && 'require')]((+`${''}` || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -14341,8 +14816,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_negated_boolean_conditional_require_member_alias()
-    {
+    fn transforms_script_component_with_module_negated_boolean_conditional_require_member_alias() {
         let output = compile(
             "const cache = module[(!false ? 'require' : 'nope')]((!false ? 'react/compiler-runtime' : 'nope')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -14360,8 +14834,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_logical_and_nullish_literal_require_member_alias()
-    {
+    fn transforms_script_component_with_module_logical_and_nullish_literal_require_member_alias() {
         let output = compile(
             "const cache = module[(true && 'require') ?? 'nope']((null ?? 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -14489,7 +14962,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -14595,8 +15070,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_require_escaped_template_literal_namespace_alias()
-    {
+    fn transforms_script_component_with_runtime_require_escaped_template_literal_namespace_alias() {
         let output = compile(
             "const runtime = require(`react/compiler-\\x72untime`); const cache = runtime.c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -14768,7 +15242,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -14816,7 +15292,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -14864,7 +15342,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -14912,7 +15392,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -14960,7 +15442,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15008,7 +15492,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15056,7 +15542,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15104,7 +15592,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15152,7 +15642,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15200,7 +15692,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15248,7 +15742,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15296,7 +15792,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15344,7 +15842,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15391,7 +15891,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15438,7 +15940,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15448,7 +15952,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_when_runtime_namespace_non_c_member_is_deleted_via_optional_chain() {
+    fn transforms_script_component_when_runtime_namespace_non_c_member_is_deleted_via_optional_chain(
+    ) {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); delete runtime?.x; const cache = runtime.c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -15485,7 +15990,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15533,7 +16040,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15580,7 +16089,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15627,7 +16138,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15674,7 +16187,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15721,7 +16236,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15768,7 +16285,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15816,7 +16335,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15864,7 +16385,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -15912,7 +16435,9 @@ mod tests {
             Some("cache")
         );
         assert_eq!(
-            output.metadata.placeholder_runtime_callee_candidates_before_transform,
+            output
+                .metadata
+                .placeholder_runtime_callee_candidates_before_transform,
             vec!["cache".to_string()]
         );
         assert_eq!(
@@ -16203,8 +16728,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_namespace_shorthand_destructure_alias_with_default(
-    ) {
+    fn transforms_script_component_with_runtime_namespace_shorthand_destructure_alias_with_default()
+    {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); const { c = fallback } = runtime; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -16260,8 +16785,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_direct_require_shorthand_destructure_alias_with_default()
-    {
+    fn transforms_script_component_with_direct_require_shorthand_destructure_alias_with_default() {
         let output = compile(
             "const { c = fallback } = require('react/compiler-runtime'); function Component(){ return <div />; }",
             &CompilerOptions {
@@ -16355,8 +16879,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_namespace_computed_destructure_alias_with_default(
-    ) {
+    fn transforms_script_component_with_runtime_namespace_computed_destructure_alias_with_default()
+    {
         let output = compile(
             "const runtime = require('react/compiler-runtime'); const { ['c']: cache = fallback } = runtime; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -16467,8 +16991,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_assigned_runtime_shorthand_destructure_alias_with_default(
-    ) {
+    fn transforms_script_component_with_assigned_runtime_shorthand_destructure_alias_with_default()
+    {
         let output = compile(
             "let runtime; runtime = require('react/compiler-runtime'); let c; ({ c = fallback } = runtime); function Component(){ return <div />; }",
             &CompilerOptions {
@@ -16486,8 +17010,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_direct_require_destructure_assignment_alias_with_default()
-    {
+    fn transforms_script_component_with_direct_require_destructure_assignment_alias_with_default() {
         let output = compile(
             "let cache; ({ c: cache = fallback } = require('react/compiler-runtime')); function Component(){ return <div />; }",
             &CompilerOptions {
@@ -17004,16 +17527,31 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 1);
         assert_eq!(
-            output.metadata.placeholder_transform_candidate_component_count,
+            output
+                .metadata
+                .placeholder_transform_candidate_component_count,
             1
         );
-        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 0);
         assert_eq!(
-            output.metadata.placeholder_transform_transformed_component_count,
+            output.metadata.placeholder_transform_candidate_hook_count,
             0
         );
-        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
-        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 1);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_transformed_component_count,
+            0
+        );
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_hook_count,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_skipped_component_count,
+            1
+        );
         assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
         assert_eq!(
             output.metadata.placeholder_transform_status,
@@ -17031,7 +17569,10 @@ mod tests {
             .metadata
             .placeholder_runtime_callee_candidates
             .is_empty());
-        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidate_count,
+            0
+        );
         assert!(output
             .metadata
             .placeholder_runtime_callee_candidates_before_transform
@@ -17056,7 +17597,12 @@ mod tests {
             .metadata
             .placeholder_runtime_namespace_candidates
             .is_empty());
-        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 0);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count,
+            0
+        );
         assert!(!output.code.contains("const $ = _c(0);"));
     }
 
@@ -17111,28 +17657,51 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
         assert_eq!(
-            output.metadata.placeholder_transform_candidate_component_count,
+            output
+                .metadata
+                .placeholder_transform_candidate_component_count,
             1
         );
-        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 0);
         assert_eq!(
-            output.metadata.placeholder_transform_transformed_component_count,
+            output.metadata.placeholder_transform_candidate_hook_count,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_transformed_component_count,
             1
         );
-        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
-        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_hook_count,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_skipped_component_count,
+            0
+        );
         assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
         assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert!(!output.metadata.placeholder_runtime_callee_reused);
         assert!(output.metadata.placeholder_runtime_callee_generated);
-        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidate_count,
+            1
+        );
         assert_eq!(
             output
                 .metadata
                 .placeholder_runtime_callee_candidate_count_before_transform,
             0
         );
-        assert_eq!(output.metadata.placeholder_runtime_namespace_candidate_count, 0);
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_runtime_namespace_candidate_count,
+            0
+        );
         assert_eq!(
             output
                 .metadata
@@ -17568,16 +18137,31 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 1);
         assert_eq!(
-            output.metadata.placeholder_transform_candidate_component_count,
+            output
+                .metadata
+                .placeholder_transform_candidate_component_count,
             0
         );
-        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 1);
         assert_eq!(
-            output.metadata.placeholder_transform_transformed_component_count,
+            output.metadata.placeholder_transform_candidate_hook_count,
+            1
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_transformed_component_count,
             0
         );
-        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 0);
-        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_hook_count,
+            0
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_skipped_component_count,
+            0
+        );
         assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 1);
         assert_eq!(
             output.metadata.placeholder_transform_status,
@@ -17619,16 +18203,31 @@ mod tests {
         assert_eq!(output.metadata.placeholder_transform_candidate_count, 1);
         assert_eq!(output.metadata.placeholder_transform_skipped_count, 0);
         assert_eq!(
-            output.metadata.placeholder_transform_candidate_component_count,
+            output
+                .metadata
+                .placeholder_transform_candidate_component_count,
             0
         );
-        assert_eq!(output.metadata.placeholder_transform_candidate_hook_count, 1);
         assert_eq!(
-            output.metadata.placeholder_transform_transformed_component_count,
+            output.metadata.placeholder_transform_candidate_hook_count,
+            1
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_transformed_component_count,
             0
         );
-        assert_eq!(output.metadata.placeholder_transform_transformed_hook_count, 1);
-        assert_eq!(output.metadata.placeholder_transform_skipped_component_count, 0);
+        assert_eq!(
+            output.metadata.placeholder_transform_transformed_hook_count,
+            1
+        );
+        assert_eq!(
+            output
+                .metadata
+                .placeholder_transform_skipped_component_count,
+            0
+        );
         assert_eq!(output.metadata.placeholder_transform_skipped_hook_count, 0);
         assert_eq!(output.metadata.placeholder_transform_status, "transformed");
         assert!(!output.metadata.placeholder_runtime_callee_reused);
@@ -17646,7 +18245,10 @@ mod tests {
             1
         );
         assert!(output.metadata.placeholder_runtime_helper_import_added);
-        assert_eq!(output.metadata.placeholder_runtime_callee_candidate_count, 1);
+        assert_eq!(
+            output.metadata.placeholder_runtime_callee_candidate_count,
+            1
+        );
         assert_eq!(
             output
                 .metadata
@@ -17975,15 +18577,11 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_callee_candidates="));
         assert!(debug.contains("placeholder_runtime_callee_candidate_count=0"));
         assert!(debug.contains("placeholder_runtime_callee_candidates_before_transform="));
-        assert!(debug.contains(
-            "placeholder_runtime_callee_candidate_count_before_transform=0"
-        ));
+        assert!(debug.contains("placeholder_runtime_callee_candidate_count_before_transform=0"));
         assert!(debug.contains("placeholder_runtime_namespace_candidates="));
         assert!(debug.contains("placeholder_runtime_namespace_candidate_count=0"));
         assert!(debug.contains("placeholder_runtime_namespace_candidates_before_transform="));
-        assert!(debug.contains(
-            "placeholder_runtime_namespace_candidate_count_before_transform=0"
-        ));
+        assert!(debug.contains("placeholder_runtime_namespace_candidate_count_before_transform=0"));
         assert!(debug.contains("name=Component kind=Component"));
         assert!(debug.contains("name=useThing kind=Hook"));
     }
@@ -18030,13 +18628,9 @@ mod tests {
         assert!(debug.contains("placeholder_runtime_callee_name=_c"));
         assert!(debug.contains("placeholder_runtime_callee_name_before_transform=none"));
         assert!(debug.contains("placeholder_runtime_callee_candidate_count=1"));
-        assert!(debug.contains(
-            "placeholder_runtime_callee_candidate_count_before_transform=0"
-        ));
+        assert!(debug.contains("placeholder_runtime_callee_candidate_count_before_transform=0"));
         assert!(debug.contains("placeholder_runtime_namespace_candidate_count=0"));
-        assert!(debug.contains(
-            "placeholder_runtime_namespace_candidate_count_before_transform=0"
-        ));
+        assert!(debug.contains("placeholder_runtime_namespace_candidate_count_before_transform=0"));
         assert!(debug.contains("name=Component kind=Component"));
     }
 

@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 
 use swc_common::{sync::Lrc, SourceMap};
-use swc_ecma_ast::{
-    Decl, DefaultDecl, Expr, Module, ModuleDecl, ModuleItem, Pat, Script, Stmt,
-};
+use swc_ecma_ast::{Decl, DefaultDecl, Expr, Module, ModuleDecl, ModuleItem, Pat, Script, Stmt};
 
 use crate::{
     binding::{

@@ -95,10 +95,7 @@ fn function_has_placeholder_memo_init(
     function
         .body
         .as_ref()
-        .and_then(|body| {
-            body.stmts
-                .get(first_non_directive_stmt_index(&body.stmts))
-        })
+        .and_then(|body| body.stmts.get(first_non_directive_stmt_index(&body.stmts)))
         .map(|stmt| stmt_is_placeholder_memo_init(stmt, runtime_callee_name))
         .unwrap_or(false)
 }

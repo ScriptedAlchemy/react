@@ -75,7 +75,9 @@ pub(crate) fn collect_declared_binding_names_from_decl(decl: &Decl, names: &mut 
     }
 }
 
-pub(crate) fn collect_declared_binding_names_from_module_items(items: &[ModuleItem]) -> Vec<String> {
+pub(crate) fn collect_declared_binding_names_from_module_items(
+    items: &[ModuleItem],
+) -> Vec<String> {
     let mut names = Vec::new();
     for item in items {
         collect_declared_binding_names_from_module_item(item, &mut names);

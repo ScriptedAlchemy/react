@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use swc_ecma_ast::{
-    AssignTarget, Decl, Expr, Module, ModuleDecl, ModuleItem, Pat, Script, SimpleAssignTarget,
-    Stmt,
+    AssignTarget, Decl, Expr, Module, ModuleDecl, ModuleItem, Pat, Script, SimpleAssignTarget, Stmt,
 };
 
 use crate::helpers::unwrap_expression;

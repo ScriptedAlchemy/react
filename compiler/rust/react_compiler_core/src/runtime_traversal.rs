@@ -37,7 +37,8 @@ pub(crate) fn collect_runtime_bindings_from_ts_import_equals_decl(
             }
             let source_root_name = crate::runtime_helpers::ts_entity_name_root_name(entity_name);
             if runtime_namespace_bindings.contains(source_root_name) {
-                let source_leaf_name = crate::runtime_helpers::ts_entity_name_leaf_name(entity_name);
+                let source_leaf_name =
+                    crate::runtime_helpers::ts_entity_name_leaf_name(entity_name);
                 if source_leaf_name == "c" {
                     runtime_callee_bindings.insert(binding_name.clone());
                     runtime_namespace_bindings.remove(binding_name.as_str());
@@ -195,12 +196,14 @@ fn collect_runtime_bindings_from_module_item(
                 runtime_callee_bindings,
             );
         }
-        ModuleItem::Stmt(stmt) => crate::runtime_stmt::collect_runtime_bindings_from_static_block_stmt(
-            stmt,
-            runtime_namespace_bindings,
-            runtime_callee_bindings,
-            may_be_conditional,
-        ),
+        ModuleItem::Stmt(stmt) => {
+            crate::runtime_stmt::collect_runtime_bindings_from_static_block_stmt(
+                stmt,
+                runtime_namespace_bindings,
+                runtime_callee_bindings,
+                may_be_conditional,
+            )
+        }
         _ => {}
     }
 }
@@ -342,8 +345,10 @@ pub(crate) fn collect_runtime_bindings_from_script_declarator(
         }
     }
 
-    if crate::runtime_binding_utils::member_expr_is_runtime_namespace_c(init, runtime_namespace_bindings)
-    {
+    if crate::runtime_binding_utils::member_expr_is_runtime_namespace_c(
+        init,
+        runtime_namespace_bindings,
+    ) {
         if let Pat::Ident(binding) = &declarator.name {
             let binding_name = binding.id.sym.to_string();
             runtime_callee_bindings.insert(binding_name.clone());
