@@ -61,7 +61,10 @@ function resolveRustManifestPath(): string {
   const checkedCandidates = new Set<string>();
   if (explicitPath != null && explicitPath.length > 0) {
     const resolvedExplicitPath = path.resolve(explicitPath);
-    if (fs.existsSync(resolvedExplicitPath)) {
+    if (
+      fs.existsSync(resolvedExplicitPath) &&
+      fs.statSync(resolvedExplicitPath).isFile()
+    ) {
       return resolvedExplicitPath;
     }
     throw new Error(
@@ -104,7 +107,10 @@ function resolveRustCliInvocation(manifestPath: string): {
   if (explicitBinary != null && explicitBinary.length > 0) {
     if (/[\\/]/.test(explicitBinary)) {
       const resolvedBinary = path.resolve(explicitBinary);
-      if (!fs.existsSync(resolvedBinary)) {
+      if (
+        !fs.existsSync(resolvedBinary) ||
+        !fs.statSync(resolvedBinary).isFile()
+      ) {
         throw new Error(
           `REACT_COMPILER_RUST_CLI_BIN points to a missing binary: ${resolvedBinary}`,
         );
