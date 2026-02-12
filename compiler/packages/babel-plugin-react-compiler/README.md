@@ -22,6 +22,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `CompileSuccess` is emitted per detected React function with source location metadata when available
   - Rust error categories are normalized for downstream lint consumers (`syntax -> Syntax`, `internal/request -> Invariant`).
   - Rust warning/hint/off severities are preserved in mapped compile-error detail when available.
+  - compile-error detail payloads include the Rust error `code` for downstream handling.
   - explicit event type aliases are exported for consumers (`CompileSuccessEvent`, `CompileErrorEvent`, `CompileDiagnosticEvent`, `PipelineErrorEvent`).
 - Dialect selection:
   - TypeScript extensions (`.ts`, `.tsx`, `.mts`, `.cts`) map to Rust TypeScript mode
