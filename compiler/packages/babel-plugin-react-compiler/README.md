@@ -48,6 +48,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - detected component/hook name lists must align with kind-partitioned `react_functions`
   - placeholder component/hook split counts are validated against name lists
     (using `react_functions` kind data, with hook-name fallback heuristics for unmatched names)
+  - `placeholder_transform_candidates` must include all detected `react_functions` names
   - `react_functions` must be deterministically ordered by location/name/kind and
     must not contain duplicate entries
   - `placeholder_transform_status` must be one of
