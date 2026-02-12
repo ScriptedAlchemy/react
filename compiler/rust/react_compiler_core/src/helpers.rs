@@ -206,6 +206,18 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
                 expression_static_truthiness_value(conditional_expression.alt.as_ref())
             }
         }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::EqEqEq => {
+            Some(static_strict_equality(
+                expression_static_primitive_value(binary_expression.left.as_ref())?,
+                expression_static_primitive_value(binary_expression.right.as_ref())?,
+            ))
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NotEqEq => {
+            Some(!static_strict_equality(
+                expression_static_primitive_value(binary_expression.left.as_ref())?,
+                expression_static_primitive_value(binary_expression.right.as_ref())?,
+            ))
+        }
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
             let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
             if left_truthy {
@@ -348,4 +360,95 @@ fn parse_js_numeric_string(value: &str) -> Option<f64> {
         );
     }
     Some(trimmed.parse::<f64>().unwrap_or(f64::NAN))
+}
+
+enum StaticPrimitive {
+    Bool(bool),
+    Number(f64),
+    String(String),
+    Null,
+    Undefined,
+    BigInt(String),
+}
+
+fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
+    match unwrap_expression(expr) {
+        Expr::Lit(literal) => match literal {
+            Lit::Bool(boolean_literal) => Some(StaticPrimitive::Bool(boolean_literal.value)),
+            Lit::Num(number_literal) => Some(StaticPrimitive::Number(number_literal.value)),
+            Lit::Str(string_literal) => Some(StaticPrimitive::String(string_literal.value.to_string())),
+            Lit::Null(_) => Some(StaticPrimitive::Null),
+            Lit::BigInt(big_int_literal) => Some(StaticPrimitive::BigInt(big_int_literal.value.to_string())),
+            _ => None,
+        },
+        Expr::Tpl(_) => Some(StaticPrimitive::String(expression_static_string_value(expr)?)),
+        Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
+            expression_static_truthiness_value(unary_expression.arg.as_ref())?;
+            Some(StaticPrimitive::Undefined)
+        }
+        Expr::Unary(unary_expression)
+            if unary_expression.op == swc_ecma_ast::UnaryOp::Plus
+                || unary_expression.op == swc_ecma_ast::UnaryOp::Minus =>
+        {
+            Some(StaticPrimitive::Number(expression_static_number_value(expr)?))
+        }
+        Expr::Seq(sequence_expression) => {
+            if sequence_expression.exprs.is_empty() {
+                return None;
+            }
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+                expression_static_primitive_value(sequence_item.as_ref())?;
+            }
+            sequence_expression
+                .exprs
+                .last()
+                .and_then(|last_expr| expression_static_primitive_value(last_expr.as_ref()))
+        }
+        Expr::Cond(conditional_expression) => {
+            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            if test_truthy {
+                expression_static_primitive_value(conditional_expression.cons.as_ref())
+            } else {
+                expression_static_primitive_value(conditional_expression.alt.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_primitive_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_primitive_value(binary_expression.left.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalOr => {
+            let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
+            if left_truthy {
+                expression_static_primitive_value(binary_expression.left.as_ref())
+            } else {
+                expression_static_primitive_value(binary_expression.right.as_ref())
+            }
+        }
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NullishCoalescing => {
+            if expression_is_static_nullish(binary_expression.left.as_ref()) {
+                expression_static_primitive_value(binary_expression.right.as_ref())
+            } else {
+                expression_static_primitive_value(binary_expression.left.as_ref())
+            }
+        }
+        _ => None,
+    }
+}
+
+fn static_strict_equality(left: StaticPrimitive, right: StaticPrimitive) -> bool {
+    match (left, right) {
+        (StaticPrimitive::Bool(left), StaticPrimitive::Bool(right)) => left == right,
+        (StaticPrimitive::String(left), StaticPrimitive::String(right)) => left == right,
+        (StaticPrimitive::Number(left), StaticPrimitive::Number(right)) => {
+            !left.is_nan() && !right.is_nan() && left == right
+        }
+        (StaticPrimitive::Null, StaticPrimitive::Null) => true,
+        (StaticPrimitive::Undefined, StaticPrimitive::Undefined) => true,
+        (StaticPrimitive::BigInt(left), StaticPrimitive::BigInt(right)) => left == right,
+        _ => false,
+    }
 }
