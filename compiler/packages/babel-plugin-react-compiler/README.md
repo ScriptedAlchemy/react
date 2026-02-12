@@ -32,6 +32,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - `error.severity` in `{error, warning, hint, off}`
   - required response string fields must be present and non-empty
   - explicitly provided request `protocol_version` must be a non-negative integer
+    (numeric strings are coerced and validated)
 - Dialect selection:
   - TypeScript extensions (`.ts`, `.tsx`, `.mts`, `.cts`) map to Rust TypeScript mode
   - Flow file hints (`.flow` extension or Babel `flow` parser plugin) map to Rust Flow mode
