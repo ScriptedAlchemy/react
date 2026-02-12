@@ -31,5 +31,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   - TypeScript extensions (`.ts`, `.tsx`, `.mts`, `.cts`) map to Rust TypeScript mode
   - Flow file hints (`.flow` extension or Babel `flow` parser plugin) map to Rust Flow mode
   - all other inputs default to JavaScript mode
+- Runtime helper alias reuse supports CommonJS/global patterns including
+  `require(...)`, `module.require(...)`, and global module roots
+  (`globalThis`, `global`, `window`, `self`) across member/computed chains.
 
 You can find usage documentation here: https://react.dev/learn/react-compiler
