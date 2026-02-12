@@ -336,9 +336,13 @@ function assertRustCompileResponseShape(
         );
       }
       const fnData = fnRecord as {[key: string]: unknown};
-      if (typeof fnData['name'] !== 'string' || typeof fnData['kind'] !== 'string') {
+      if (
+        typeof fnData['name'] !== 'string' ||
+        (fnData['name'] as string).length === 0 ||
+        typeof fnData['kind'] !== 'string'
+      ) {
         throw new Error(
-          'Rust compiler CLI returned invalid ok payload (react_functions entries require name/kind strings)',
+          'Rust compiler CLI returned invalid ok payload (react_functions entries require non-empty name and kind strings)',
         );
       }
       const fnKind = fnData['kind'];
