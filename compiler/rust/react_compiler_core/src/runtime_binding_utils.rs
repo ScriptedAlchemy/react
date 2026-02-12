@@ -133,10 +133,7 @@ fn is_require_runtime_call_expr(call_expr: &CallExpr) -> bool {
     let Callee::Expr(callee_expr) = &call_expr.callee else {
         return false;
     };
-    let Expr::Ident(callee_ident) = unwrap_expression(callee_expr.as_ref()) else {
-        return false;
-    };
-    if callee_ident.sym != *"require" {
+    if !is_require_callee_expr(callee_expr.as_ref()) {
         return false;
     }
     if call_expr.args.len() != 1 {
@@ -163,6 +160,18 @@ fn is_require_runtime_call_expr(call_expr: &CallExpr) -> bool {
                 .map(|value| value == "react/compiler-runtime")
                 .unwrap_or(false)
         }
+        _ => false,
+    }
+}
+
+fn is_require_callee_expr(expr: &Expr) -> bool {
+    match unwrap_expression(expr) {
+        Expr::Ident(callee_ident) => callee_ident.sym == *"require",
+        Expr::Seq(sequence_expr) => sequence_expr
+            .exprs
+            .last()
+            .map(|last_expr| is_require_callee_expr(last_expr.as_ref()))
+            .unwrap_or(false),
         _ => false,
     }
 }
