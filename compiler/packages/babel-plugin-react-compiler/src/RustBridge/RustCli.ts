@@ -317,6 +317,19 @@ function assertRustCompileResponseShape(
       'Rust compiler CLI returned invalid error payload (missing required string fields)',
     );
   }
+  const severity = (payload['severity'] as string).toLowerCase();
+  if (
+    severity !== 'error' &&
+    severity !== 'warning' &&
+    severity !== 'hint' &&
+    severity !== 'off'
+  ) {
+    throw new Error(
+      `Rust compiler CLI returned invalid error payload (unsupported severity: ${String(
+        payload['severity'],
+      )})`,
+    );
+  }
 
   const location = payload['location'];
   if (location == null) {
