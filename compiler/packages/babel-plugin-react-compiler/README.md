@@ -93,6 +93,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `(1n == 1)`, `(1n == '1')`).
   Radix-prefixed BigInt strings are also folded in loose equality
   (e.g. `(16n == '0x10')`, `(16n == '0b10000')`, `(16n == '0o20')`).
+  Signed decimal BigInt strings are folded too (e.g. `(16n == '+16')`).
   Signed non-decimal radix strings follow JavaScript behavior and do not fold as equal
   (e.g. `(16n == '+0x10')` is folded as false).
   Equality conditionals over foldable unary-not booleans are also folded

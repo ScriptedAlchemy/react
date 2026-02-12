@@ -196,6 +196,8 @@ Bridge response validation currently enforces:
     (e.g. `(1n == 1)`, `(1n == '1')`)
   - foldable BigInt loose equality with radix-prefixed string operands
     (e.g. `(16n == '0x10')`, `(16n == '0b10000')`, `(16n == '0o20')`)
+  - foldable BigInt loose equality with signed decimal string operands
+    (e.g. `(16n == '+16')`)
   - signed non-decimal radix strings follow JS `StringToBigInt` behavior and fold as non-equal
     (e.g. `(16n == '+0x10')` folds as false)
   - foldable equality conditionals over unary-not booleans
