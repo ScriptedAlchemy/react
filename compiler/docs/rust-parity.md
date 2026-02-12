@@ -163,7 +163,7 @@ Bridge response validation currently enforces:
   - direct/chain variants on browser-like globals (`window.module.require(...)`, `window['module']['require'](...)`, `self.module.require(...)`, `self['module']['require'](...)`)
   - mixed browser-global chain variants (e.g. `globalThis.window['module']['require'](...)`)
   - window member/computed require variants (e.g. `window.module['require'](...)`, `globalThis.window.module['require'](...)`)
-  - escaped/unicode require-key variants in those chains (e.g. `window.module['\\x72equire'](...)`, `window.module['\\u0072equire'](...)`)
+  - escaped/unicode require-key variants in those chains (e.g. `window.module['\\x72equire'](...)`, `global.module['\\u0072equire'](...)`, `globalThis.module['\\x72equire'](...)`)
   - nested global-root chains before `module` (e.g. `globalThis.window.module.require(...)`, `global.self.module['require'](...)`)
   - repeated global-root chains (e.g. `globalThis.globalThis.window.module.require(...)`, `global.global.self.module['require'](...)`)
   - sequence wrappers over repeated global-root chains (e.g. `(0, globalThis.globalThis.window.module.require)(...)`, `(0, global.global.self.module['require'])(...)`)
