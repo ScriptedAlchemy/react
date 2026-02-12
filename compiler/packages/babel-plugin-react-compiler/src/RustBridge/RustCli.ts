@@ -16,7 +16,7 @@ const DEFAULT_RUST_CLI_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 export type RustCompileRequest = {
   source: string;
   filename?: string;
-  dialect?: 'javascript' | 'typescript';
+  dialect?: 'javascript' | 'typescript' | 'flow';
   is_module?: boolean;
   apply_placeholder_transforms?: boolean;
   emit_debug_ir?: boolean;

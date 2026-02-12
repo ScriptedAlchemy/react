@@ -46,15 +46,44 @@ function hasTypeScriptParserPlugin(pass: BabelCore.PluginPass): boolean {
   });
 }
 
+function hasFlowParserPlugin(pass: BabelCore.PluginPass): boolean {
+  const parserOpts = (
+    pass.file as {
+      opts?: {
+        parserOpts?: {plugins?: Array<unknown>} | null;
+      };
+    }
+  )?.opts?.parserOpts;
+  const parserPlugins = parserOpts?.plugins;
+  if (!Array.isArray(parserPlugins)) {
+    return false;
+  }
+  return parserPlugins.some(pluginEntry => {
+    if (typeof pluginEntry === 'string') {
+      return pluginEntry === 'flow';
+    }
+    if (Array.isArray(pluginEntry) && pluginEntry.length > 0) {
+      return pluginEntry[0] === 'flow';
+    }
+    return false;
+  });
+}
+
 function detectRustDialect(
   filename: string | null,
   pass: BabelCore.PluginPass,
-): 'javascript' | 'typescript' {
+): 'javascript' | 'typescript' | 'flow' {
   if (filename != null && /\.(cts|mts|tsx|ts)$/i.test(filename)) {
     return 'typescript';
   }
+  if (filename != null && /\.flow$/i.test(filename)) {
+    return 'flow';
+  }
   if (hasTypeScriptParserPlugin(pass)) {
     return 'typescript';
+  }
+  if (hasFlowParserPlugin(pass)) {
+    return 'flow';
   }
   return 'javascript';
 }
@@ -62,12 +91,14 @@ function detectRustDialect(
 function parseProgramFromRustOutput(
   transformedCode: string,
   filename: string | null,
-  dialect: 'javascript' | 'typescript',
+  dialect: 'javascript' | 'typescript' | 'flow',
   sourceType: 'script' | 'module',
 ): BabelParser.ParseResult<t.File> {
   const plugins: Array<BabelParser.ParserPlugin> = ['jsx'];
   if (dialect === 'typescript') {
     plugins.unshift('typescript');
+  } else if (dialect === 'flow') {
+    plugins.unshift('flow');
   }
 
   const parserOptions: BabelParser.ParserOptions = {
@@ -268,7 +299,7 @@ function maybeApplyStrictRustProgramReplacement(
   pass: BabelCore.PluginPass,
   sourceCode: string,
   sourceType: 'script' | 'module',
-  dialect: 'javascript' | 'typescript',
+  dialect: 'javascript' | 'typescript' | 'flow',
   rustResult: Extract<RustCompileResponse, {status: 'ok'}>,
 ): void {
   if (rustResult.code === sourceCode) {
