@@ -881,13 +881,24 @@ fn static_bigint_number_relational(
         });
     }
 
-    if number.fract() != 0.0 {
-        return None;
-    }
-
     const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
     if number.abs() > MAX_SAFE_INTEGER {
         return None;
+    }
+
+    if number.fract() != 0.0 {
+        let floor_string = (number.floor() as i64).to_string();
+        let ceil_string = (number.ceil() as i64).to_string();
+        let ordering_with_floor = static_bigint_decimal_compare(bigint, &floor_string)?;
+        let ordering_with_ceil = static_bigint_decimal_compare(bigint, &ceil_string)?;
+
+        return Some(match (bigint_is_left, operator) {
+            (true, BinaryOp::Lt | BinaryOp::LtEq) => ordering_with_floor != Ordering::Greater,
+            (true, BinaryOp::Gt | BinaryOp::GtEq) => ordering_with_ceil != Ordering::Less,
+            (false, BinaryOp::Lt | BinaryOp::LtEq) => ordering_with_ceil != Ordering::Less,
+            (false, BinaryOp::Gt | BinaryOp::GtEq) => ordering_with_floor != Ordering::Greater,
+            _ => return None,
+        });
     }
 
     let number_bigint = (number as i64).to_string();

@@ -101,6 +101,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `(1n < 2n)`, `(2n > 1n)` in conditional alias selection).
   Static BigInt-to-Number relational comparisons are folded when the number side is a
   statically safe integer (e.g. `(1n < 2)`, `(2 > 1n)`).
+  Foldable fractional BigInt-vs-Number comparisons are also supported
+  (e.g. `(1n < 1.5)`, `(1.5 < 2n)`).
   Unary-minus BigInt truthiness in conditionals is folded too
   (e.g. `((-1n) ? 'require' : 'nope')`).
   Foldable `typeof`-based conditionals are also supported when operand type is
