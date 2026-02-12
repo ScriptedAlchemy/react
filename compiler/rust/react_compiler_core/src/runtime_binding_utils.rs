@@ -190,7 +190,7 @@ fn is_module_object_expr(expr: &Expr) -> bool {
                 return false;
             }
             expression_ident(member_expr.obj.as_ref())
-                .map(|name| matches!(name.as_str(), "globalThis" | "global"))
+                .map(|name| matches!(name.as_str(), "globalThis" | "global" | "self" | "window"))
                 .unwrap_or(false)
         }
         Expr::Seq(sequence_expr) => sequence_expr
