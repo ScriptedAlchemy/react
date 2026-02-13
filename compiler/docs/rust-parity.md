@@ -220,8 +220,12 @@ Bridge response validation currently enforces:
     (e.g. ``(16n == `${'+ 16'}`)`` folds as false)
   - signed decimals with JS BOM/Unicode whitespace after the sign also fold as non-equal
     (e.g. `(16n == '+\uFEFF16')` folds as false)
+  - signed decimals with post-sign line-separator whitespace also fold as non-equal
+    (e.g. `(16n == '+\u202816')` folds as false)
   - signed-decimal template strings with post-sign BOM/Unicode whitespace also fold as non-equal
     (e.g. ``(16n == `${'+\uFEFF16'}`)`` folds as false)
+  - signed-decimal template strings with post-sign line-separator whitespace also fold as non-equal
+    (e.g. ``(16n == `${'+\u202816'}`)`` folds as false)
   - signed non-decimal radix strings follow JS `StringToBigInt` behavior and fold as non-equal
     (e.g. `(16n == '+0x10')` folds as false)
   - signed non-decimal radix template strings also follow JS `StringToBigInt` behavior and fold as non-equal
