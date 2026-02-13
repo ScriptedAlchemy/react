@@ -143,6 +143,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(+true && 'require')]((+false || 'react/compiler-runtime'))`).
   Unary numeric coercions over foldable string literals are supported
   (e.g. `module[(+'1' && 'require')]((+'' || 'react/compiler-runtime'))`).
+  Large radix numeric strings are folded using JavaScript number semantics too
+  (e.g. `(+'0x10000000000000000' && 'require')` stays truthy instead of folding as `NaN`).
   Invalid numeric strings are folded as `NaN` in unary coercions
   (e.g. `module[(+'1' && 'require')]((+'not-a-number' || 'react/compiler-runtime'))`).
   Unary numeric coercions over foldable template-string literals are supported

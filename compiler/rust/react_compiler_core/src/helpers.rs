@@ -414,36 +414,35 @@ fn parse_js_numeric_string(value: &str) -> Option<f64> {
         .strip_prefix("0x")
         .or_else(|| trimmed.strip_prefix("0X"))
     {
-        return Some(
-            u64::from_str_radix(hex, 16)
-                .ok()
-                .map(|parsed| parsed as f64)
-                .unwrap_or(f64::NAN),
-        );
+        return Some(parse_js_radix_number_string(hex, 16).unwrap_or(f64::NAN));
     }
     if let Some(octal) = trimmed
         .strip_prefix("0o")
         .or_else(|| trimmed.strip_prefix("0O"))
     {
-        return Some(
-            u64::from_str_radix(octal, 8)
-                .ok()
-                .map(|parsed| parsed as f64)
-                .unwrap_or(f64::NAN),
-        );
+        return Some(parse_js_radix_number_string(octal, 8).unwrap_or(f64::NAN));
     }
     if let Some(binary) = trimmed
         .strip_prefix("0b")
         .or_else(|| trimmed.strip_prefix("0B"))
     {
-        return Some(
-            u64::from_str_radix(binary, 2)
-                .ok()
-                .map(|parsed| parsed as f64)
-                .unwrap_or(f64::NAN),
-        );
+        return Some(parse_js_radix_number_string(binary, 2).unwrap_or(f64::NAN));
     }
     Some(trimmed.parse::<f64>().unwrap_or(f64::NAN))
+}
+
+fn parse_js_radix_number_string(digits: &str, radix: u32) -> Option<f64> {
+    if digits.is_empty() {
+        return None;
+    }
+
+    let mut value = 0.0;
+    let radix_as_f64 = radix as f64;
+    for ch in digits.chars() {
+        let digit = ch.to_digit(radix)? as f64;
+        value = value * radix_as_f64 + digit;
+    }
+    Some(value)
 }
 
 enum StaticPrimitive {
