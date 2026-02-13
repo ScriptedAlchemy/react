@@ -329,6 +329,21 @@ fn expression_static_number_value(expr: &Expr) -> Option<f64> {
                 BinaryOp::Div => Some(left / right),
                 BinaryOp::Mod => Some(left % right),
                 BinaryOp::Exp => Some(left.powf(right)),
+                BinaryOp::BitOr => Some((to_int32(left) | to_int32(right)) as f64),
+                BinaryOp::BitAnd => Some((to_int32(left) & to_int32(right)) as f64),
+                BinaryOp::BitXor => Some((to_int32(left) ^ to_int32(right)) as f64),
+                BinaryOp::LShift => {
+                    let shift = (to_uint32(right) & 0x1f) as u32;
+                    Some((to_int32(left) << shift) as f64)
+                }
+                BinaryOp::RShift => {
+                    let shift = (to_uint32(right) & 0x1f) as u32;
+                    Some((to_int32(left) >> shift) as f64)
+                }
+                BinaryOp::ZeroFillRShift => {
+                    let shift = (to_uint32(right) & 0x1f) as u32;
+                    Some((to_uint32(left) >> shift) as f64)
+                }
                 BinaryOp::LogicalAnd => {
                     if expression_static_truthiness_value(binary_expression.left.as_ref())? {
                         Some(right)
@@ -448,6 +463,36 @@ fn parse_js_numeric_string(value: &str) -> Option<f64> {
         return Some(parse_js_radix_number_string(binary, 2).unwrap_or(f64::NAN));
     }
     Some(trimmed.parse::<f64>().unwrap_or(f64::NAN))
+}
+
+fn to_int32(value: f64) -> i32 {
+    if !value.is_finite() || value == 0.0 {
+        return 0;
+    }
+
+    let truncated = value.trunc();
+    let mut modulo = truncated % 4_294_967_296.0;
+    if modulo < 0.0 {
+        modulo += 4_294_967_296.0;
+    }
+    if modulo >= 2_147_483_648.0 {
+        (modulo - 4_294_967_296.0) as i32
+    } else {
+        modulo as i32
+    }
+}
+
+fn to_uint32(value: f64) -> u32 {
+    if !value.is_finite() || value == 0.0 {
+        return 0;
+    }
+
+    let truncated = value.trunc();
+    let mut modulo = truncated % 4_294_967_296.0;
+    if modulo < 0.0 {
+        modulo += 4_294_967_296.0;
+    }
+    modulo as u32
 }
 
 fn parse_js_radix_number_string(digits: &str, radix: u32) -> Option<f64> {
