@@ -283,6 +283,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Signed decimal numeric-string coercions with post-sign punctuation-space whitespace
   also fold as `NaN`
   (e.g. `module[(+1 && 'require')]((+'+\u200816' || 'react/compiler-runtime'))`).
+  Signed decimal numeric-string coercions with post-sign thin-space whitespace
+  also fold as `NaN`
+  (e.g. `module[(+1 && 'require')]((+'+\u200916' || 'react/compiler-runtime'))`).
   Signed decimal numeric-string coercions with post-sign em-space whitespace
   also fold as `NaN`
   (e.g. `module[(+1 && 'require')]((+'+\u200316' || 'react/compiler-runtime'))`).
@@ -341,6 +344,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Signed decimal template-string numeric coercions with post-sign punctuation-space whitespace
   also fold as `NaN`
   (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\u200816'}\` || 'react/compiler-runtime')))`).
+  Signed decimal template-string numeric coercions with post-sign thin-space whitespace
+  also fold as `NaN`
+  (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\u200916'}\` || 'react/compiler-runtime')))`).
   Signed decimal template-string numeric coercions with post-sign em-space whitespace
   also fold as `NaN`
   (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\u200316'}\` || 'react/compiler-runtime')))`).
