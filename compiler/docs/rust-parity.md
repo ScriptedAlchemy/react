@@ -286,6 +286,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+\`${'\uFEFF1'}\` && 'require'))](((+\`${'\uFEFF1'}\` && 'react/compiler-runtime')))` )
   - signed decimal numeric strings also fold as finite numbers
     (e.g. `module[((+'+16' && 'require'))](((+'+16' && 'react/compiler-runtime')))` )
+  - space-wrapped signed decimal numeric strings also fold as finite numbers
+    (e.g. `module[((+' +16 ' && 'require'))](((+' +16 ' && 'react/compiler-runtime')))` )
   - BOM-wrapped signed decimal numeric strings also fold as finite numbers
     (e.g. `module[((+'\uFEFF+16\uFEFF' && 'require'))](((+'\uFEFF+16\uFEFF' && 'react/compiler-runtime')))` )
   - signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number` coercion (`NaN`)
