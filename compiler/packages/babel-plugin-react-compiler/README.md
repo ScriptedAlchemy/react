@@ -146,6 +146,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `(16n == '+\u200916')` is folded as false).
   Signed decimals with post-sign hair-space whitespace also fold as non-equal
   (e.g. `(16n == '+\u200A16')` is folded as false).
+  Signed decimals with post-sign narrow-no-break-space whitespace also fold as non-equal
+  (e.g. `(16n == '+\u202F16')` is folded as false).
   Signed decimals with post-sign em-space whitespace also fold as non-equal
   (e.g. `(16n == '+\u200316')` is folded as false).
   Signed-decimal template strings with post-sign BOM/Unicode whitespace also fold as non-equal
@@ -178,6 +180,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. ``(16n == `${'+\u200916'}`)`` is folded as false).
   Signed-decimal template strings with post-sign hair-space whitespace also fold as non-equal
   (e.g. ``(16n == `${'+\u200A16'}`)`` is folded as false).
+  Signed-decimal template strings with post-sign narrow-no-break-space whitespace also fold as non-equal
+  (e.g. ``(16n == `${'+\u202F16'}`)`` is folded as false).
   Signed-decimal template strings with post-sign em-space whitespace also fold as non-equal
   (e.g. ``(16n == `${'+\u200316'}`)`` is folded as false).
   Signed non-decimal radix strings follow JavaScript behavior and do not fold as equal
