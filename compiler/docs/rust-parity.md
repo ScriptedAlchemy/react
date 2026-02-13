@@ -276,6 +276,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(((-1 >> 33) && 'require'))]((((1 >>> -1) || 'react/compiler-runtime')))`).
   - bitwise int32 wraparound boundaries fold with JS ToInt32 semantics
     (e.g. `module[(((-4294967297 | 0) && 'require'))]((((4294967296 | 0) || 'react/compiler-runtime')))`).
+  - non-finite numeric bitwise coercions fold with JS ToInt32 behavior
+    (e.g. `module[(((+'not-a-number' ^ 1) && 'require'))]((((+'Infinity' | 0) || 'react/compiler-runtime')))`).
   - bigint truthy/falsy logical aliases with foldable bigint literals
     (e.g. `module[(1n && 'require')]((0n || 'react/compiler-runtime'))`)
   - object destructure aliases (e.g. `const { c: cache } = runtime`)
