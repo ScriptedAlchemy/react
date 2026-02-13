@@ -276,6 +276,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+'\uFEFF1' && 'require'))](((+'\uFEFF1' && 'react/compiler-runtime')))` )
   - unary template-string numeric coercion aliases also honor JS BOM trimming
     (e.g. `module[((+\`${'\uFEFF1'}\` && 'require'))](((+\`${'\uFEFF1'}\` && 'react/compiler-runtime')))` )
+  - signed decimal numeric strings also fold as finite numbers
+    (e.g. `module[((+'+16' && 'require'))](((+'+16' && 'react/compiler-runtime')))` )
   - signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number` coercion (`NaN`)
     (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,
     `(+'+0b10' || 'react/compiler-runtime')`, `(+'+0o10' || 'react/compiler-runtime')`)
