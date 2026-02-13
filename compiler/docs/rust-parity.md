@@ -264,6 +264,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases honor JS BOM trimming for string numerics
     (e.g. `module[((+'\uFEFF1' && 'require'))](((+'\uFEFF1' && 'react/compiler-runtime')))` )
+  - unary template-string numeric coercion aliases also honor JS BOM trimming
+    (e.g. `module[((+\`${'\uFEFF1'}\` && 'require'))](((+\`${'\uFEFF1'}\` && 'react/compiler-runtime')))` )
   - signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number` coercion (`NaN`)
     (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,
     `(+'+0b10' || 'react/compiler-runtime')`, `(+'+0o10' || 'react/compiler-runtime')`)

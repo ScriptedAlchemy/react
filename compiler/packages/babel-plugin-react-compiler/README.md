@@ -161,6 +161,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`).
   String numeric coercions also honor JS BOM trimming (e.g. `+'\uFEFF1'` is folded as `1`)
   in logical alias checks.
+  Template-string numeric coercions also honor BOM trimming
+  (e.g. `module[((+\`${'\uFEFF1'}\` && 'require'))](((+\`${'\uFEFF1'}\` && 'react/compiler-runtime')))`).
   Signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number`
   behavior and coerce to `NaN`
   (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,
