@@ -258,6 +258,8 @@ Bridge response validation currently enforces:
     (e.g. `(16n == '+\u205F16')` folds as false)
   - signed decimals with post-sign ideographic-space whitespace also fold as non-equal
     (e.g. `(16n == '+\u300016')` folds as false)
+  - signed decimals with post-sign tab whitespace also fold as non-equal
+    (e.g. `(16n == '+\t16')` folds as false)
   - signed decimals with post-sign em-space whitespace also fold as non-equal
     (e.g. `(16n == '+\u200316')` folds as false)
   - signed-decimal template strings with post-sign BOM/Unicode whitespace also fold as non-equal
@@ -296,6 +298,8 @@ Bridge response validation currently enforces:
     (e.g. ``(16n == `${'+\u205F16'}`)`` folds as false)
   - signed-decimal template strings with post-sign ideographic-space whitespace also fold as non-equal
     (e.g. ``(16n == `${'+\u300016'}`)`` folds as false)
+  - signed-decimal template strings with post-sign tab whitespace also fold as non-equal
+    (e.g. ``(16n == `${'+\t16'}`)`` folds as false)
   - signed-decimal template strings with post-sign em-space whitespace also fold as non-equal
     (e.g. ``(16n == `${'+\u200316'}`)`` folds as false)
   - signed non-decimal radix strings follow JS `StringToBigInt` behavior and fold as non-equal
