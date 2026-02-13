@@ -209,6 +209,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Signed decimal numeric-string coercions with post-sign paragraph-separator whitespace
   also fold as `NaN`
   (e.g. `module[(+1 && 'require')]((+'+\u202916' || 'react/compiler-runtime'))`).
+  Signed decimal numeric-string coercions with post-sign em-space whitespace
+  also fold as `NaN`
+  (e.g. `module[(+1 && 'require')]((+'+\u200316' || 'react/compiler-runtime'))`).
   Signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number`
   behavior and coerce to `NaN`
   (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,
@@ -234,6 +237,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Signed decimal template-string numeric coercions with post-sign paragraph-separator whitespace
   also fold as `NaN`
   (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\u202916'}\` || 'react/compiler-runtime')))`).
+  Signed decimal template-string numeric coercions with post-sign em-space whitespace
+  also fold as `NaN`
+  (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\u200316'}\` || 'react/compiler-runtime')))`).
   Hex/octal/infinity numeric-string coercions are folded too
   (e.g. `module[(+'Infinity' && 'require')]((+'0o0' || 'react/compiler-runtime'))`).
   Unary numeric coercions over foldable conditionals are supported too
