@@ -202,6 +202,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `(16n == '+\t\r\n\f16')` is folded as false).
   Signed decimals with post-sign tab+line-feed+carriage-return+form-feed whitespace also fold as non-equal
   (e.g. `(16n == '+\t\n\r\f16')` is folded as false).
+  Signed decimals with post-sign tab+line-feed+carriage-return+vertical-tab whitespace also fold as non-equal
+  (e.g. `(16n == '+\t\n\r\v16')` is folded as false).
   Signed decimals with post-sign tab+carriage-return+line-feed+vertical-tab whitespace also fold as non-equal
   (e.g. `(16n == '+\t\r\n\v16')` is folded as false).
   Signed decimals with post-sign tab+line-feed+carriage-return whitespace also fold as non-equal
@@ -296,6 +298,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. ``(16n == `${'+\t\r\n\f16'}`)`` is folded as false).
   Signed-decimal template strings with post-sign tab+line-feed+carriage-return+form-feed whitespace also fold as non-equal
   (e.g. ``(16n == `${'+\t\n\r\f16'}`)`` is folded as false).
+  Signed-decimal template strings with post-sign tab+line-feed+carriage-return+vertical-tab whitespace also fold as non-equal
+  (e.g. ``(16n == `${'+\t\n\r\v16'}`)`` is folded as false).
   Signed-decimal template strings with post-sign tab+carriage-return+line-feed+vertical-tab whitespace also fold as non-equal
   (e.g. ``(16n == `${'+\t\r\n\v16'}`)`` is folded as false).
   Signed-decimal template strings with post-sign tab+line-feed+carriage-return whitespace also fold as non-equal
@@ -501,6 +505,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Signed decimal numeric-string coercions with post-sign tab+line-feed+carriage-return+form-feed whitespace
   also fold as `NaN`
   (e.g. `module[(+1 && 'require')]((+'+\t\n\r\f16' || 'react/compiler-runtime'))`).
+  Signed decimal numeric-string coercions with post-sign tab+line-feed+carriage-return+vertical-tab whitespace
+  also fold as `NaN`
+  (e.g. `module[(+1 && 'require')]((+'+\t\n\r\v16' || 'react/compiler-runtime'))`).
   Signed decimal numeric-string coercions with post-sign tab+carriage-return+line-feed+vertical-tab whitespace
   also fold as `NaN`
   (e.g. `module[(+1 && 'require')]((+'+\t\r\n\v16' || 'react/compiler-runtime'))`).
@@ -658,6 +665,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Signed decimal template-string numeric coercions with post-sign tab+line-feed+carriage-return+form-feed whitespace
   also fold as `NaN`
   (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\t\n\r\f16'}\` || 'react/compiler-runtime')))`).
+  Signed decimal template-string numeric coercions with post-sign tab+line-feed+carriage-return+vertical-tab whitespace
+  also fold as `NaN`
+  (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\t\n\r\v16'}\` || 'react/compiler-runtime')))`).
   Signed decimal template-string numeric coercions with post-sign tab+carriage-return+line-feed+vertical-tab whitespace
   also fold as `NaN`
   (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\t\r\n\v16'}\` || 'react/compiler-runtime')))`).
