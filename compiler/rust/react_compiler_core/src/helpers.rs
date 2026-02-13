@@ -246,6 +246,25 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
                 binary_expression.op,
             )
         }
+        Expr::Bin(binary_expression)
+            if matches!(
+                binary_expression.op,
+                BinaryOp::Sub
+                    | BinaryOp::Mul
+                    | BinaryOp::Div
+                    | BinaryOp::Mod
+                    | BinaryOp::Exp
+                    | BinaryOp::BitOr
+                    | BinaryOp::BitAnd
+                    | BinaryOp::BitXor
+                    | BinaryOp::LShift
+                    | BinaryOp::RShift
+                    | BinaryOp::ZeroFillRShift
+            ) =>
+        {
+            let number_value = expression_static_number_value(expr)?;
+            Some(number_value != 0.0 && !number_value.is_nan())
+        }
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::LogicalAnd => {
             let left_truthy = expression_static_truthiness_value(binary_expression.left.as_ref())?;
             if left_truthy {
