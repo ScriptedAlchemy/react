@@ -106,6 +106,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   statically safe integer (e.g. `(1n < 2)`, `(2 > 1n)`).
   Foldable fractional BigInt-vs-Number comparisons are also supported
   (e.g. `(1n < 1.5)`, `(1.5 < 2n)`).
+  Foldable BigInt-vs-Number comparisons also handle `Infinity`, `-Infinity`, and `NaN`
+  number expressions (e.g. `(1n < +'Infinity')`, `(1n < +'not-a-number')`).
   Unary-minus BigInt truthiness in conditionals is folded too
   (e.g. `((-1n) ? 'require' : 'nope')`).
   Foldable `typeof`-based conditionals are also supported when operand type is
