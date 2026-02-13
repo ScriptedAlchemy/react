@@ -177,6 +177,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(((-1 >> 33) && 'require'))]((((1 >>> -1) || 'react/compiler-runtime')))`).
   Bitwise int32 wraparound boundaries are folded with JavaScript semantics
   (e.g. `module[(((-4294967297 | 0) && 'require'))]((((4294967296 | 0) || 'react/compiler-runtime')))`).
+  Large decimal bitwise operands near float precision boundaries are folded too
+  (e.g. `module[(((1e20 | 0) && 'require'))]((((9007199254740992 | 0) || 'react/compiler-runtime')))`).
   Non-finite numeric bitwise coercions are folded with JS ToInt32 semantics
   (e.g. `module[(((+'not-a-number' ^ 1) && 'require'))]((((+'Infinity' | 0) || 'react/compiler-runtime')))`).
   Foldable bigint truthy/falsy conditions are supported as well
