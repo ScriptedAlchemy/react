@@ -264,6 +264,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+(true ? true : false)) && 'require')](((+(true ? false : true)) || 'react/compiler-runtime'))`)
   - arithmetic numeric truthy/falsy logical aliases
     (e.g. `module[(((3 - 2) && 'require'))]((((2 - 2) || 'react/compiler-runtime')))`).
+  - arithmetic non-finite numeric logical aliases
+    (e.g. `module[(((1 / 0) && 'require'))]((((0 / 0) || 'react/compiler-runtime')))`).
   - bitwise/shift numeric truthy/falsy logical aliases
     (e.g. `module[(((1 << 1) && 'require'))]((((1 ^ 1) || 'react/compiler-runtime')))`).
   - signed-shift/bitand and zero-fill-shift numeric truthy/falsy aliases
