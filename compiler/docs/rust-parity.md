@@ -206,6 +206,8 @@ Bridge response validation currently enforces:
     (e.g. `(16n == '+16')`)
   - signed decimals with whitespace after the sign follow JS `StringToBigInt` behavior and fold as non-equal
     (e.g. `(16n == '+ 16')` folds as false)
+  - signed-decimal template strings with post-sign whitespace also fold as non-equal
+    (e.g. ``(16n == `${'+ 16'}`)`` folds as false)
   - signed decimals with JS BOM/Unicode whitespace after the sign also fold as non-equal
     (e.g. `(16n == '+\uFEFF16')` folds as false)
   - signed non-decimal radix strings follow JS `StringToBigInt` behavior and fold as non-equal
