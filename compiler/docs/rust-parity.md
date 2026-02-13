@@ -200,6 +200,8 @@ Bridge response validation currently enforces:
     (e.g. `(16n == ' 0X10 ')`, `(16n == ' 0B10000 ')`, `(16n == ' 0O20 ')`)
   - foldable BigInt loose equality with signed decimal string operands
     (e.g. `(16n == '+16')`)
+  - signed decimals with whitespace after the sign follow JS `StringToBigInt` behavior and fold as non-equal
+    (e.g. `(16n == '+ 16')` folds as false)
   - signed non-decimal radix strings follow JS `StringToBigInt` behavior and fold as non-equal
     (e.g. `(16n == '+0x10')` folds as false)
   - foldable equality conditionals over unary-not booleans

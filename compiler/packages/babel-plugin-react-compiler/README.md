@@ -96,6 +96,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Uppercase prefixes and surrounding whitespace are folded too
   (e.g. `(16n == ' 0X10 ')`, `(16n == ' 0B10000 ')`, `(16n == ' 0O20 ')`).
   Signed decimal BigInt strings are folded too (e.g. `(16n == '+16')`).
+  Signed decimals with whitespace after the sign follow JavaScript behavior and fold as non-equal
+  (e.g. `(16n == '+ 16')` is folded as false).
   Signed non-decimal radix strings follow JavaScript behavior and do not fold as equal
   (e.g. `(16n == '+0x10')` is folded as false).
   Equality conditionals over foldable unary-not booleans are also folded

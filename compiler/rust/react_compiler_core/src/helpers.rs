@@ -967,6 +967,10 @@ fn parse_js_bigint_string(value: &str) -> Option<String> {
         (false, 1, trimmed)
     };
 
+    if had_explicit_sign && unsigned_body.trim() != unsigned_body {
+        return None;
+    }
+
     let canonical_unsigned = if let Some(hex_digits) = unsigned_body
         .strip_prefix("0x")
         .or_else(|| unsigned_body.strip_prefix("0X"))
