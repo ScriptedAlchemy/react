@@ -268,6 +268,8 @@ Bridge response validation currently enforces:
     (e.g. `(16n == '+\f16')` folds as false)
   - signed decimals with post-sign vertical-tab whitespace also fold as non-equal
     (e.g. `(16n == '+\v16')` folds as false)
+  - signed decimals with post-sign vertical-tab+tab whitespace also fold as non-equal
+    (e.g. `(16n == '+\v\t16')` folds as false)
   - signed decimals with post-sign carriage-return+line-feed whitespace also fold as non-equal
     (e.g. `(16n == '+\r\n16')` folds as false)
   - signed decimals with post-sign line-feed+carriage-return whitespace also fold as non-equal
@@ -384,6 +386,8 @@ Bridge response validation currently enforces:
     (e.g. ``(16n == `${'+\f16'}`)`` folds as false)
   - signed-decimal template strings with post-sign vertical-tab whitespace also fold as non-equal
     (e.g. ``(16n == `${'+\v16'}`)`` folds as false)
+  - signed-decimal template strings with post-sign vertical-tab+tab whitespace also fold as non-equal
+    (e.g. ``(16n == `${'+\v\t16'}`)`` folds as false)
   - signed-decimal template strings with post-sign carriage-return+line-feed whitespace also fold as non-equal
     (e.g. ``(16n == `${'+\r\n16'}`)`` folds as false)
   - signed-decimal template strings with post-sign line-feed+carriage-return whitespace also fold as non-equal
@@ -568,6 +572,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(+1 && 'require')]((+'+\f16' || 'react/compiler-runtime'))`)
   - signed decimal numeric-string coercions with post-sign vertical-tab whitespace also fold as `NaN`
     (e.g. `module[(+1 && 'require')]((+'+\v16' || 'react/compiler-runtime'))`)
+  - signed decimal numeric-string coercions with post-sign vertical-tab+tab whitespace also fold as `NaN`
+    (e.g. `module[(+1 && 'require')]((+'+\v\t16' || 'react/compiler-runtime'))`)
   - signed decimal numeric-string coercions with post-sign carriage-return+line-feed whitespace also fold as `NaN`
     (e.g. `module[(+1 && 'require')]((+'+\r\n16' || 'react/compiler-runtime'))`)
   - signed decimal numeric-string coercions with post-sign line-feed+carriage-return whitespace also fold as `NaN`
@@ -699,6 +705,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\f16'}\` || 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions with post-sign vertical-tab whitespace also fold as `NaN`
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\v16'}\` || 'react/compiler-runtime')))` )
+  - signed decimal template-string numeric coercions with post-sign vertical-tab+tab whitespace also fold as `NaN`
+    (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\v\t16'}\` || 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions with post-sign carriage-return+line-feed whitespace also fold as `NaN`
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\r\n16'}\` || 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions with post-sign line-feed+carriage-return whitespace also fold as `NaN`
