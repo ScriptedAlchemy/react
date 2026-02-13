@@ -198,6 +198,8 @@ Bridge response validation currently enforces:
     (e.g. `(16n == '0x10')`, `(16n == '0b10000')`, `(16n == '0o20')`)
   - uppercase radix prefixes and surrounding whitespace also fold
     (e.g. `(16n == ' 0X10 ')`, `(16n == ' 0B10000 ')`, `(16n == ' 0O20 ')`)
+  - BOM-wrapped radix prefixes also fold in BigInt loose equality
+    (e.g. `(16n == '\uFEFF0x10\uFEFF')`, `(16n == '\uFEFF0b10000\uFEFF')`, `(16n == '\uFEFF0o20\uFEFF')`)
   - foldable BigInt loose equality with signed decimal string operands
     (e.g. `(16n == '+16')`)
   - signed decimals with whitespace after the sign follow JS `StringToBigInt` behavior and fold as non-equal
