@@ -294,6 +294,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+' +16 ' && 'require'))](((+' +16 ' && 'react/compiler-runtime')))` )
   - BOM-wrapped signed decimal numeric strings also fold as finite numbers
     (e.g. `module[((+'\uFEFF+16\uFEFF' && 'require'))](((+'\uFEFF+16\uFEFF' && 'react/compiler-runtime')))` )
+  - signed decimal numeric-string coercions with post-sign line-separator whitespace also fold as `NaN`
+    (e.g. `module[(+1 && 'require')]((+'+\u202816' || 'react/compiler-runtime'))`)
   - signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number` coercion (`NaN`)
     (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,
     `(+'+0b10' || 'react/compiler-runtime')`, `(+'+0o10' || 'react/compiler-runtime')`)
@@ -309,6 +311,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+ 16'}\` || 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions with post-sign BOM/Unicode whitespace also fold as `NaN`
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\uFEFF16'}\` || 'react/compiler-runtime')))` )
+  - signed decimal template-string numeric coercions with post-sign line-separator whitespace also fold as `NaN`
+    (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\u202816'}\` || 'react/compiler-runtime')))` )
   - unary numeric coercion aliases over hex/octal/infinity numeric strings
     (e.g. `module[(+'Infinity' && 'require')]((+'0o0' || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over foldable conditional expressions
