@@ -436,6 +436,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(+1 && 'require')]((+'+\f16' || 'react/compiler-runtime'))`)
   - signed decimal numeric-string coercions with post-sign vertical-tab whitespace also fold as `NaN`
     (e.g. `module[(+1 && 'require')]((+'+\v16' || 'react/compiler-runtime'))`)
+  - signed decimal numeric-string coercions with post-sign carriage-return+line-feed whitespace also fold as `NaN`
+    (e.g. `module[(+1 && 'require')]((+'+\r\n16' || 'react/compiler-runtime'))`)
   - signed decimal numeric-string coercions with post-sign em-space whitespace also fold as `NaN`
     (e.g. `module[(+1 && 'require')]((+'+\u200316' || 'react/compiler-runtime'))`)
   - signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number` coercion (`NaN`)
@@ -499,6 +501,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\f16'}\` || 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions with post-sign vertical-tab whitespace also fold as `NaN`
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\v16'}\` || 'react/compiler-runtime')))` )
+  - signed decimal template-string numeric coercions with post-sign carriage-return+line-feed whitespace also fold as `NaN`
+    (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\r\n16'}\` || 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions with post-sign em-space whitespace also fold as `NaN`
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\u200316'}\` || 'react/compiler-runtime')))` )
   - unary numeric coercion aliases over hex/octal/infinity numeric strings
