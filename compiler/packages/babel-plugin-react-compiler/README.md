@@ -179,6 +179,9 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+0x10'}\` || 'react/compiler-runtime')))`).
   Signed decimal template-string numeric coercions with post-sign whitespace also fold as `NaN`
   (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+ 16'}\` || 'react/compiler-runtime')))`).
+  Signed decimal template-string numeric coercions with post-sign BOM/Unicode whitespace
+  also fold as `NaN`
+  (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+\uFEFF16'}\` || 'react/compiler-runtime')))`).
   Hex/octal/infinity numeric-string coercions are folded too
   (e.g. `module[(+'Infinity' && 'require')]((+'0o0' || 'react/compiler-runtime'))`).
   Unary numeric coercions over foldable conditionals are supported too
