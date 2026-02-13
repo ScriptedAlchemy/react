@@ -84,7 +84,8 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
                     .unwrap_or_else(|| quasi.raw.as_ref());
                 result.push_str(quasi_segment);
                 if let Some(template_expr) = template_literal.exprs.get(index) {
-                    result.push_str(expression_static_string_value(template_expr.as_ref())?.as_str());
+                    result
+                        .push_str(expression_static_string_value(template_expr.as_ref())?.as_str());
                 }
             }
             Some(result)
@@ -121,7 +122,8 @@ pub(crate) fn expression_static_string_value(expr: &Expr) -> Option<String> {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
+            {
                 expression_static_string_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -161,7 +163,9 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             Lit::Bool(boolean_literal) => Some(boolean_literal.value),
             Lit::Null(_) => Some(false),
             Lit::Str(string_literal) => Some(!string_literal.value.is_empty()),
-            Lit::Num(number_literal) => Some(number_literal.value != 0.0 && !number_literal.value.is_nan()),
+            Lit::Num(number_literal) => {
+                Some(number_literal.value != 0.0 && !number_literal.value.is_nan())
+            }
             Lit::BigInt(big_int_literal) => Some(big_int_literal.value.to_string() != "0"),
             Lit::Regex(_) => Some(true),
             _ => None,
@@ -184,7 +188,9 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             Some(number_value != 0.0 && !number_value.is_nan())
         }
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Minus => {
-            if let Some(number_value) = expression_static_number_value(unary_expression.arg.as_ref()) {
+            if let Some(number_value) =
+                expression_static_number_value(unary_expression.arg.as_ref())
+            {
                 let negated_value = -number_value;
                 Some(negated_value != 0.0 && !negated_value.is_nan())
             } else {
@@ -203,7 +209,8 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
             last_truthiness
         }
         Expr::Cond(conditional_expression) => {
-            let test_value = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_value =
+                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_value {
                 expression_static_truthiness_value(conditional_expression.cons.as_ref())
             } else {
@@ -216,24 +223,24 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
                 expression_static_primitive_value(binary_expression.right.as_ref())?,
             ))
         }
-        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::EqEq => Some(
-            static_abstract_equality(
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::EqEq => {
+            Some(static_abstract_equality(
                 expression_static_primitive_value(binary_expression.left.as_ref())?,
                 expression_static_primitive_value(binary_expression.right.as_ref())?,
-            )?,
-        ),
+            )?)
+        }
         Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NotEqEq => {
             Some(!static_strict_equality(
                 expression_static_primitive_value(binary_expression.left.as_ref())?,
                 expression_static_primitive_value(binary_expression.right.as_ref())?,
             ))
         }
-        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NotEq => Some(
-            !static_abstract_equality(
+        Expr::Bin(binary_expression) if binary_expression.op == BinaryOp::NotEq => {
+            Some(!static_abstract_equality(
                 expression_static_primitive_value(binary_expression.left.as_ref())?,
                 expression_static_primitive_value(binary_expression.right.as_ref())?,
-            )?,
-        ),
+            )?)
+        }
         Expr::Bin(binary_expression)
             if matches!(
                 binary_expression.op,
@@ -295,15 +302,20 @@ fn expression_static_truthiness_value(expr: &Expr) -> Option<bool> {
 fn expression_static_number_value(expr: &Expr) -> Option<f64> {
     match unwrap_expression(expr) {
         Expr::Lit(Lit::Num(number_literal)) => Some(number_literal.value),
-        Expr::Lit(Lit::Bool(boolean_literal)) => Some(if boolean_literal.value { 1.0 } else { 0.0 }),
+        Expr::Lit(Lit::Bool(boolean_literal)) => {
+            Some(if boolean_literal.value { 1.0 } else { 0.0 })
+        }
         Expr::Lit(Lit::Null(_)) => Some(0.0),
-        Expr::Lit(Lit::Str(string_literal)) => parse_js_numeric_string(string_literal.value.as_ref()),
+        Expr::Lit(Lit::Str(string_literal)) => {
+            parse_js_numeric_string(string_literal.value.as_ref())
+        }
         Expr::Tpl(_) => parse_js_numeric_string(expression_static_string_value(expr)?.as_str()),
         Expr::Seq(sequence_expression) => {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
+            {
                 expression_static_number_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -312,7 +324,8 @@ fn expression_static_number_value(expr: &Expr) -> Option<f64> {
                 .and_then(|expression| expression_static_number_value(expression.as_ref()))
         }
         Expr::Cond(conditional_expression) => {
-            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_truthy =
+                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
                 expression_static_number_value(conditional_expression.cons.as_ref())
             } else {
@@ -391,7 +404,8 @@ fn expression_static_bigint_value(expr: &Expr) -> Option<String> {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
+            {
                 expression_static_bigint_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -400,7 +414,8 @@ fn expression_static_bigint_value(expr: &Expr) -> Option<String> {
                 .and_then(|expression| expression_static_bigint_value(expression.as_ref()))
         }
         Expr::Cond(conditional_expression) => {
-            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_truthy =
+                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
                 expression_static_bigint_value(conditional_expression.cons.as_ref())
             } else {
@@ -435,7 +450,7 @@ fn expression_static_bigint_value(expr: &Expr) -> Option<String> {
 }
 
 fn parse_js_numeric_string(value: &str) -> Option<f64> {
-    let trimmed = value.trim();
+    let trimmed = trim_js_whitespace(value);
     if trimmed.is_empty() {
         return Some(0.0);
     }
@@ -509,6 +524,10 @@ fn parse_js_radix_number_string(digits: &str, radix: u32) -> Option<f64> {
     Some(value)
 }
 
+fn trim_js_whitespace(value: &str) -> &str {
+    value.trim_matches(|character: char| character.is_whitespace() || character == '\u{feff}')
+}
+
 enum StaticPrimitive {
     Bool(bool),
     Number(f64),
@@ -523,21 +542,27 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
         Expr::Lit(literal) => match literal {
             Lit::Bool(boolean_literal) => Some(StaticPrimitive::Bool(boolean_literal.value)),
             Lit::Num(number_literal) => Some(StaticPrimitive::Number(number_literal.value)),
-            Lit::Str(string_literal) => Some(StaticPrimitive::String(string_literal.value.to_string())),
+            Lit::Str(string_literal) => {
+                Some(StaticPrimitive::String(string_literal.value.to_string()))
+            }
             Lit::Null(_) => Some(StaticPrimitive::Null),
-            Lit::BigInt(big_int_literal) => Some(StaticPrimitive::BigInt(big_int_literal.value.to_string())),
+            Lit::BigInt(big_int_literal) => {
+                Some(StaticPrimitive::BigInt(big_int_literal.value.to_string()))
+            }
             _ => None,
         },
-        Expr::Tpl(_) => Some(StaticPrimitive::String(expression_static_string_value(expr)?)),
+        Expr::Tpl(_) => Some(StaticPrimitive::String(expression_static_string_value(
+            expr,
+        )?)),
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::TypeOf => {
             Some(StaticPrimitive::String(expression_static_typeof_value(
                 unary_expression.arg.as_ref(),
             )?))
         }
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Bang => {
-            Some(StaticPrimitive::Bool(
-                !expression_static_truthiness_value(unary_expression.arg.as_ref())?,
-            ))
+            Some(StaticPrimitive::Bool(!expression_static_truthiness_value(
+                unary_expression.arg.as_ref(),
+            )?))
         }
         Expr::Unary(unary_expression) if unary_expression.op == swc_ecma_ast::UnaryOp::Void => {
             expression_static_truthiness_value(unary_expression.arg.as_ref())?;
@@ -552,13 +577,16 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
                     return Some(StaticPrimitive::BigInt(bigint_value));
                 }
             }
-            Some(StaticPrimitive::Number(expression_static_number_value(expr)?))
+            Some(StaticPrimitive::Number(expression_static_number_value(
+                expr,
+            )?))
         }
         Expr::Seq(sequence_expression) => {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
+            {
                 expression_static_primitive_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -567,7 +595,8 @@ fn expression_static_primitive_value(expr: &Expr) -> Option<StaticPrimitive> {
                 .and_then(|last_expr| expression_static_primitive_value(last_expr.as_ref()))
         }
         Expr::Cond(conditional_expression) => {
-            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_truthy =
+                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
                 expression_static_primitive_value(conditional_expression.cons.as_ref())
             } else {
@@ -649,7 +678,8 @@ fn expression_static_typeof_value(expr: &Expr) -> Option<String> {
             if sequence_expression.exprs.is_empty() {
                 return None;
             }
-            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1] {
+            for sequence_item in &sequence_expression.exprs[0..sequence_expression.exprs.len() - 1]
+            {
                 expression_static_typeof_value(sequence_item.as_ref())?;
             }
             sequence_expression
@@ -682,7 +712,8 @@ fn expression_static_typeof_value(expr: &Expr) -> Option<String> {
         }
         Expr::Bin(binary_expression) => static_binary_expression_typeof(binary_expression),
         Expr::Cond(conditional_expression) => {
-            let test_truthy = expression_static_truthiness_value(conditional_expression.test.as_ref())?;
+            let test_truthy =
+                expression_static_truthiness_value(conditional_expression.test.as_ref())?;
             if test_truthy {
                 expression_static_typeof_value(conditional_expression.cons.as_ref())
             } else {
@@ -698,11 +729,18 @@ fn static_binary_expression_typeof(binary_expression: &swc_ecma_ast::BinExpr) ->
     let right = expression_static_primitive_value(binary_expression.right.as_ref())?;
     match binary_expression.op {
         BinaryOp::Add => {
-            if matches!(left, StaticPrimitive::String(_)) || matches!(right, StaticPrimitive::String(_)) {
+            if matches!(left, StaticPrimitive::String(_))
+                || matches!(right, StaticPrimitive::String(_))
+            {
                 return Some("string".to_string());
             }
-            if matches!(left, StaticPrimitive::BigInt(_)) || matches!(right, StaticPrimitive::BigInt(_)) {
-                if matches!((&left, &right), (StaticPrimitive::BigInt(_), StaticPrimitive::BigInt(_))) {
+            if matches!(left, StaticPrimitive::BigInt(_))
+                || matches!(right, StaticPrimitive::BigInt(_))
+            {
+                if matches!(
+                    (&left, &right),
+                    (StaticPrimitive::BigInt(_), StaticPrimitive::BigInt(_))
+                ) {
                     return Some("bigint".to_string());
                 }
                 return None;
@@ -721,8 +759,13 @@ fn static_binary_expression_typeof(binary_expression: &swc_ecma_ast::BinExpr) ->
         | BinaryOp::BitXor
         | BinaryOp::LShift
         | BinaryOp::RShift => {
-            if matches!(left, StaticPrimitive::BigInt(_)) || matches!(right, StaticPrimitive::BigInt(_)) {
-                if matches!((&left, &right), (StaticPrimitive::BigInt(_), StaticPrimitive::BigInt(_))) {
+            if matches!(left, StaticPrimitive::BigInt(_))
+                || matches!(right, StaticPrimitive::BigInt(_))
+            {
+                if matches!(
+                    (&left, &right),
+                    (StaticPrimitive::BigInt(_), StaticPrimitive::BigInt(_))
+                ) {
                     return Some("bigint".to_string());
                 }
                 return None;
@@ -732,7 +775,9 @@ fn static_binary_expression_typeof(binary_expression: &swc_ecma_ast::BinExpr) ->
             Some("number".to_string())
         }
         BinaryOp::ZeroFillRShift => {
-            if matches!(left, StaticPrimitive::BigInt(_)) || matches!(right, StaticPrimitive::BigInt(_)) {
+            if matches!(left, StaticPrimitive::BigInt(_))
+                || matches!(right, StaticPrimitive::BigInt(_))
+            {
                 return None;
             }
             static_primitive_to_number(left)?;
@@ -787,25 +832,24 @@ fn static_abstract_equality(left: StaticPrimitive, right: StaticPrimitive) -> Op
         (StaticPrimitive::Null, StaticPrimitive::Undefined)
         | (StaticPrimitive::Undefined, StaticPrimitive::Null) => Some(true),
         (StaticPrimitive::Number(left), StaticPrimitive::String(right))
-        | (StaticPrimitive::String(right), StaticPrimitive::Number(left)) => {
-            Some(static_number_equality(left, parse_js_numeric_string(&right)?))
-        }
+        | (StaticPrimitive::String(right), StaticPrimitive::Number(left)) => Some(
+            static_number_equality(left, parse_js_numeric_string(&right)?),
+        ),
         (StaticPrimitive::Bool(value), right) => static_abstract_equality(
             StaticPrimitive::Number(if value { 1.0 } else { 0.0 }),
             right,
         ),
-        (left, StaticPrimitive::Bool(value)) => static_abstract_equality(
-            left,
-            StaticPrimitive::Number(if value { 1.0 } else { 0.0 }),
-        ),
+        (left, StaticPrimitive::Bool(value)) => {
+            static_abstract_equality(left, StaticPrimitive::Number(if value { 1.0 } else { 0.0 }))
+        }
         (StaticPrimitive::BigInt(left), StaticPrimitive::String(right))
-        | (StaticPrimitive::String(right), StaticPrimitive::BigInt(left)) => {
-            Some(if let Some(parsed_bigint) = parse_js_bigint_string(&right) {
+        | (StaticPrimitive::String(right), StaticPrimitive::BigInt(left)) => Some(
+            if let Some(parsed_bigint) = parse_js_bigint_string(&right) {
                 static_canonical_bigint_equality(&left, parsed_bigint)
             } else {
                 false
-            })
-        }
+            },
+        ),
         (StaticPrimitive::BigInt(left), StaticPrimitive::Number(right))
         | (StaticPrimitive::Number(right), StaticPrimitive::BigInt(left)) => {
             static_number_bigint_equality(right, &left)
@@ -990,7 +1034,7 @@ fn static_bigint_number_relational(
 }
 
 fn normalize_decimal_bigint_string(value: &str) -> Option<(i8, &str)> {
-    let trimmed = value.trim();
+    let trimmed = trim_js_whitespace(value);
     if trimmed.is_empty() {
         return None;
     }
@@ -1017,7 +1061,7 @@ fn normalize_decimal_bigint_string(value: &str) -> Option<(i8, &str)> {
 }
 
 fn parse_js_bigint_string(value: &str) -> Option<String> {
-    let trimmed = value.trim();
+    let trimmed = trim_js_whitespace(value);
     if trimmed.is_empty() {
         return None;
     }
@@ -1030,7 +1074,7 @@ fn parse_js_bigint_string(value: &str) -> Option<String> {
         (false, 1, trimmed)
     };
 
-    if had_explicit_sign && unsigned_body.trim() != unsigned_body {
+    if had_explicit_sign && trim_js_whitespace(unsigned_body) != unsigned_body {
         return None;
     }
 

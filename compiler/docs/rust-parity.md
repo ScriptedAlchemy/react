@@ -202,6 +202,8 @@ Bridge response validation currently enforces:
     (e.g. `(16n == '+16')`)
   - signed decimals with whitespace after the sign follow JS `StringToBigInt` behavior and fold as non-equal
     (e.g. `(16n == '+ 16')` folds as false)
+  - signed decimals with JS BOM/Unicode whitespace after the sign also fold as non-equal
+    (e.g. `(16n == '+\uFEFF16')` folds as false)
   - signed non-decimal radix strings follow JS `StringToBigInt` behavior and fold as non-equal
     (e.g. `(16n == '+0x10')` folds as false)
   - foldable equality conditionals over unary-not booleans
@@ -258,6 +260,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(+\`${'0b10000000000000000000000000000000000000000000000000000000000000000'}\` && 'require')]((+\`${'0o2000000000000000000000'}\` && 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over radix/whitespace numeric strings
     (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`)
+  - unary numeric coercion aliases honor JS BOM trimming for string numerics
+    (e.g. `module[((+'\uFEFF1' && 'require'))](((+'\uFEFF1' && 'react/compiler-runtime')))` )
   - signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number` coercion (`NaN`)
     (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,
     `(+'+0b10' || 'react/compiler-runtime')`, `(+'+0o10' || 'react/compiler-runtime')`)

@@ -98,6 +98,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   Signed decimal BigInt strings are folded too (e.g. `(16n == '+16')`).
   Signed decimals with whitespace after the sign follow JavaScript behavior and fold as non-equal
   (e.g. `(16n == '+ 16')` is folded as false).
+  Signed decimals with JS BOM/Unicode whitespace after the sign also fold as non-equal
+  (e.g. `(16n == '+\uFEFF16')` is folded as false).
   Signed non-decimal radix strings follow JavaScript behavior and do not fold as equal
   (e.g. `(16n == '+0x10')` is folded as false).
   Equality conditionals over foldable unary-not booleans are also folded
@@ -155,6 +157,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(+\`${'0b10000000000000000000000000000000000000000000000000000000000000000'}\` && 'require')]((+\`${'0o2000000000000000000000'}\` && 'react/compiler-runtime'))`).
   Radix and whitespace string-numeric coercions are folded too
   (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`).
+  String numeric coercions also honor JS BOM trimming (e.g. `+'\uFEFF1'` is folded as `1`)
+  in logical alias checks.
   Signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number`
   behavior and coerce to `NaN`
   (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,

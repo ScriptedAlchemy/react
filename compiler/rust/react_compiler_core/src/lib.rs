@@ -594,8 +594,7 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_typeof_unary_minus_bigint_conditional_object_key()
-    {
+    fn detects_fixture_entrypoint_function_from_typeof_unary_minus_bigint_conditional_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((typeof (-1n)) === 'bigint') ? 'fn' : 'not-fn')]: component, params: [] };",
             &CompilerOptions {
@@ -701,6 +700,27 @@ mod tests {
     ) {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((16n == '+ 16') ? 'not-fn' : 'fn'))]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_bigint_loose_signed_bom_decimal_string_equality_conditional_object_key(
+    ) {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((16n == '+\\uFEFF16') ? 'not-fn' : 'fn'))]: component, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -1043,8 +1063,7 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_arithmetic_nonfinite_numeric_logical_object_key(
-    ) {
+    fn detects_fixture_entrypoint_function_from_arithmetic_nonfinite_numeric_logical_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((0 / 0) || 'fn'))]: component, params: [] };",
             &CompilerOptions {
@@ -1206,8 +1225,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_signed_shift_and_bitand_numeric_logical_object_key(
-    ) {
+    fn detects_fixture_entrypoint_function_from_signed_shift_and_bitand_numeric_logical_object_key()
+    {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((1 & 0) || 'fn'))]: component, params: [] };",
             &CompilerOptions {
@@ -1327,6 +1346,26 @@ mod tests {
     }
 
     #[test]
+    fn detects_fixture_entrypoint_function_from_unary_bom_string_numeric_logical_object_key() {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [((+'\\uFEFF1' && 'fn'))]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
     fn detects_fixture_entrypoint_function_from_unary_invalid_string_numeric_logical_object_key() {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(+'not-a-number' || 'fn')]: component, params: [] };",
@@ -1428,8 +1467,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_unary_large_hex_string_numeric_logical_object_key(
-    ) {
+    fn detects_fixture_entrypoint_function_from_unary_large_hex_string_numeric_logical_object_key()
+    {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(+'0x10000000000000000' && 'fn')]: component, params: [] };",
             &CompilerOptions {
@@ -2094,8 +2133,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_bigint_loose_equality_conditional_member_assignment()
-    {
+    fn detects_fixture_entrypoint_function_from_bigint_loose_equality_conditional_member_assignment(
+    ) {
         let output = compile(
             "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((1n == 1) ? 'fn' : 'not-fn'))] = component;",
             &CompilerOptions {
@@ -2404,8 +2443,7 @@ mod tests {
     }
 
     #[test]
-    fn detects_fixture_entrypoint_function_from_unary_minus_bigint_conditional_member_assignment()
-    {
+    fn detects_fixture_entrypoint_function_from_unary_minus_bigint_conditional_member_assignment() {
         let output = compile(
             "function component(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((-1n) ? 'fn' : 'not-fn'))] = component;",
             &CompilerOptions {
@@ -3053,8 +3091,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_bigint_loose_equality_conditional_object_key()
-    {
+    fn detects_script_fixture_entrypoint_function_from_bigint_loose_equality_conditional_object_key(
+    ) {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((1n == '1') ? 'fn' : 'not-fn'))]: render, params: [] };",
             &CompilerOptions {
@@ -3123,6 +3161,28 @@ mod tests {
     ) {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((16n == '+ 16') ? 'not-fn' : 'fn'))]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_bigint_loose_signed_bom_decimal_string_equality_conditional_object_key(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((16n == '+\\uFEFF16') ? 'not-fn' : 'fn'))]: render, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -3486,8 +3546,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_zero_fill_shift_numeric_logical_object_key(
-    ) {
+    fn detects_script_fixture_entrypoint_function_from_zero_fill_shift_numeric_logical_object_key()
+    {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((1 >>> 1) || 'fn'))]: render, params: [] };",
             &CompilerOptions {
@@ -3729,6 +3789,28 @@ mod tests {
     fn detects_script_fixture_entrypoint_function_from_unary_string_numeric_logical_object_key() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(+'' || 'fn')]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_unary_bom_string_numeric_logical_object_key()
+    {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [((+'\\uFEFF1' && 'fn'))]: render, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -4009,8 +4091,7 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_unary_minus_bigint_conditional_object_key()
-    {
+    fn detects_script_fixture_entrypoint_function_from_unary_minus_bigint_conditional_object_key() {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((-1n) ? 'fn' : 'not-fn'))]: render, params: [] };",
             &CompilerOptions {
@@ -4417,8 +4498,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_script_fixture_entrypoint_function_from_typeof_binary_conditional_member_assignment(
-    ) {
+    fn detects_script_fixture_entrypoint_function_from_typeof_binary_conditional_member_assignment()
+    {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { params: [] }; FIXTURE_ENTRYPOINT[(((typeof ('a' + 1)) === 'string') ? 'fn' : 'not-fn')] = render;",
             &CompilerOptions {
@@ -6351,6 +6432,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_require_bigint_loose_signed_bom_decimal_string_equality_conditional_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = require((((16n == '+\\uFEFF16') ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_bigint_loose_uppercase_radix_string_equality_conditional_member_alias_in_module(
     ) {
         let output = compile(
@@ -6402,8 +6500,7 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_require_loose_inequality_conditional_member_alias_in_module()
-    {
+    fn reuses_existing_runtime_cache_require_loose_inequality_conditional_member_alias_in_module() {
         let output = compile(
             "const cache = require((((1 != '2') ? 'react/compiler-runtime' : 'nope'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -6965,6 +7062,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_require_unary_bom_string_numeric_logical_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = require(((+'\\uFEFF1' && 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_require_unary_invalid_string_numeric_logical_member_alias_in_module(
     ) {
         let output = compile(
@@ -7185,8 +7299,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_require_unary_minus_bigint_conditional_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_require_unary_minus_bigint_conditional_member_alias_in_module()
+    {
         let output = compile(
             "const cache = require((((-1n) ? 'react/compiler-runtime' : 'nope'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -7517,6 +7631,23 @@ mod tests {
     }
 
     #[test]
+    fn reuses_existing_runtime_cache_module_bigint_loose_signed_bom_decimal_string_equality_conditional_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(((16n == '+\\uFEFF16') ? 'nope' : 'require'))]((((16n == '+\\uFEFF16') ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
     fn reuses_existing_runtime_cache_module_bigint_loose_uppercase_radix_string_equality_conditional_require_member_alias_in_module(
     ) {
         let output = compile(
@@ -7585,7 +7716,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_module_relational_conditional_require_member_alias_in_module() {
+    fn reuses_existing_runtime_cache_module_relational_conditional_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = module[((('b' > 'a') ? 'require' : 'nope'))]((((1 < 2) ? 'react/compiler-runtime' : 'nope'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -7923,8 +8055,8 @@ mod tests {
     }
 
     #[test]
-    fn reuses_existing_runtime_cache_module_bitwise_numeric_logical_require_member_alias_in_module(
-    ) {
+    fn reuses_existing_runtime_cache_module_bitwise_numeric_logical_require_member_alias_in_module()
+    {
         let output = compile(
             "const cache = module[(((1 << 1) && 'require'))]((((1 ^ 1) || 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
@@ -8130,6 +8262,23 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(+'1' && 'require')]((+'' || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_unary_bom_string_numeric_logical_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[((+'\\uFEFF1' && 'require'))](((+'\\uFEFF1' && 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -17493,6 +17642,25 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_runtime_require_bigint_loose_signed_bom_decimal_string_equality_conditional_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require((((16n == '+\\uFEFF16') ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_runtime_require_bigint_loose_uppercase_radix_string_equality_conditional_member_alias(
     ) {
         let output = compile(
@@ -17587,8 +17755,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_runtime_require_bigint_relational_conditional_member_alias(
-    ) {
+    fn transforms_script_component_with_runtime_require_bigint_relational_conditional_member_alias()
+    {
         let output = compile(
             "const cache = require((((1n < 2n) ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -18167,6 +18335,25 @@ mod tests {
     {
         let output = compile(
             "const cache = require((+'' || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_unary_bom_string_numeric_logical_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require(((+'\\uFEFF1' && 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -18796,6 +18983,25 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_module_bigint_loose_signed_bom_decimal_string_equality_conditional_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[(((16n == '+\\uFEFF16') ? 'nope' : 'require'))]((((16n == '+\\uFEFF16') ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_module_bigint_loose_uppercase_radix_string_equality_conditional_require_member_alias(
     ) {
         let output = compile(
@@ -18853,8 +19059,7 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_loose_inequality_conditional_require_member_alias()
-    {
+    fn transforms_script_component_with_module_loose_inequality_conditional_require_member_alias() {
         let output = compile(
             "const cache = module[(((1 != '2') ? 'require' : 'nope'))]((((1 != '2') ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -18890,8 +19095,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_bigint_relational_conditional_require_member_alias(
-    ) {
+    fn transforms_script_component_with_module_bigint_relational_conditional_require_member_alias()
+    {
         let output = compile(
             "const cache = module[(((2n > 1n) ? 'require' : 'nope'))]((((1n < 2n) ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
@@ -19484,6 +19689,25 @@ mod tests {
     }
 
     #[test]
+    fn transforms_script_component_with_module_unary_bom_string_numeric_logical_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[((+'\\uFEFF1' && 'require'))](((+'\\uFEFF1' && 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+    #[test]
     fn transforms_script_component_with_module_unary_large_radix_string_numeric_logical_require_member_alias(
     ) {
         let output = compile(
@@ -19692,8 +19916,8 @@ mod tests {
     }
 
     #[test]
-    fn transforms_script_component_with_module_unary_minus_bigint_conditional_require_member_alias(
-    ) {
+    fn transforms_script_component_with_module_unary_minus_bigint_conditional_require_member_alias()
+    {
         let output = compile(
             "const cache = module[(((-1n) ? 'require' : 'nope'))]((((-1n) ? 'react/compiler-runtime' : 'nope'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
