@@ -258,8 +258,9 @@ Bridge response validation currently enforces:
     (e.g. `module[(+\`${'0b10000000000000000000000000000000000000000000000000000000000000000'}\` && 'require')]((+\`${'0o2000000000000000000000'}\` && 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over radix/whitespace numeric strings
     (e.g. `module[(+'0b1' && 'require')]((+'  ' || 'react/compiler-runtime'))`)
-  - signed non-decimal radix numeric strings follow JS `Number` coercion (`NaN`)
-    (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`)
+  - signed non-decimal radix numeric strings (hex/binary/octal) follow JS `Number` coercion (`NaN`)
+    (e.g. `module[(+1 && 'require')]((+'+0x10' || 'react/compiler-runtime'))`,
+    `(+'+0b10' || 'react/compiler-runtime')`, `(+'+0o10' || 'react/compiler-runtime')`)
   - unary numeric coercion aliases over hex/octal/infinity numeric strings
     (e.g. `module[(+'Infinity' && 'require')]((+'0o0' || 'react/compiler-runtime'))`)
   - unary numeric coercion aliases over foldable conditional expressions
