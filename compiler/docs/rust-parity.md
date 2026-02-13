@@ -272,6 +272,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(((1.9 | 0) && 'require'))]((((1.9 ^ 1.9) || 'react/compiler-runtime')))`).
   - shift-count masking follows JS low-5-bit rules in bitwise/shift logical aliases
     (e.g. `module[(((-1 << 33) && 'require'))]((((1 >>> 33) || 'react/compiler-runtime')))`).
+  - signed-right-shift masking and negative shift counts also fold via JS shift-count rules
+    (e.g. `module[(((-1 >> 33) && 'require'))]((((1 >>> -1) || 'react/compiler-runtime')))`).
   - bigint truthy/falsy logical aliases with foldable bigint literals
     (e.g. `module[(1n && 'require')]((0n || 'react/compiler-runtime'))`)
   - object destructure aliases (e.g. `const { c: cache } = runtime`)
