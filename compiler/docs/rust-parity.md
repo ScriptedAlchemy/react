@@ -287,6 +287,8 @@ Bridge response validation currently enforces:
     (e.g. `module[(((-4294967297 | 0) && 'require'))]((((4294967296 | 0) || 'react/compiler-runtime')))`).
   - large decimal bitwise operands near float precision boundaries fold consistently
     (e.g. `module[(((1e20 | 0) && 'require'))]((((9007199254740992 | 0) || 'react/compiler-runtime')))`).
+  - exponential numeric-string bitwise coercions fold with JS ToInt32 behavior too
+    (e.g. `module[(((+'1e21' | 0) && 'require'))]((((+'1e30' | 0) || 'react/compiler-runtime')))`).
   - non-finite numeric bitwise coercions fold with JS ToInt32 behavior
     (e.g. `module[(((+'not-a-number' ^ 1) && 'require'))]((((+'Infinity' | 0) || 'react/compiler-runtime')))`).
   - bigint truthy/falsy logical aliases with foldable bigint literals
