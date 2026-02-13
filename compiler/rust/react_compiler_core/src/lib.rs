@@ -1249,6 +1249,57 @@ mod tests {
 
 
 
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_bigint_loose_signed_tab_form_feed_line_feed_decimal_string_equality_conditional_object_key(
+    ) {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((16n == '+\\t\\f\\n16') ? 'not-fn' : 'fn'))]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn detects_fixture_entrypoint_function_from_bigint_loose_signed_tab_form_feed_carriage_return_decimal_string_equality_conditional_object_key(
     ) {
@@ -2878,6 +2929,57 @@ mod tests {
     ) {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((16n == `${'+\\r\\n16'}`) ? 'not-fn' : 'fn'))]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_bigint_loose_signed_tab_form_feed_line_feed_decimal_template_string_equality_conditional_object_key(
+    ) {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(((16n == `${'+\\t\\f\\n16'}`) ? 'not-fn' : 'fn'))]: component, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -5806,6 +5908,57 @@ mod tests {
 
 
 
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_unary_template_signed_tab_form_feed_line_feed_decimal_numeric_logical_object_key(
+    ) {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(+`${'+\\t\\f\\n16'}` || 'fn')]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn detects_fixture_entrypoint_function_from_unary_template_signed_tab_form_feed_carriage_return_decimal_numeric_logical_object_key(
     ) {
@@ -7141,6 +7294,57 @@ mod tests {
     ) {
         let output = compile(
             "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(+'+\\r\\n16' || 'fn')]: component, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "component");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn detects_fixture_entrypoint_function_from_unary_signed_tab_form_feed_line_feed_decimal_string_numeric_logical_object_key(
+    ) {
+        let output = compile(
+            "function component(){ return 1; } export const FIXTURE_ENTRYPOINT = { [(+'+\\t\\f\\n16' || 'fn')]: component, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -10451,6 +10655,58 @@ mod tests {
 
 
 
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_bigint_loose_signed_tab_form_feed_line_feed_decimal_string_equality_conditional_object_key(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((16n == '+\\t\\f\\n16') ? 'not-fn' : 'fn'))]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn detects_script_fixture_entrypoint_function_from_bigint_loose_signed_tab_form_feed_carriage_return_decimal_string_equality_conditional_object_key(
     ) {
@@ -12138,6 +12394,58 @@ mod tests {
     ) {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((16n == `${'+\\r\\n16'}`) ? 'not-fn' : 'fn'))]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_bigint_loose_signed_tab_form_feed_line_feed_decimal_template_string_equality_conditional_object_key(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(((16n == `${'+\\t\\f\\n16'}`) ? 'not-fn' : 'fn'))]: render, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -15138,6 +15446,58 @@ mod tests {
 
 
 
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_unary_template_signed_tab_form_feed_line_feed_decimal_numeric_logical_object_key(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(+`${'+\\t\\f\\n16'}` || 'fn')]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn detects_script_fixture_entrypoint_function_from_unary_template_signed_tab_form_feed_carriage_return_decimal_numeric_logical_object_key(
     ) {
@@ -16517,6 +16877,58 @@ mod tests {
     ) {
         let output = compile(
             "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(+'+\\r\\n16' || 'fn')]: render, params: [] };",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.react_functions[0].name, "render");
+        assert_eq!(
+            output.metadata.react_functions[0].kind,
+            super::ReactFunctionKind::Component
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn detects_script_fixture_entrypoint_function_from_unary_signed_tab_form_feed_line_feed_decimal_string_numeric_logical_object_key(
+    ) {
+        let output = compile(
+            "function render(){ return 1; } const FIXTURE_ENTRYPOINT = { [(+'+\\t\\f\\n16' || 'fn')]: render, params: [] };",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -20538,6 +20950,53 @@ mod tests {
 
 
 
+
+    #[test]
+    fn reuses_existing_runtime_cache_require_bigint_loose_signed_tab_form_feed_line_feed_decimal_string_equality_conditional_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = require((((16n == '+\\t\\f\\n16') ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn reuses_existing_runtime_cache_require_bigint_loose_signed_tab_form_feed_carriage_return_decimal_string_equality_conditional_member_alias_in_module(
     ) {
@@ -21935,6 +22394,53 @@ mod tests {
     ) {
         let output = compile(
             "const cache = require((((16n == `${'+\\r\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn reuses_existing_runtime_cache_require_bigint_loose_signed_tab_form_feed_line_feed_decimal_template_string_equality_conditional_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = require((((16n == `${'+\\t\\f\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -24520,6 +25026,53 @@ mod tests {
 
 
 
+
+    #[test]
+    fn reuses_existing_runtime_cache_require_unary_template_signed_tab_form_feed_line_feed_decimal_numeric_logical_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = require((+`${'+\\t\\f\\n16'}` || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn reuses_existing_runtime_cache_require_unary_template_signed_tab_form_feed_carriage_return_decimal_numeric_logical_member_alias_in_module(
     ) {
@@ -25679,6 +26232,53 @@ mod tests {
     ) {
         let output = compile(
             "const cache = require((+'+\\r\\n16' || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn reuses_existing_runtime_cache_require_unary_signed_tab_form_feed_line_feed_decimal_string_numeric_logical_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = require((+'+\\t\\f\\n16' || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -27506,6 +28106,53 @@ mod tests {
 
 
 
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_bigint_loose_signed_tab_form_feed_line_feed_decimal_string_equality_conditional_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(((16n == '+\\t\\f\\n16') ? 'nope' : 'require'))]((((16n == '+\\t\\f\\n16') ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn reuses_existing_runtime_cache_module_bigint_loose_signed_tab_form_feed_carriage_return_decimal_string_equality_conditional_require_member_alias_in_module(
     ) {
@@ -28903,6 +29550,53 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(((16n == `${'+\\r\\n16'}`) ? 'nope' : 'require'))]((((16n == `${'+\\r\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_bigint_loose_signed_tab_form_feed_line_feed_decimal_template_string_equality_conditional_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(((16n == `${'+\\t\\f\\n16'}`) ? 'nope' : 'require'))]((((16n == `${'+\\t\\f\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -31451,6 +32145,53 @@ mod tests {
 
 
 
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_unary_template_signed_tab_form_feed_line_feed_decimal_numeric_logical_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[((+`${'1'}` && 'require'))]((+`${'+\\t\\f\\n16'}` || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn reuses_existing_runtime_cache_module_unary_template_signed_tab_form_feed_carriage_return_decimal_numeric_logical_require_member_alias_in_module(
     ) {
@@ -32610,6 +33351,53 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(+1 && 'require')]((+'+\\r\\n16' || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                ..CompilerOptions::default()
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert!(output.code.contains("const $ = cache(0);"));
+        assert!(!output.code.contains("import { c as _c }"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn reuses_existing_runtime_cache_module_unary_signed_tab_form_feed_line_feed_decimal_string_numeric_logical_require_member_alias_in_module(
+    ) {
+        let output = compile(
+            "const cache = module[(+1 && 'require')]((+'+\\t\\f\\n16' || 'react/compiler-runtime')).c; export function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -43334,6 +44122,55 @@ mod tests {
 
 
 
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_bigint_loose_signed_tab_form_feed_line_feed_decimal_string_equality_conditional_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require((((16n == '+\\t\\f\\n16') ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn transforms_script_component_with_runtime_require_bigint_loose_signed_tab_form_feed_carriage_return_decimal_string_equality_conditional_member_alias(
     ) {
@@ -44847,6 +45684,55 @@ mod tests {
     ) {
         let output = compile(
             "const cache = require((((16n == `${'+\\r\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_bigint_loose_signed_tab_form_feed_line_feed_decimal_template_string_equality_conditional_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require((((16n == `${'+\\t\\f\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -47686,6 +48572,55 @@ mod tests {
 
 
 
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_unary_template_signed_tab_form_feed_line_feed_decimal_numeric_logical_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require((+`${'+\\t\\f\\n16'}` || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn transforms_script_component_with_runtime_require_unary_template_signed_tab_form_feed_carriage_return_decimal_numeric_logical_member_alias(
     ) {
@@ -48933,6 +49868,55 @@ mod tests {
     ) {
         let output = compile(
             "const cache = require((+'+\\r\\n16' || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn transforms_script_component_with_runtime_require_unary_signed_tab_form_feed_line_feed_decimal_string_numeric_logical_member_alias(
+    ) {
+        let output = compile(
+            "const cache = require((+'+\\t\\f\\n16' || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -50918,6 +51902,55 @@ mod tests {
 
 
 
+
+    #[test]
+    fn transforms_script_component_with_module_bigint_loose_signed_tab_form_feed_line_feed_decimal_string_equality_conditional_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[(((16n == '+\\t\\f\\n16') ? 'nope' : 'require'))]((((16n == '+\\t\\f\\n16') ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn transforms_script_component_with_module_bigint_loose_signed_tab_form_feed_carriage_return_decimal_string_equality_conditional_require_member_alias(
     ) {
@@ -52431,6 +53464,55 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(((16n == `${'+\\r\\n16'}`) ? 'nope' : 'require'))]((((16n == `${'+\\r\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn transforms_script_component_with_module_bigint_loose_signed_tab_form_feed_line_feed_decimal_template_string_equality_conditional_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[(((16n == `${'+\\t\\f\\n16'}`) ? 'nope' : 'require'))]((((16n == `${'+\\t\\f\\n16'}`) ? 'nope' : 'react/compiler-runtime'))).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
@@ -55211,6 +56293,55 @@ mod tests {
 
 
 
+
+    #[test]
+    fn transforms_script_component_with_module_unary_template_signed_tab_form_feed_line_feed_decimal_numeric_logical_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[((+`${'1'}` && 'require'))]((+`${'+\\t\\f\\n16'}` || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #[test]
     fn transforms_script_component_with_module_unary_template_signed_tab_form_feed_carriage_return_decimal_numeric_logical_require_member_alias(
     ) {
@@ -56458,6 +57589,55 @@ mod tests {
     ) {
         let output = compile(
             "const cache = module[(+1 && 'require')]((+'+\\r\\n16' || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
+            &CompilerOptions {
+                dialect: InputDialect::JavaScript,
+                filename: "fixture.js".to_string(),
+                is_module: false,
+                apply_placeholder_transforms: true,
+            },
+        )
+        .expect("expected valid JavaScript to parse");
+
+        assert_eq!(output.metadata.detected_react_functions, 1);
+        assert_eq!(output.metadata.placeholder_transforms_applied, 1);
+        assert!(output.code.contains("const $ = cache(0);"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #[test]
+    fn transforms_script_component_with_module_unary_signed_tab_form_feed_line_feed_decimal_string_numeric_logical_require_member_alias(
+    ) {
+        let output = compile(
+            "const cache = module[(+1 && 'require')]((+'+\\t\\f\\n16' || 'react/compiler-runtime')).c; function Component(){ return <div />; }",
             &CompilerOptions {
                 dialect: InputDialect::JavaScript,
                 filename: "fixture.js".to_string(),
