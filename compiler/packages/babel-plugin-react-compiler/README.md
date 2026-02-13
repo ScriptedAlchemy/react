@@ -100,6 +100,7 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   BOM-wrapped radix-prefixed BigInt template strings are folded too
   (e.g. ``(16n == `${'\uFEFF0x10\uFEFF'}`)``, ``(16n == `${'\uFEFF0b10000\uFEFF'}`)``, ``(16n == `${'\uFEFF0o20\uFEFF'}`)``).
   Signed decimal BigInt strings are folded too (e.g. `(16n == '+16')`).
+  Signed-decimal BigInt template strings are folded too (e.g. ``(16n == `${'+16'}`)``).
   Signed decimals with whitespace after the sign follow JavaScript behavior and fold as non-equal
   (e.g. `(16n == '+ 16')` is folded as false).
   Signed-decimal template strings with post-sign whitespace also fold as non-equal

@@ -204,6 +204,8 @@ Bridge response validation currently enforces:
     (e.g. ``(16n == `${'\uFEFF0x10\uFEFF'}`)``, ``(16n == `${'\uFEFF0b10000\uFEFF'}`)``, ``(16n == `${'\uFEFF0o20\uFEFF'}`)``)
   - foldable BigInt loose equality with signed decimal string operands
     (e.g. `(16n == '+16')`)
+  - foldable BigInt loose equality with signed decimal template-string operands
+    (e.g. ``(16n == `${'+16'}`)``)
   - signed decimals with whitespace after the sign follow JS `StringToBigInt` behavior and fold as non-equal
     (e.g. `(16n == '+ 16')` folds as false)
   - signed-decimal template strings with post-sign whitespace also fold as non-equal
