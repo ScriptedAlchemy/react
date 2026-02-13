@@ -163,6 +163,8 @@ The plugin is now a thin bridge to the Rust React Compiler backend.
   (e.g. `module[(((3 - 2) && 'require'))]((((2 - 2) || 'react/compiler-runtime')))`).
   Bitwise/shift numeric forms are folded before truthy/falsy checks too
   (e.g. `module[(((1 << 1) && 'require'))]((((1 ^ 1) || 'react/compiler-runtime')))`).
+  Signed-shift/bitand fallbacks and zero-fill shift branches are also folded
+  (e.g. `module[(((-2 >> 1) && 'require'))]((((1 & 0) || 'react/compiler-runtime')))` and `module[(((-1 >>> 0) && 'require'))]((((1 >>> 1) || 'react/compiler-runtime')))`).
   Foldable bigint truthy/falsy conditions are supported as well
   (e.g. `module[(1n && 'require')]((0n || 'react/compiler-runtime'))`).
   Destructured `c` aliases with default patterns are recognized too
