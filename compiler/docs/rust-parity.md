@@ -297,6 +297,8 @@ Bridge response validation currently enforces:
     (e.g. `module[((+\`${'1'}\` && 'require'))](((+\`${'+0x10'}\` || 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions also fold as finite numbers
     (e.g. `module[((+\`${'+16'}\` && 'require'))](((+\`${'+16'}\` && 'react/compiler-runtime')))` )
+  - space-wrapped signed decimal template-string numeric coercions also fold as finite numbers
+    (e.g. `module[((+\`${' +16 '}\` && 'require'))](((+\`${' +16 '}\` && 'react/compiler-runtime')))` )
   - BOM-wrapped signed decimal template-string numeric coercions also fold as finite numbers
     (e.g. `module[((+\`${'\uFEFF+16\uFEFF'}\` && 'require'))](((+\`${'\uFEFF+16\uFEFF'}\` && 'react/compiler-runtime')))` )
   - signed decimal template-string numeric coercions with post-sign whitespace also fold as `NaN`
