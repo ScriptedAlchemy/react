@@ -10,15 +10,13 @@ import {
   CompilerDiagnosticOptions,
   CompilerErrorDetailOptions,
   CompilerSuggestionOperation,
-} from 'babel-plugin-react-compiler/src';
-import type {Linter, Rule} from 'eslint';
-import runReactCompiler, {RunCacheEntry} from '../shared/RunReactCompiler';
-import {
   ErrorSeverity,
   LintRulePreset,
   LintRules,
   type LintRule,
-} from 'babel-plugin-react-compiler/src/CompilerError';
+} from 'babel-plugin-react-compiler/src';
+import type {Linter, Rule} from 'eslint';
+import runReactCompiler, {RunCacheEntry} from '../shared/RunReactCompiler';
 
 function assertExhaustive(_: never, errorMsg: string): never {
   throw new Error(errorMsg);

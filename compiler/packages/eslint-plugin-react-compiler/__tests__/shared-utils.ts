@@ -1,5 +1,5 @@
 import {RuleTester as ESLintTester, Rule} from 'eslint';
-import {type ErrorCategory} from 'babel-plugin-react-compiler/src/CompilerError';
+import {type ErrorCategory} from 'babel-plugin-react-compiler/src';
 import escape from 'regexp.escape';
 import {configs} from '../src/index';
 import {allRules} from '../src/rules/ReactCompilerRule';

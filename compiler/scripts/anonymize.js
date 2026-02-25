@@ -45,7 +45,7 @@ function runPlugin(text, file, language) {
   });
   invariant(
     result?.code != null,
-    `Expected BabelPluginReactForget to codegen successfully, got: ${result}`
+    `Expected BabelPluginReactCompiler to codegen successfully, got: ${result}`
   );
   return result.code;
 }

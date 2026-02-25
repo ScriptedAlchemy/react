@@ -10,10 +10,10 @@ import {transformFromAstSync} from '@babel/core';
 import * as BabelParser from '@babel/parser';
 import BabelPluginReactCompiler, {
   ErrorSeverity,
+  type LoggerEvent as RawLoggerEvent,
   type CompilerErrorDetailOptions,
   type PluginOptions,
 } from 'babel-plugin-react-compiler/src';
-import {LoggerEvent as RawLoggerEvent} from 'babel-plugin-react-compiler/src/Entrypoint';
 import chalk from 'chalk';
 
 type LoggerEvent = RawLoggerEvent & {filename: string | null};
@@ -90,7 +90,7 @@ function runBabelPluginReactCompiler(
   });
   if (result?.code == null) {
     throw new Error(
-      `Expected BabelPluginReactForget to codegen successfully, got: ${result}`,
+      `Expected BabelPluginReactCompiler to codegen successfully, got: ${result}`,
     );
   }
   return result;

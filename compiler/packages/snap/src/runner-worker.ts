@@ -6,9 +6,6 @@
  */
 
 import type {PluginObj} from '@babel/core';
-import type {parseConfigPragmaForTests as ParseConfigPragma} from 'babel-plugin-react-compiler/src/Utils/TestUtils';
-import type {printFunctionWithOutlined as PrintFunctionWithOutlined} from 'babel-plugin-react-compiler/src/HIR/PrintHIR';
-import type {printReactiveFunctionWithOutlined as PrintReactiveFunctionWithOutlined} from 'babel-plugin-react-compiler/src/ReactiveScopes/PrintReactiveFunction';
 import {TransformResult, transformFixtureInput} from './compiler';
 import {
   PARSE_CONFIG_PRAGMA_IMPORT,
@@ -24,6 +21,9 @@ import type {
   Effect,
   ValueKind,
   ValueReason,
+  parseConfigPragmaForTests as ParseConfigPragma,
+  printFunctionWithOutlined as PrintFunctionWithOutlined,
+  printReactiveFunctionWithOutlined as PrintReactiveFunctionWithOutlined,
 } from 'babel-plugin-react-compiler/src';
 import chalk from 'chalk';
 
@@ -31,7 +31,7 @@ const originalConsoleError = console.error;
 
 // Try to avoid clearing the entire require cache, which (as of this PR)
 // contains ~1250 files. This assumes that no dependencies have global caches
-// that may need to be invalidated across Forget reloads.
+// that may need to be invalidated across compiler reloads.
 const invalidationSubpath = 'packages/babel-plugin-react-compiler/dist';
 let version: number | null = null;
 export function clearRequireCache() {
@@ -94,7 +94,7 @@ async function compile(
     let lastLogged: string | null = null;
     const debugIRLogger = shouldLog
       ? (value: CompilerPipelineValue) => {
-          let printed: string;
+          let printed = '(unrecognized)';
           switch (value.kind) {
             case 'hir':
               printed = printFunctionWithOutlined(value.value);
@@ -203,12 +203,12 @@ export async function transformFixture(
     }
   }
 
-  const snapOutput: string | null = compileResult?.forgetOutput ?? null;
+  const snapOutput: string | null = compileResult?.compiledOutput ?? null;
   let sproutOutput: string | null = null;
   if (compileResult?.evaluatorCode != null) {
     const sproutResult = runSprout(
       compileResult.evaluatorCode.original,
-      compileResult.evaluatorCode.forget,
+      compileResult.evaluatorCode.compiled,
     );
     if (sproutResult.kind === 'invalid') {
       unexpectedError ??= '';

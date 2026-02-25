@@ -19,19 +19,12 @@
     "declaration": true,
   },
   "exclude": [
-    "node_modules",
-    "src/__tests__/fixtures"
+    "node_modules"
   ],
   "include": [
-    "src/**/*.ts"
-  ],
-  "ts-node": {
-    "transpileOnly": true,
-    // these options are overrides used only by ts-node
-    // same as the --compilerOptions flag and the TS_NODE_COMPILER_OPTIONS environment variable
-    "compilerOptions": {
-      "module": "NodeNext",
-      "moduleResolution": "NodeNext",
-    }
-  }
+    "src/index.ts",
+    "src/Babel/**/*.ts",
+    "src/Compat/**/*.ts",
+    "src/RustBridge/**/*.ts"
+  ]
 }

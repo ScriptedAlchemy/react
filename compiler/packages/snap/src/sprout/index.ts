@@ -30,45 +30,45 @@ function logsEqual(a: Array<string>, b: Array<string>) {
 }
 export function runSprout(
   originalCode: string,
-  forgetCode: string,
+  compiledCode: string,
 ): SproutResult {
-  let forgetResult;
+  let compiledResult;
   try {
-    (globalThis as any).__SNAP_EVALUATOR_MODE = 'forget';
-    forgetResult = doEval(forgetCode);
+    (globalThis as any).__SNAP_EVALUATOR_MODE = 'compiled';
+    compiledResult = doEval(compiledCode);
   } catch (e) {
     throw e;
   } finally {
     (globalThis as any).__SNAP_EVALUATOR_MODE = undefined;
   }
-  if (forgetResult.kind === 'UnexpectedError') {
-    return makeError('Unexpected error in Forget runner', forgetResult.value);
+  if (compiledResult.kind === 'UnexpectedError') {
+    return makeError('Unexpected error in compiler runner', compiledResult.value);
   }
   if (originalCode.indexOf('@disableNonForgetInSprout') === -1) {
-    const nonForgetResult = doEval(originalCode);
+    const originalResult = doEval(originalCode);
 
-    if (nonForgetResult.kind === 'UnexpectedError') {
+    if (originalResult.kind === 'UnexpectedError') {
       return makeError(
-        'Unexpected error in non-forget runner',
-        nonForgetResult.value,
+        'Unexpected error in uncompiled runner',
+        originalResult.value,
       );
     } else if (
-      forgetResult.kind !== nonForgetResult.kind ||
-      forgetResult.value !== nonForgetResult.value ||
-      !logsEqual(forgetResult.logs, nonForgetResult.logs)
+      compiledResult.kind !== originalResult.kind ||
+      compiledResult.value !== originalResult.value ||
+      !logsEqual(compiledResult.logs, originalResult.logs)
     ) {
       return makeError(
         'Found differences in evaluator results',
-        `Non-forget (expected):
-${stringify(nonForgetResult)}
-Forget:
-${stringify(forgetResult)}
+        `Uncompiled (expected):
+${stringify(originalResult)}
+Compiled:
+${stringify(compiledResult)}
 `,
       );
     }
   }
   return {
     kind: 'success',
-    value: stringify(forgetResult),
+    value: stringify(compiledResult),
   };
 }

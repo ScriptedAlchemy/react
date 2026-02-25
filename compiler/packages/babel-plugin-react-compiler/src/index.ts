@@ -5,55 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export {runBabelPluginReactCompiler} from './Babel/RunReactCompilerBabelPlugin';
-export {
-  CompilerError,
-  CompilerErrorDetail,
-  CompilerDiagnostic,
-  CompilerSuggestionOperation,
-  ErrorSeverity,
-  ErrorCategory,
-  LintRules,
-  LintRulePreset,
-  type CompilerErrorDetailOptions,
-  type CompilerDiagnosticOptions,
-  type CompilerDiagnosticDetail,
-  type LintRule,
-} from './CompilerError';
-export {
-  compileFn as compile,
-  compileProgram,
-  parsePluginOptions,
-  OPT_OUT_DIRECTIVES,
-  OPT_IN_DIRECTIVES,
-  ProgramContext,
-  tryFindDirectiveEnablingMemoization as findDirectiveEnablingMemoization,
-  findDirectiveDisablingMemoization,
-  defaultOptions,
-  type CompilerPipelineValue,
-  type Logger,
-  type LoggerEvent,
-  type PluginOptions,
-  type AutoDepsDecorationsEvent,
-  type CompileSuccessEvent,
-} from './Entrypoint';
-export {
-  Effect,
-  ValueKind,
-  ValueReason,
-  printHIR,
-  printFunctionWithOutlined,
-  validateEnvironmentConfig,
-  type EnvironmentConfig,
-  type ExternalFunction,
-  type Hook,
-  type SourceLocation,
-} from './HIR';
-export {
-  printReactiveFunction,
-  printReactiveFunctionWithOutlined,
-} from './ReactiveScopes';
-export {parseConfigPragmaForTests} from './Utils/TestUtils';
 declare global {
   // @internal
   let __DEV__: boolean | null | undefined;
@@ -61,3 +12,37 @@ declare global {
 
 import BabelPluginReactCompiler from './Babel/BabelPlugin';
 export default BabelPluginReactCompiler;
+
+export {
+  CompilerSuggestionOperation,
+  ErrorCategory,
+  ErrorSeverity,
+  Effect,
+  LintRulePreset,
+  LintRules,
+  ValueKind,
+  ValueReason,
+  parsePluginOptions,
+  parseConfigPragmaForTests,
+  printFunctionWithOutlined,
+  printReactiveFunctionWithOutlined,
+  printReactiveFunction,
+  getRuleForCategory,
+  validateEnvironmentConfig,
+} from './Compat/LegacyApi';
+export type {
+  CompileDiagnosticEvent,
+  CompileErrorEvent,
+  CompileSuccessEvent,
+  CompilerDiagnosticOptions,
+  CompilerErrorDetailOptions,
+  CompilerPipelineValue,
+  CompilerReactTarget,
+  LintRule,
+  Logger,
+  LoggerEvent,
+  PipelineErrorEvent,
+  PluginOptions,
+  SourceLocation,
+  TypeConfig,
+} from './Compat/LegacyApi';

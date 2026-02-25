@@ -17,13 +17,11 @@ import type {
   PluginOptions,
   CompilerReactTarget,
   CompilerPipelineValue,
-} from 'babel-plugin-react-compiler/src/Entrypoint';
-import type {
   Effect,
   ValueKind,
   ValueReason,
-} from 'babel-plugin-react-compiler/src/HIR';
-import type {parseConfigPragmaForTests as ParseConfigPragma} from 'babel-plugin-react-compiler/src/Utils/TestUtils';
+  parseConfigPragmaForTests as ParseConfigPragma,
+} from 'babel-plugin-react-compiler/src';
 import * as HermesParser from 'hermes-parser';
 import invariant from 'invariant';
 import path from 'path';
@@ -83,16 +81,8 @@ function makePluginOptions(
   };
 
   const config = parseConfigPragmaFn(firstLine, {compilationMode: 'all'});
-  const compilerEngine = process.env['REACT_COMPILER_ENGINE'];
-  const engineConfig =
-    compilerEngine === 'rust'
-      ? ({
-          compilerEngine: 'rust',
-        } as const)
-      : {};
   const options = {
     ...config,
-    ...engineConfig,
     environment: {
       ...config.environment,
       moduleTypeProvider: makeSharedRuntimeTypeProvider({
@@ -186,8 +176,11 @@ function getEvaluatorPresets(
                     // sprout/evaluator.ts
                     if (arg.value === 'shared-runtime') {
                       arg.value = './shared-runtime';
-                    } else if (arg.value === 'ReactForgetFeatureFlag') {
-                      arg.value = './ReactForgetFeatureFlag';
+                    } else if (
+                      arg.value === 'ReactForgetFeatureFlag' ||
+                      arg.value === 'ReactCompilerFeatureFlag'
+                    ) {
+                      arg.value = './ReactCompilerFeatureFlag';
                     } else if (arg.value === 'useEffectWrapper') {
                       arg.value = './useEffectWrapper';
                     }
@@ -215,11 +208,11 @@ const TypescriptEvaluatorPresets = getEvaluatorPresets('typescript');
 const FlowEvaluatorPresets = getEvaluatorPresets('flow');
 
 export type TransformResult = {
-  forgetOutput: string;
+  compiledOutput: string;
   logs: string | null;
   evaluatorCode: {
     original: string;
-    forget: string;
+    compiled: string;
   } | null;
 };
 
@@ -254,7 +247,7 @@ export async function transformFixtureInput(
       : FlowEvaluatorPresets;
 
   /**
-   * Get Forget compiled code
+   * Get compiler-transformed code
    */
   const {options, loggerTestOnly, logs} = makePluginOptions(
     firstLine,
@@ -264,7 +257,7 @@ export async function transformFixtureInput(
     ValueKindEnum,
     ValueReasonEnum,
   );
-  const forgetResult = transformFromAstSync(inputAst, input, {
+  const compiledResult = transformFromAstSync(inputAst, input, {
     filename: virtualFilepath,
     highlightCode: false,
     retainLines: true,
@@ -282,10 +275,10 @@ export async function transformFixtureInput(
     babelrc: false,
   });
   invariant(
-    forgetResult?.code != null,
-    'Expected BabelPluginReactForget to codegen successfully.',
+    compiledResult?.code != null,
+    'Expected BabelPluginReactCompiler to codegen successfully.',
   );
-  const forgetCode = forgetResult.code;
+  const compiledCode = compiledResult.code;
   let evaluatorCode = null;
 
   if (
@@ -293,13 +286,13 @@ export async function transformFixtureInput(
     !SproutTodoFilter.has(fixturePath) &&
     !isExpectError(filename)
   ) {
-    let forgetEval: string;
+    let compiledEval: string;
     try {
       invariant(
-        forgetResult?.ast != null,
-        'Expected BabelPluginReactForget ast.',
+        compiledResult?.ast != null,
+        'Expected BabelPluginReactCompiler ast.',
       );
-      const result = transformFromAstSync(forgetResult.ast, forgetCode, {
+      const result = transformFromAstSync(compiledResult.ast, compiledCode, {
         presets,
         filename: virtualFilepath,
         configFile: false,
@@ -308,20 +301,20 @@ export async function transformFixtureInput(
       if (result?.code == null) {
         return {
           kind: 'err',
-          msg: 'Unexpected error in forget transform pipeline - no code emitted',
+          msg: 'Unexpected error in compiler transform pipeline - no code emitted',
         };
       } else {
-        forgetEval = result.code;
+        compiledEval = result.code;
       }
     } catch (e) {
       return {
         kind: 'err',
-        msg: 'Unexpected error in Forget transform pipeline: ' + e.message,
+        msg: 'Unexpected error in compiler transform pipeline: ' + e.message,
       };
     }
 
     /**
-     * Get evaluator code for source (no Forget)
+     * Get evaluator code for source (no compiler transform)
      */
     let originalEval: string;
     try {
@@ -335,7 +328,7 @@ export async function transformFixtureInput(
       if (result?.code == null) {
         return {
           kind: 'err',
-          msg: 'Unexpected error in non-forget transform pipeline - no code emitted',
+          msg: 'Unexpected error in non-compiler transform pipeline - no code emitted',
         };
       } else {
         originalEval = result.code;
@@ -343,15 +336,15 @@ export async function transformFixtureInput(
     } catch (e) {
       return {
         kind: 'err',
-        msg: 'Unexpected error in non-forget transform pipeline: ' + e.message,
+        msg: 'Unexpected error in non-compiler transform pipeline: ' + e.message,
       };
     }
     evaluatorCode = {
-      forget: forgetEval,
+      compiled: compiledEval,
       original: originalEval,
     };
   }
-  const forgetOutput = await format(forgetCode, language);
+  const compiledOutput = await format(compiledCode, language);
   let formattedLogs = null;
   if (loggerTestOnly && logs.length !== 0) {
     formattedLogs = logs
@@ -389,7 +382,7 @@ export async function transformFixtureInput(
   return {
     kind: 'ok',
     value: {
-      forgetOutput,
+      compiledOutput,
       logs: formattedLogs,
       evaluatorCode,
     },

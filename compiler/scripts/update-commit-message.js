@@ -13,11 +13,11 @@
  *   - $ GITHUB_AUTH_TOKEN="..." git filter-branch -f --msg-filter "node update-commit-message.js" 2364096862b72cf4d801ef2008c54252335a2df9..HEAD
  */
 
-const {Octokit, App} = require('octokit');
+const {Octokit} = require('octokit');
 const fs = require('fs');
 
 const OWNER = 'facebook';
-const REPO = 'react-forget';
+const REPO = 'react';
 const octokit = new Octokit({auth: process.env.GITHUB_AUTH_TOKEN});
 
 const fetchPullRequest = async pullNumber => {

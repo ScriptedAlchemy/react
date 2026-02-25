@@ -9,11 +9,12 @@ import {transformFromAstSync} from '@babel/core';
 import {parse as babelParse} from '@babel/parser';
 import {File} from '@babel/types';
 import BabelPluginReactCompiler, {
+  type Logger,
+  type LoggerEvent,
   parsePluginOptions,
   validateEnvironmentConfig,
   type PluginOptions,
 } from 'babel-plugin-react-compiler/src';
-import {Logger, LoggerEvent} from 'babel-plugin-react-compiler/src/Entrypoint';
 import type {SourceCode} from 'eslint';
 // @ts-expect-error: no types available
 import * as HermesParser from 'hermes-parser';

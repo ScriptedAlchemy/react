@@ -8,7 +8,7 @@
 import {
   ErrorCategory,
   getRuleForCategory,
-} from 'babel-plugin-react-compiler/src/CompilerError';
+} from 'babel-plugin-react-compiler/src';
 import {normalizeIndent, makeTestCaseError, testRule} from './shared-utils';
 import {allRules} from '../src/rules/ReactCompilerRule';
 

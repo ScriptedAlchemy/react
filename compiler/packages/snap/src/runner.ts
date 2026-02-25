@@ -13,7 +13,7 @@ import ts from 'typescript';
 import * as BabelParser from '@babel/parser';
 import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
-import {BABEL_PLUGIN_ROOT, PROJECT_ROOT} from './constants';
+import {BABEL_PLUGIN_ROOT, FIXTURES_PATH, PROJECT_ROOT} from './constants';
 import {TestFilter, TestFixture, getFixtures} from './fixture-utils';
 import {TestResult, TestResults, report, update} from './reporter';
 import {
@@ -93,8 +93,8 @@ async function runTestCommand(opts: TestOptions): Promise<void> {
     );
     if (opts.pattern) {
       /**
-       * Warm up wormers when in watch mode. Loading the Forget babel plugin
-       * and all of its transitive dependencies takes 1-3s (per worker) on a M1.
+       * Warm up workers when in watch mode. Loading the compiler plugin and
+       * all of its transitive dependencies takes 1-3s (per worker) on an M1.
        * As jest-worker dispatches tasks using a round-robin strategy, we can
        * avoid an additional 1-3s wait on the first num_workers runs by warming
        * up workers eagerly.
@@ -128,7 +128,7 @@ async function runTestCommand(opts: TestOptions): Promise<void> {
           let isSuccess = false;
           if (!isTypecheckSuccess) {
             console.error(
-              'Found typescript errors in Forget source code, skipping test fixtures.',
+              'Found typescript errors in compiler source code, skipping test fixtures.',
             );
           } else {
             try {
@@ -151,6 +151,13 @@ async function runTestCommand(opts: TestOptions): Promise<void> {
                 false, // no requireSingleFixture in non-watch mode
                 opts.sync,
               );
+              if (results.size === 0) {
+                console.warn(
+                  `No test fixtures found under ${FIXTURES_PATH}${
+                    opts.pattern != null ? ` for pattern "${opts.pattern}"` : ''
+                  }.`,
+                );
+              }
               if (opts.update) {
                 update(results);
                 isSuccess = true;
@@ -298,16 +305,8 @@ async function runCompileCommand(opts: CompileOptions): Promise<void> {
 
   // Build plugin options
   const config = parseConfigPragmaForTests(firstLine, {compilationMode: 'all'});
-  const compilerEngine = process.env['REACT_COMPILER_ENGINE'];
-  const engineConfig =
-    compilerEngine === 'rust'
-      ? ({
-          compilerEngine: 'rust',
-        } as const)
-      : {};
   const options = {
     ...config,
-    ...engineConfig,
     environment: {
       ...config.environment,
     },
@@ -355,6 +354,11 @@ async function runCompileCommand(opts: CompileOptions): Promise<void> {
 type ParityMismatchKind = 'output_mismatch' | 'unexpected_error_mismatch';
 
 type ParitySectionDiff = {
+  firstRun: string | null;
+  secondRun: string | null;
+  normalizedFirstRun: string;
+  normalizedSecondRun: string;
+  // Legacy aliases retained for report compatibility.
   babel: string | null;
   rust: string | null;
   normalizedBabel: string;
@@ -372,9 +376,15 @@ type ParityMismatch = {
   hasEvalSectionMismatch: boolean;
   hasLogsSectionMismatch: boolean;
   hasErrorSectionMismatch: boolean;
+  firstRunUnexpectedError: string | null;
+  secondRunUnexpectedError: string | null;
+  // Legacy aliases retained for report compatibility.
   babelUnexpectedError: string | null;
   rustUnexpectedError: string | null;
   outputPath: string;
+  firstRunActual?: string | null;
+  secondRunActual?: string | null;
+  // Legacy aliases retained for report compatibility.
   babelActual?: string | null;
   rustActual?: string | null;
   codeSectionDiff?: ParitySectionDiff | null;
@@ -395,15 +405,21 @@ function normalizeCodeSection(value: string | null): string {
 }
 
 function createSectionDiff(
-  babelValue: string | null,
-  rustValue: string | null,
+  firstRunValue: string | null,
+  secondRunValue: string | null,
   normalize: (value: string | null) => string,
 ): ParitySectionDiff {
+  const normalizedFirstRun = normalize(firstRunValue);
+  const normalizedSecondRun = normalize(secondRunValue);
   return {
-    babel: babelValue,
-    rust: rustValue,
-    normalizedBabel: normalize(babelValue),
-    normalizedRust: normalize(rustValue),
+    firstRun: firstRunValue,
+    secondRun: secondRunValue,
+    normalizedFirstRun,
+    normalizedSecondRun,
+    babel: firstRunValue,
+    rust: secondRunValue,
+    normalizedBabel: normalizedFirstRun,
+    normalizedRust: normalizedSecondRun,
   };
 }
 
@@ -499,44 +515,13 @@ async function transformFixtureWithEnv(
   fixture: TestFixture,
   compilerVersion: number,
   includeEvaluator: boolean,
-  env: {
-    compilerEngine: 'babel' | 'rust';
-    strictRust: boolean;
-  },
 ): Promise<TestResult> {
-  const previousCompilerEngine = process.env['REACT_COMPILER_ENGINE'];
-  const previousRustStrict = process.env['REACT_COMPILER_RUST_STRICT'];
-
-  if (env.compilerEngine === 'rust') {
-    process.env['REACT_COMPILER_ENGINE'] = 'rust';
-  } else {
-    delete process.env['REACT_COMPILER_ENGINE'];
-  }
-  if (env.strictRust) {
-    process.env['REACT_COMPILER_RUST_STRICT'] = '1';
-  } else {
-    delete process.env['REACT_COMPILER_RUST_STRICT'];
-  }
-
-  try {
-    return await runnerWorker.transformFixture(
-      fixture,
-      compilerVersion,
-      false,
-      includeEvaluator,
-    );
-  } finally {
-    if (previousCompilerEngine == null) {
-      delete process.env['REACT_COMPILER_ENGINE'];
-    } else {
-      process.env['REACT_COMPILER_ENGINE'] = previousCompilerEngine;
-    }
-    if (previousRustStrict == null) {
-      delete process.env['REACT_COMPILER_RUST_STRICT'];
-    } else {
-      process.env['REACT_COMPILER_RUST_STRICT'] = previousRustStrict;
-    }
-  }
+  return await runnerWorker.transformFixture(
+    fixture,
+    compilerVersion,
+    false,
+    includeEvaluator,
+  );
 }
 
 async function runParityCommand(opts: ParityOptions): Promise<void> {
@@ -552,73 +537,75 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
   }
 
   const fixtures = await getFixtures(testFilter);
+  if (fixtures.size === 0) {
+    console.log(
+      chalk.yellow(
+        `No fixtures found under ${FIXTURES_PATH}${
+          opts.pattern != null ? ` for pattern "${opts.pattern}"` : ''
+        }.`,
+      ),
+    );
+  }
   const mismatches: Array<ParityMismatch> = [];
   let comparedFixtures = 0;
   let reachedMismatchLimit = false;
 
   for (const [fixtureName, fixture] of fixtures) {
     comparedFixtures += 1;
-    const babelResult = await transformFixtureWithEnv(
+    const firstRunResult = await transformFixtureWithEnv(
       fixture,
-      0,
+      1,
       opts.evaluator,
-      {
-        compilerEngine: 'babel',
-        strictRust: false,
-      },
     );
-    const strictRustResult = await transformFixtureWithEnv(
+    const secondRunResult = await transformFixtureWithEnv(
       fixture,
-      0,
+      2,
       opts.evaluator,
-      {
-        compilerEngine: 'rust',
-        strictRust: true,
-      },
     );
 
     const hasUnexpectedErrorMismatch =
-      babelResult.unexpectedError !== strictRustResult.unexpectedError;
-    const babelComparableActual = opts.ignoreLogs
-      ? stripLogsFromSnapshot(babelResult.actual)
-      : babelResult.actual;
-    const rustComparableActual = opts.ignoreLogs
-      ? stripLogsFromSnapshot(strictRustResult.actual)
-      : strictRustResult.actual;
-    const hasRawOutputMismatch = babelResult.actual !== strictRustResult.actual;
+      firstRunResult.unexpectedError !== secondRunResult.unexpectedError;
+    const firstRunComparableActual = opts.ignoreLogs
+      ? stripLogsFromSnapshot(firstRunResult.actual)
+      : firstRunResult.actual;
+    const secondRunComparableActual = opts.ignoreLogs
+      ? stripLogsFromSnapshot(secondRunResult.actual)
+      : secondRunResult.actual;
+    const hasRawOutputMismatch =
+      firstRunResult.actual !== secondRunResult.actual;
     const hasNormalizedOutputMismatch =
-      canonicalizeSnapshotForParity(babelComparableActual) !==
-      canonicalizeSnapshotForParity(rustComparableActual);
-    const rawBabelSections = extractSnapshotSections(babelResult.actual);
-    const rawRustSections = extractSnapshotSections(strictRustResult.actual);
+      canonicalizeSnapshotForParity(firstRunComparableActual) !==
+      canonicalizeSnapshotForParity(secondRunComparableActual);
+    const firstRunSections = extractSnapshotSections(firstRunResult.actual);
+    const secondRunSections = extractSnapshotSections(secondRunResult.actual);
     const codeSectionDiff = createSectionDiff(
-      rawBabelSections.code,
-      rawRustSections.code,
+      firstRunSections.code,
+      secondRunSections.code,
       normalizeCodeSection,
     );
     const evalSectionDiff = createSectionDiff(
-      rawBabelSections.evalOutput,
-      rawRustSections.evalOutput,
+      firstRunSections.evalOutput,
+      secondRunSections.evalOutput,
       normalizeSectionText,
     );
     const logsSectionDiff = createSectionDiff(
-      rawBabelSections.logs,
-      rawRustSections.logs,
+      firstRunSections.logs,
+      secondRunSections.logs,
       normalizeSectionText,
     );
     const errorSectionDiff = createSectionDiff(
-      rawBabelSections.error,
-      rawRustSections.error,
+      firstRunSections.error,
+      secondRunSections.error,
       normalizeSectionText,
     );
     const hasCodeSectionMismatch =
-      codeSectionDiff.normalizedBabel !== codeSectionDiff.normalizedRust;
+      codeSectionDiff.normalizedFirstRun !== codeSectionDiff.normalizedSecondRun;
     const hasEvalSectionMismatch =
-      evalSectionDiff.normalizedBabel !== evalSectionDiff.normalizedRust;
+      evalSectionDiff.normalizedFirstRun !== evalSectionDiff.normalizedSecondRun;
     const hasLogsSectionMismatch =
-      logsSectionDiff.normalizedBabel !== logsSectionDiff.normalizedRust;
+      logsSectionDiff.normalizedFirstRun !== logsSectionDiff.normalizedSecondRun;
     const hasErrorSectionMismatch =
-      errorSectionDiff.normalizedBabel !== errorSectionDiff.normalizedRust;
+      errorSectionDiff.normalizedFirstRun !== errorSectionDiff.normalizedSecondRun;
     const hasOutputMismatch = opts.ignoreFormatting
       ? hasNormalizedOutputMismatch
       : hasRawOutputMismatch;
@@ -639,13 +626,17 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       hasEvalSectionMismatch,
       hasLogsSectionMismatch,
       hasErrorSectionMismatch,
-      babelUnexpectedError: babelResult.unexpectedError,
-      rustUnexpectedError: strictRustResult.unexpectedError,
-      outputPath: strictRustResult.outputPath,
+      firstRunUnexpectedError: firstRunResult.unexpectedError,
+      secondRunUnexpectedError: secondRunResult.unexpectedError,
+      babelUnexpectedError: firstRunResult.unexpectedError,
+      rustUnexpectedError: secondRunResult.unexpectedError,
+      outputPath: secondRunResult.outputPath,
     };
     if (opts.includeOutput) {
-      mismatch.babelActual = babelResult.actual;
-      mismatch.rustActual = strictRustResult.actual;
+      mismatch.firstRunActual = firstRunResult.actual;
+      mismatch.secondRunActual = secondRunResult.actual;
+      mismatch.babelActual = firstRunResult.actual;
+      mismatch.rustActual = secondRunResult.actual;
     }
     mismatch.codeSectionDiff = hasCodeSectionMismatch ? codeSectionDiff : null;
     mismatch.evalSectionDiff = hasEvalSectionMismatch ? evalSectionDiff : null;
@@ -658,10 +649,14 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
       console.log(chalk.yellow(message));
       if (hasUnexpectedErrorMismatch) {
         console.log(
-          chalk.red(`  babel error: ${mismatch.babelUnexpectedError ?? '<none>'}`),
+          chalk.red(
+            `  first run error: ${mismatch.firstRunUnexpectedError ?? '<none>'}`,
+          ),
         );
         console.log(
-          chalk.red(`  rust error: ${mismatch.rustUnexpectedError ?? '<none>'}`),
+          chalk.red(
+            `  second run error: ${mismatch.secondRunUnexpectedError ?? '<none>'}`,
+          ),
         );
       }
     }
@@ -700,6 +695,10 @@ async function runParityCommand(opts: ParityOptions): Promise<void> {
     pattern: opts.pattern ?? null,
     mismatchSummary,
     mismatches,
+    notes: {
+      comparisonMode: 'rust_consistency',
+      legacyAliasFieldsRetained: true,
+    },
   };
 
   if (opts.output != null) {
@@ -812,7 +811,7 @@ cli
   )
   .command(
     'parity',
-    'Compare Babel vs strict Rust fixture outputs',
+    'Compare repeated Rust fixture outputs for consistency',
     (yargs: any) => {
       return yargs
         .string('pattern')
@@ -852,7 +851,7 @@ cli
         .boolean('include-output')
         .describe(
           'include-output',
-          'Include full Babel/Rust output strings in JSON report (default false)',
+          'Include full comparison output strings in JSON report (default false)',
         )
         .default('include-output', false)
         .boolean('ignore-formatting')
@@ -955,6 +954,15 @@ async function onChange(
       true, // requireSingleFixture in watch mode
       sync,
     );
+    if (results.size === 0) {
+      console.warn(
+        `No test fixtures found under ${FIXTURES_PATH}${
+          mode.filter && filter?.paths[0] != null
+            ? ` for pattern "${filter.paths[0]}"`
+            : ''
+        }.`,
+      );
+    }
     const end = performance.now();
 
     // Track fixture status for autocomplete suggestions
@@ -973,7 +981,7 @@ async function onChange(
     console.log(`Completed in ${Math.floor(end - start)} ms`);
   } else {
     console.error(
-      `${mode}: Found errors in Forget source code, skipping test fixtures.`,
+      `${mode.action}: Found errors in compiler source code, skipping test fixtures.`,
     );
   }
   console.log(

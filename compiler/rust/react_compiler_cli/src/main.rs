@@ -1,279 +1,9 @@
-use react_compiler_core::{
-    compile, render_react_functions_debug, CompilerOptions, InputDialect, ReactFunction,
-    ReactFunctionKind, SourceLocation,
-};
-use serde::{Deserialize, Serialize};
+mod handler;
+mod protocol;
+
+use handler::handle_request;
+use protocol::{CompileRequest, CompileResponse, CLI_PROTOCOL_VERSION};
 use std::io::{Read, Write};
-
-#[derive(Debug, Deserialize)]
-struct CompileRequest {
-    source: String,
-    filename: Option<String>,
-    dialect: Option<String>,
-    is_module: Option<bool>,
-    apply_placeholder_transforms: Option<bool>,
-    emit_debug_ir: Option<bool>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "status")]
-enum CompileResponse {
-    #[serde(rename = "ok")]
-    Ok {
-        code: String,
-        statement_count: usize,
-        statement_count_after_transform: usize,
-        placeholder_runtime_helper_import_count_before_transform: usize,
-        placeholder_runtime_helper_import_count_after_transform: usize,
-        placeholder_runtime_helper_import_added: bool,
-        placeholder_runtime_callee_reused: bool,
-        placeholder_runtime_callee_generated: bool,
-        placeholder_transform_status: String,
-        placeholder_transform_candidates: Vec<String>,
-        placeholder_transform_skipped_functions: Vec<String>,
-        placeholder_transform_candidate_count: usize,
-        placeholder_transform_skipped_count: usize,
-        placeholder_transform_candidate_component_count: usize,
-        placeholder_transform_candidate_hook_count: usize,
-        placeholder_transform_transformed_component_count: usize,
-        placeholder_transform_transformed_hook_count: usize,
-        placeholder_transform_skipped_component_count: usize,
-        placeholder_transform_skipped_hook_count: usize,
-        detected_component_function_count: usize,
-        detected_hook_function_count: usize,
-        detected_component_functions: Vec<String>,
-        detected_hook_functions: Vec<String>,
-        detected_react_functions: usize,
-        react_functions: Vec<SerializedReactFunction>,
-        placeholder_transforms_applied: usize,
-        placeholder_transformed_functions: Vec<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        placeholder_runtime_callee_name_before_transform: Option<String>,
-        placeholder_runtime_callee_candidates_before_transform: Vec<String>,
-        placeholder_runtime_callee_candidate_count_before_transform: usize,
-        placeholder_runtime_namespace_candidates_before_transform: Vec<String>,
-        placeholder_runtime_namespace_candidate_count_before_transform: usize,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        placeholder_runtime_callee_name: Option<String>,
-        placeholder_runtime_callee_candidates: Vec<String>,
-        placeholder_runtime_callee_candidate_count: usize,
-        placeholder_runtime_namespace_candidates: Vec<String>,
-        placeholder_runtime_namespace_candidate_count: usize,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        debug_ir: Option<String>,
-    },
-    #[serde(rename = "error")]
-    Error {
-        code: String,
-        category: String,
-        reason: String,
-        severity: String,
-        message: String,
-        location: Option<SerializedSourceLocation>,
-    },
-}
-
-#[derive(Debug, Serialize)]
-struct SerializedReactFunction {
-    name: String,
-    kind: String,
-    loc: Option<SerializedSourceLocation>,
-}
-
-#[derive(Debug, Serialize)]
-struct SerializedSourceLocation {
-    start_line: usize,
-    start_column: usize,
-    end_line: usize,
-    end_column: usize,
-}
-
-fn parse_dialect(dialect: Option<&str>) -> Result<InputDialect, String> {
-    match dialect.unwrap_or("javascript") {
-        "js" | "javascript" => Ok(InputDialect::JavaScript),
-        "ts" | "typescript" => Ok(InputDialect::TypeScript),
-        "flow" => Ok(InputDialect::Flow),
-        unsupported => Err(format!("Unsupported dialect: {unsupported}")),
-    }
-}
-
-fn handle_request(request: CompileRequest) -> CompileResponse {
-    let dialect = match parse_dialect(request.dialect.as_deref()) {
-        Ok(dialect) => dialect,
-        Err(message) => {
-            return CompileResponse::Error {
-                code: "unsupported_dialect".to_string(),
-                category: "request".to_string(),
-                reason: "invalid_option".to_string(),
-                severity: "error".to_string(),
-                message,
-                location: None,
-            }
-        }
-    };
-
-    let options = CompilerOptions {
-        dialect,
-        is_module: request.is_module.unwrap_or(true),
-        filename: request
-            .filename
-            .unwrap_or_else(|| "react-compiler-input.js".to_string()),
-        apply_placeholder_transforms: request.apply_placeholder_transforms.unwrap_or(false),
-    };
-
-    match compile(&request.source, &options) {
-        Ok(output) => {
-            let debug_ir = if request.emit_debug_ir.unwrap_or(false) {
-                Some(render_react_functions_debug(&output.metadata))
-            } else {
-                None
-            };
-            CompileResponse::Ok {
-                code: output.code,
-                statement_count: output.metadata.statement_count,
-                statement_count_after_transform: output.metadata.statement_count_after_transform,
-                placeholder_runtime_helper_import_count_before_transform: output
-                    .metadata
-                    .placeholder_runtime_helper_import_count_before_transform,
-                placeholder_runtime_helper_import_count_after_transform: output
-                    .metadata
-                    .placeholder_runtime_helper_import_count_after_transform,
-                placeholder_runtime_helper_import_added: output
-                    .metadata
-                    .placeholder_runtime_helper_import_added,
-                placeholder_runtime_callee_reused: output
-                    .metadata
-                    .placeholder_runtime_callee_reused,
-                placeholder_runtime_callee_generated: output
-                    .metadata
-                    .placeholder_runtime_callee_generated,
-                placeholder_transform_status: output
-                    .metadata
-                    .placeholder_transform_status
-                    .clone(),
-                placeholder_transform_candidates: output
-                    .metadata
-                    .placeholder_transform_candidates
-                    .clone(),
-                placeholder_transform_skipped_functions: output
-                    .metadata
-                    .placeholder_transform_skipped_functions
-                    .clone(),
-                placeholder_transform_candidate_count: output
-                    .metadata
-                    .placeholder_transform_candidate_count,
-                placeholder_transform_skipped_count: output
-                    .metadata
-                    .placeholder_transform_skipped_count,
-                placeholder_transform_candidate_component_count: output
-                    .metadata
-                    .placeholder_transform_candidate_component_count,
-                placeholder_transform_candidate_hook_count: output
-                    .metadata
-                    .placeholder_transform_candidate_hook_count,
-                placeholder_transform_transformed_component_count: output
-                    .metadata
-                    .placeholder_transform_transformed_component_count,
-                placeholder_transform_transformed_hook_count: output
-                    .metadata
-                    .placeholder_transform_transformed_hook_count,
-                placeholder_transform_skipped_component_count: output
-                    .metadata
-                    .placeholder_transform_skipped_component_count,
-                placeholder_transform_skipped_hook_count: output
-                    .metadata
-                    .placeholder_transform_skipped_hook_count,
-                detected_component_function_count: output
-                    .metadata
-                    .detected_component_function_count,
-                detected_hook_function_count: output.metadata.detected_hook_function_count,
-                detected_component_functions: output.metadata.detected_component_functions.clone(),
-                detected_hook_functions: output.metadata.detected_hook_functions.clone(),
-                detected_react_functions: output.metadata.detected_react_functions,
-                react_functions: output
-                    .metadata
-                    .react_functions
-                    .iter()
-                    .map(serialize_react_function)
-                    .collect(),
-                placeholder_transforms_applied: output.metadata.placeholder_transforms_applied,
-                placeholder_transformed_functions: output
-                    .metadata
-                    .placeholder_transformed_functions
-                    .clone(),
-                placeholder_runtime_callee_name_before_transform: output
-                    .metadata
-                    .placeholder_runtime_callee_name_before_transform
-                    .clone(),
-                placeholder_runtime_callee_candidates_before_transform: output
-                    .metadata
-                    .placeholder_runtime_callee_candidates_before_transform
-                    .clone(),
-                placeholder_runtime_callee_candidate_count_before_transform: output
-                    .metadata
-                    .placeholder_runtime_callee_candidate_count_before_transform,
-                placeholder_runtime_namespace_candidates_before_transform: output
-                    .metadata
-                    .placeholder_runtime_namespace_candidates_before_transform
-                    .clone(),
-                placeholder_runtime_namespace_candidate_count_before_transform: output
-                    .metadata
-                    .placeholder_runtime_namespace_candidate_count_before_transform,
-                placeholder_runtime_callee_name: output
-                    .metadata
-                    .placeholder_runtime_callee_name
-                    .clone(),
-                placeholder_runtime_callee_candidates: output
-                    .metadata
-                    .placeholder_runtime_callee_candidates
-                    .clone(),
-                placeholder_runtime_callee_candidate_count: output
-                    .metadata
-                    .placeholder_runtime_callee_candidate_count,
-                placeholder_runtime_namespace_candidates: output
-                    .metadata
-                    .placeholder_runtime_namespace_candidates
-                    .clone(),
-                placeholder_runtime_namespace_candidate_count: output
-                    .metadata
-                    .placeholder_runtime_namespace_candidate_count,
-                debug_ir,
-            }
-        }
-        Err(error) => CompileResponse::Error {
-            code: error.code().to_string(),
-            category: error.category().to_string(),
-            reason: error.reason().to_string(),
-            severity: error.severity().to_string(),
-            message: error.to_string(),
-            location: error.location().map(serialize_source_location),
-        },
-    }
-}
-
-fn serialize_react_function(function: &ReactFunction) -> SerializedReactFunction {
-    SerializedReactFunction {
-        name: function.name.clone(),
-        kind: serialize_react_function_kind(function.kind.clone()).to_string(),
-        loc: function.loc.as_ref().map(serialize_source_location),
-    }
-}
-
-fn serialize_react_function_kind(kind: ReactFunctionKind) -> &'static str {
-    match kind {
-        ReactFunctionKind::Component => "Component",
-        ReactFunctionKind::Hook => "Hook",
-    }
-}
-
-fn serialize_source_location(location: &SourceLocation) -> SerializedSourceLocation {
-    SerializedSourceLocation {
-        start_line: location.start_line,
-        start_column: location.start_column,
-        end_line: location.end_line,
-        end_column: location.end_column,
-    }
-}
 
 fn main() {
     let mut input = String::new();
@@ -288,6 +18,7 @@ fn main() {
     let response = match serde_json::from_str::<CompileRequest>(&input) {
         Ok(request) => handle_request(request),
         Err(error) => CompileResponse::Error {
+            protocol_version: CLI_PROTOCOL_VERSION,
             code: "invalid_request".to_string(),
             category: "request".to_string(),
             reason: "invalid_request".to_string(),
@@ -315,17 +46,22 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{handle_request, parse_dialect, CompileRequest, CompileResponse};
+    use super::{
+        handle_request, CompileRequest, CompileResponse, CLI_PROTOCOL_VERSION,
+    };
     use react_compiler_core::InputDialect;
 
     #[test]
     fn parse_dialect_maps_common_variants() {
-        assert_eq!(parse_dialect(Some("js")), Ok(InputDialect::JavaScript));
         assert_eq!(
-            parse_dialect(Some("typescript")),
+            super::handler::parse_dialect(Some("js")),
+            Ok(InputDialect::JavaScript)
+        );
+        assert_eq!(
+            super::handler::parse_dialect(Some("typescript")),
             Ok(InputDialect::TypeScript)
         );
-        assert_eq!(parse_dialect(Some("flow")), Ok(InputDialect::Flow));
+        assert_eq!(super::handler::parse_dialect(Some("flow")), Ok(InputDialect::Flow));
     }
 
     #[test]
@@ -337,10 +73,12 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
             CompileResponse::Ok {
+                protocol_version,
                 statement_count,
                 statement_count_after_transform,
                 placeholder_runtime_helper_import_count_before_transform,
@@ -379,6 +117,7 @@ mod tests {
                 placeholder_runtime_namespace_candidate_count,
                 ..
             } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
                 assert_eq!(statement_count, 1);
                 assert_eq!(statement_count_after_transform, 1);
                 assert_eq!(placeholder_runtime_helper_import_count_before_transform, 0);
@@ -437,16 +176,19 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
             CompileResponse::Error {
+                protocol_version,
                 code,
                 category,
                 reason,
                 severity,
                 ..
             } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
                 assert_eq!(code, "unsupported_dialect");
                 assert_eq!(category, "request");
                 assert_eq!(reason, "invalid_option");
@@ -467,6 +209,7 @@ mod tests {
             is_module: Some(false),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
@@ -499,6 +242,7 @@ mod tests {
             is_module: Some(false),
             apply_placeholder_transforms: None,
             emit_debug_ir: None,
+            protocol_version: None,
         });
 
         match response {
@@ -531,6 +275,7 @@ mod tests {
             is_module: Some(false),
             apply_placeholder_transforms: Some(false),
             emit_debug_ir: Some(true),
+            protocol_version: None,
         });
 
         match response {
@@ -610,6 +355,7 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: Some(true),
             emit_debug_ir: Some(true),
+            protocol_version: None,
         });
 
         match response {
@@ -669,6 +415,7 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: Some(true),
             emit_debug_ir: Some(false),
+            protocol_version: None,
         });
 
         match response {
@@ -770,6 +517,7 @@ mod tests {
             is_module: Some(true),
             apply_placeholder_transforms: Some(true),
             emit_debug_ir: Some(false),
+            protocol_version: None,
         });
 
         match response {
@@ -832,6 +580,68 @@ mod tests {
             }
             CompileResponse::Error { message, .. } => {
                 panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
+
+    #[test]
+    fn compile_request_accepts_supported_protocol_version() {
+        let response = handle_request(CompileRequest {
+            source: "export const value = 1;".to_string(),
+            filename: None,
+            dialect: Some("javascript".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: None,
+            emit_debug_ir: None,
+            protocol_version: Some(CLI_PROTOCOL_VERSION),
+        });
+
+        match response {
+            CompileResponse::Ok {
+                protocol_version,
+                statement_count,
+                ..
+            } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
+                assert_eq!(statement_count, 1);
+            }
+            CompileResponse::Error { message, .. } => {
+                panic!("expected successful compile response, got error: {message}")
+            }
+        }
+    }
+
+    #[test]
+    fn compile_request_rejects_unsupported_protocol_version() {
+        let response = handle_request(CompileRequest {
+            source: "export const value = 1;".to_string(),
+            filename: None,
+            dialect: Some("javascript".to_string()),
+            is_module: Some(true),
+            apply_placeholder_transforms: None,
+            emit_debug_ir: None,
+            protocol_version: Some(CLI_PROTOCOL_VERSION + 1),
+        });
+
+        match response {
+            CompileResponse::Error {
+                protocol_version,
+                code,
+                category,
+                reason,
+                severity,
+                message,
+                ..
+            } => {
+                assert_eq!(protocol_version, CLI_PROTOCOL_VERSION);
+                assert_eq!(code, "unsupported_protocol_version");
+                assert_eq!(category, "request");
+                assert_eq!(reason, "invalid_option");
+                assert_eq!(severity, "error");
+                assert!(message.contains("Unsupported protocol_version"));
+            }
+            CompileResponse::Ok { .. } => {
+                panic!("expected unsupported protocol version error")
             }
         }
     }

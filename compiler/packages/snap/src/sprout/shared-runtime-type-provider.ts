@@ -7,10 +7,10 @@
 
 import type {
   Effect,
+  TypeConfig,
   ValueKind,
   ValueReason,
 } from 'babel-plugin-react-compiler/src';
-import type {TypeConfig} from 'babel-plugin-react-compiler/src/HIR/TypeSchema';
 
 export function makeSharedRuntimeTypeProvider({
   EffectEnum,

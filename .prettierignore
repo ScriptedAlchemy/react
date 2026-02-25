@@ -20,9 +20,6 @@ compiler/**/dist
 compiler/**/__tests__/fixtures/**/*.expect.md
 compiler/**/.next
 
-# contains invalid graphql`...` which results in a promise rejection error from `yarn prettier-all`.
-compiler/packages/babel-plugin-react-compiler/src/__tests__/fixtures/compiler/error.todo-kitchensink.js
-
 compiler/crates
 compiler/target
 compiler/apps/playground/public

@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export function isForgetEnabled_Fixtures(): boolean {
-  return true;
-}
+export {
+  isCompilerEnabled_Fixtures,
+  isForgetEnabled_Fixtures,
+} from './ReactCompilerFeatureFlag';
